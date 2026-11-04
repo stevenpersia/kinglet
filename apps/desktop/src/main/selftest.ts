@@ -2,7 +2,10 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { app, type BrowserWindow } from 'electron';
 import { checkShare, probeImage, readPageMeta } from '@parakeet/core';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import type { DeviceManager } from './devices';
+import { mcpLaunch } from './mcp-launch';
 
 /**
  * Phase-0 acceptance run. Prints `SHOT:<name>` when the window should be captured
@@ -212,6 +215,53 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
       ok: studio.previews.cards.length === 7 && studio.previews.framework === 'vite' && studio.fix.code.includes('og:site_name') && studio.fix.prompt.includes('index.html'),
       detail: `${studio.previews.framework} · ${studio.previews.cards.map((c) => `${c.platform}:${c.status}`).join(' ')} · ${studio.fix.changes.length} correction(s)`,
     });
+
+    // ---- Phase 4 ----
+    // 14. MCP: launch `parakeet --mcp` exactly like Claude Code would, and drive the app through it
+    await devices.navigate('http://localhost:5173/');
+    await sleep(1500);
+    const { exe, args } = mcpLaunch();
+    const transport = new StdioClientTransport({
+      command: exe,
+      args: [...args, ...(process.getuid?.() === 0 ? ['--no-sandbox'] : [])],
+      env: { ...process.env, PARAKEET_CONFIG_DIR: app.getPath('userData'), ELECTRON_RUN_AS_NODE: '', PARAKEET_SELFTEST: '' } as Record<string, string>,
+      stderr: 'ignore',
+    });
+    const client = new Client({ name: 'selftest', version: '0' });
+    try {
+      await client.connect(transport);
+      type R = { content: { type: string; text?: string; data?: string }[]; isError?: boolean };
+      const tools = (await client.listTools()).tools.length;
+      const status = (await client.callTool({ name: 'status', arguments: {} })) as R;
+      const capture = (await client.callTool({ name: 'screenshot', arguments: { device: 'iphone-16' } })) as R;
+      const checks = (await client.callTool({ name: 'run_checks', arguments: {} })) as R;
+      const img = capture.content.find((c) => c.type === 'image')?.data ?? '';
+      const statusText = status.content[0]?.text ?? '';
+      const checksText = checks.content[0]?.text ?? '';
+      if (img) writeFileSync(join(outDir, 'mcp-screenshot-iphone.jpg'), Buffer.from(img, 'base64'));
+      criteria.push({
+        id: 'mcp',
+        ok: tools === 8 && statusText.includes('iPhone 16') && img.startsWith('/9j/') && /Checks pour .* \d+\/\d+/.test(checksText) && !checksText.includes('sans mesures'),
+        detail: `${tools} outils · status « ${statusText.split('\n')[1] ?? ''} » · capture ${Math.round((img.length * 3) / 4 / 1024)} Ko · ${checksText.split('\n')[0]}`,
+      });
+    } catch (e) {
+      criteria.push({ id: 'mcp', ok: false, detail: (e as Error).message });
+    } finally {
+      await client.close().catch(() => undefined);
+    }
+    await sleep(500);
+    const statusBar = (await win.webContents.executeJavaScript(`document.querySelector('footer')?.textContent ?? ''`)) as string;
+    criteria.push({ id: 'mcp-activity', ok: /MCP · \d+ appels/.test(statusBar), detail: statusBar.match(/MCP · \d+ appels?/)?.[0] ?? statusBar });
+    await win.webContents.executeJavaScript(`[...document.querySelectorAll('nav button')].find((b) => b.textContent.includes('Aperçu'))?.click()`);
+    await sleep(600);
+    await win.webContents.executeJavaScript(`[...document.querySelectorAll('[role=tab]')].find((b) => b.textContent.includes('MCP'))?.click()`);
+    await sleep(600);
+    await shot('11-inspecteur-mcp');
+    await win.webContents.executeJavaScript(`[...document.querySelectorAll('nav button')].find((b) => b.textContent.includes('Réglages'))?.click()`);
+    await sleep(800);
+    await shot('12-reglages-mcp');
+    await win.webContents.executeJavaScript(`[...document.querySelectorAll('nav button')].find((b) => b.textContent.includes('Aperçu'))?.click()`);
+    await sleep(600);
 
     // 10. Partage section
     ui({ type: 'shortcut', action: 'focus-url' });

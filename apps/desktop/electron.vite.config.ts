@@ -32,7 +32,7 @@ function csp(): Plugin {
 export default defineConfig({
   main: {
     // @parakeet/core is TypeScript source in the workspace: bundle it instead of requiring it at runtime.
-    build: { externalizeDeps: { exclude: ['@parakeet/core'] } },
+    build: { externalizeDeps: { exclude: ['@parakeet/core', '@parakeet/mcp'] } },
   },
   preload: {
     build: {

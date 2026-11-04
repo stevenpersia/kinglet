@@ -3,7 +3,8 @@ import { Dot } from './Icons';
 
 export function StatusBar() {
   const state = useStore();
-  const { platform, url, status } = state;
+  const { platform, url, status, mcp } = state;
+  const calls = mcp?.activity.length ?? 0;
   const devices = activePresets(state);
   const dot = status === 'loaded' ? 'bg-ok' : status === 'failed' ? 'bg-err' : 'bg-ghost';
   return (
@@ -14,6 +15,10 @@ export function StatusBar() {
       </span>
       <span>{devices.length} appareil{devices.length > 1 ? 's' : ''}</span>
       <span>Session · {platform?.sessionType}</span>
+      <span className="flex items-center gap-1.5">
+        <Dot className={calls ? 'bg-ok' : 'bg-ghost'} />
+        MCP · {calls ? `${calls} appel${calls > 1 ? 's' : ''}` : 'prêt'}
+      </span>
       <span className="ml-auto">
         Parakeet {platform?.version}
         {platform?.isDev ? ' (dev)' : ''} · Electron {platform?.electron} · Chromium {platform?.chrome.split('.')[0]}

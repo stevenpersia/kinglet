@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { AnalyzeReport, CrawledPage, DevicePreset, InitState, ParakeetApi, Settings, ShareReport } from '../shared/types';
+import type { AnalyzeReport, CrawledPage, DevicePreset, InitState, McpActivity, McpInfo, ParakeetApi, Settings, ShareReport } from '../shared/types';
 
 declare global {
   interface Window {
@@ -9,7 +9,7 @@ declare global {
 export const api = (): ParakeetApi => window.parakeet;
 
 export type Section = 'apercu' | 'partage' | 'comparer' | 'deploiements' | 'checks' | 'reglages';
-export type InspectorTab = 'page' | 'partage' | 'checks';
+export type InspectorTab = 'page' | 'partage' | 'checks' | 'mcp';
 export type LoadStatus = 'idle' | 'loading' | 'loaded' | 'failed';
 
 interface State {
@@ -36,12 +36,15 @@ interface State {
   frozen: Record<string, string> | null;
   paletteOpen: boolean;
   urlFocusTick: number;
+  mcp: McpInfo | null;
 
   init(): Promise<void>;
   navigate(url: string): Promise<void>;
   updateSettings(patch: Partial<Settings>): Promise<void>;
   analyze(url: string, opts?: { refreshSite?: boolean }): Promise<void>;
   crawlSite(force?: boolean): Promise<void>;
+  loadMcp(): Promise<void>;
+  pushMcpActivity(a: McpActivity): void;
   setSection(s: Section): void;
   setInspectorTab(t: InspectorTab): void;
   /** Freeze native views as images while a menu or dialog covers the stage. */
@@ -75,6 +78,7 @@ export const useStore = create<State>((set, get) => ({
   frozen: null,
   paletteOpen: false,
   urlFocusTick: 0,
+  mcp: null,
 
   async init() {
     if (initStarted) return; // React StrictMode runs effects twice in dev
@@ -126,6 +130,16 @@ export const useStore = create<State>((set, get) => ({
     } finally {
       set({ crawling: false });
     }
+  },
+
+  async loadMcp() {
+    set({ mcp: await api().mcpInfo() });
+  },
+
+  pushMcpActivity(a) {
+    const mcp = get().mcp;
+    if (mcp) set({ mcp: { ...mcp, activity: [a, ...mcp.activity].slice(0, 100) } });
+    else void get().loadMcp();
   },
 
   setSection(section) {

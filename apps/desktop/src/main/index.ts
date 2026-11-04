@@ -1,18 +1,29 @@
 import { join } from 'node:path';
 import { app, BrowserWindow, clipboard, ipcMain, Menu, shell } from 'electron';
 import { buildShareFix, checkShare, crawl, probeImage, readPageMeta, readSharePreviews, readSiteFiles, runChecks, score, type CrawledPage, type SiteFiles } from '@parakeet/core';
-import type { AnalyzeReport, DeviceSlot, InitState, PreviewEvent, Settings, ShareStudio } from '../shared/types';
+import { startStdio } from '@parakeet/mcp';
+import type { AnalyzeReport, DeviceSlot, InitState, McpActivity, McpInfo, PreviewEvent, Settings, ShareStudio } from '../shared/types';
+import { startControlServer } from './control';
+import { mcpLaunch } from './mcp-launch';
 import { detectLocalServer } from './detect';
 import { DeviceManager, shortcutFor } from './devices';
 import { PRESETS } from './presets';
 import { runSelftest } from './selftest';
 import { SettingsStore } from './settings';
 
+/** `parakeet --mcp`: run as the MCP server Claude Code launches (stdio, no window). */
+const MCP_MODE = process.argv.includes('--mcp');
+
 app.setName('Parakeet');
+// Same folder in dev and packaged: ~/.config/Parakeet (the MCP bridge looks there).
+app.setPath('userData', join(app.getPath('appData'), 'Parakeet'));
 // The acceptance run must not read or write the user's real settings.
 if (process.env.PARAKEET_SELFTEST) app.setPath('userData', join(process.env.PARAKEET_SELFTEST, 'userdata'));
 // Linux: let Chromium pick Wayland when the session is Wayland, X11 otherwise.
-app.commandLine.appendSwitch('ozone-platform-hint', 'auto');
+// The MCP server needs no display: it is launched with --ozone-platform=headless (too late
+// to set from here, Chromium picks its platform before this script runs) and no GPU.
+if (MCP_MODE) app.disableHardwareAcceleration();
+else app.commandLine.appendSwitch('ozone-platform-hint', 'auto');
 
 /** Vercel Deployment Protection bypass ("Protection Bypass for Automation" secret). */
 const BYPASS_SECRET = process.env.PARAKEET_VERCEL_BYPASS ?? '';
@@ -115,7 +126,7 @@ async function createWindow() {
   const crawlCache = new Map<string, Promise<CrawledPage[]>>();
   const origin = (u: string) => new URL(u).origin;
 
-  ipcMain.handle('page:analyze', async (_e, url: string, opts: { refreshSite?: boolean }): Promise<AnalyzeReport> => {
+  async function analyzePage(url: string, opts: { refreshSite?: boolean } = {}): Promise<AnalyzeReport> {
     const headers = bypassHeaders(url);
     const [meta, rendered] = await Promise.all([readPageMeta(url, { headers }), devices.measure()]);
     const image = meta.ogImageUrl ? await probeImage(meta.ogImageUrl, { headers: bypassHeaders(meta.ogImageUrl) }) : null;
@@ -124,7 +135,8 @@ async function createWindow() {
     const site = await siteCache.get(key)!.catch(() => null);
     const checks = runChecks({ meta, image, site, rendered: rendered.devices });
     return { url, share: { meta, image, issues: checkShare(meta, image) }, site, checks, score: score(checks) };
-  });
+  }
+  ipcMain.handle('page:analyze', (_e, url: string, opts: { refreshSite?: boolean }) => analyzePage(url, opts));
 
   ipcMain.handle('share:previews', async (_e, url: string): Promise<ShareStudio> => {
     const previews = await readSharePreviews(url, { headers: bypassHeaders(url) });
@@ -146,6 +158,39 @@ async function createWindow() {
     }
     return crawlCache.get(key);
   });
+  // MCP: control server for Claude Code (through packages/mcp), and the activity it generates.
+  const activity: McpActivity[] = [];
+  const control = startControlServer({
+    devices,
+    version: app.getVersion(),
+    userData: app.getPath('userData'),
+    analyze: (url) => analyzePage(url),
+    navigate: async (url) => {
+      settings.update({ url });
+      await devices.navigate(url);
+      await new Promise((r) => setTimeout(r, 500)); // late scripts, console errors
+    },
+    setActive: (ids) => {
+      const known = PRESETS.filter((p) => ids.includes(p.id)).map((p) => p.id);
+      if (!known.length) throw new Error(`appareils inconnus : ${ids.join(', ')}`);
+      const next = settings.update({ active: known });
+      devices.setActive(next.active);
+      emit({ type: 'settings', settings: next });
+    },
+    onActivity: (a) => {
+      activity.unshift(a);
+      activity.length = Math.min(activity.length, 100);
+      emit({ type: 'mcp', activity: a });
+    },
+  });
+  app.on('will-quit', () => control.close());
+
+  ipcMain.handle('mcp:info', (): McpInfo => {
+    const { exe, args } = mcpLaunch();
+    const launch = [exe, ...args].map((a) => (/\s/.test(a) ? `"${a}"` : a)).join(' ');
+    return { command: `claude mcp add --scope user parakeet -- ${launch}`, launch, activity };
+  });
+
   ipcMain.on('window:control', (_e, action: string) => {
     if (action === 'minimize') win.minimize();
     else if (action === 'maximize') (win.isMaximized() ? win.unmaximize() : win.maximize());
@@ -178,5 +223,14 @@ async function createWindow() {
   if (process.env.PARAKEET_SELFTEST) void runSelftest(win, devices, process.env.PARAKEET_SELFTEST);
 }
 
-app.whenReady().then(createWindow);
-app.on('window-all-closed', () => app.quit());
+if (MCP_MODE) {
+  // stdout belongs to the MCP protocol: no window, no app lifecycle.
+  void startStdio(app.getVersion()).catch((e) => {
+    process.stderr.write(`parakeet --mcp: ${(e as Error).stack}\n`);
+    app.exit(1);
+  });
+  process.stdin.on('end', () => app.exit(0));
+} else {
+  app.whenReady().then(createWindow);
+  app.on('window-all-closed', () => app.quit());
+}

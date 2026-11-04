@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { Inspector } from './components/Inspector';
 import { Palette } from './components/Palette';
 import { ChecksPage, SoonPage } from './components/Sections';
+import { SettingsPage } from './components/SettingsPage';
 import { SharePage } from './components/SharePage';
 import { Sidebar } from './components/Sidebar';
 import { Stage } from './components/Stage';
@@ -39,6 +40,12 @@ export function App() {
         case 'window':
           useStore.setState({ maximized: e.maximized });
           break;
+        case 'settings':
+          useStore.setState({ settings: e.settings });
+          break;
+        case 'mcp':
+          s.pushMcpActivity(e.activity);
+          break;
         case 'shortcut':
           if (e.action === 'reload') void api().reload();
           else if (e.action === 'focus-url') useStore.setState({ urlFocusTick: s.urlFocusTick + 1 });
@@ -49,7 +56,7 @@ export function App() {
           break;
       }
     });
-    void store.init();
+    void store.init().then(() => store.loadMcp());
     return off;
   }, []);
 
@@ -69,6 +76,8 @@ export function App() {
           <SharePage />
         ) : section === 'checks' ? (
           <ChecksPage />
+        ) : section === 'reglages' ? (
+          <SettingsPage />
         ) : (
           <SoonPage section={section} />
         )}

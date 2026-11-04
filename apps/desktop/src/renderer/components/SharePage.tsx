@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import type { ShareStudio } from '../../shared/types';
 import { api, useStore } from '../store';
 import { Dot, Icon } from './Icons';
+import { CopyButton, SLASH } from './Mcp';
 
 /* ---------------- platform renderings (approximate, for comparison) ---------------- */
 
@@ -218,9 +219,7 @@ function FixPanel({ studio }: { studio: ShareStudio }) {
               {copied === 'code' ? 'Copié ✓' : 'Code'}
             </button>
           </div>
-          <button disabled title="Arrive avec le serveur MCP (phase 4)" className="h-8 cursor-default rounded-ui border border-dashed border-line text-xs text-ghost">
-            Envoyer à Claude Code · phase 4
-          </button>
+          <CopyButton text={SLASH.share} label={`Copier ${SLASH.share}`} done="Commande copiée : colle-la dans Claude Code ✓" className="text-xs" />
         </>
       )}
       <p className="m-0 text-xs leading-relaxed text-faint">

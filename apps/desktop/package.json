@@ -2,7 +2,7 @@
   "name": "@parakeet/desktop",
   "version": "0.0.1",
   "private": true,
-  "description": "Parakeet \u2014 preview your site on every screen",
+  "description": "Parakeet — preview your site on every screen",
   "main": "out/main/index.js",
   "scripts": {
     "postinstall": "install-electron",
@@ -17,7 +17,9 @@
   "devDependencies": {
     "@fontsource-variable/geist": "^5.3.0",
     "@fontsource-variable/geist-mono": "^5.3.0",
+    "@modelcontextprotocol/sdk": "^1.32.2",
     "@parakeet/core": "workspace:*",
+    "@parakeet/mcp": "workspace:*",
     "@tailwindcss/vite": "^4.3.4",
     "@types/node": "^26.6.6",
     "@types/react": "^19.3.0",

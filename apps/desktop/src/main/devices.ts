@@ -256,32 +256,43 @@ export class DeviceManager {
     for (const d of this.devices.values()) d.view.setVisible(visible && !this.frozen);
   }
 
+  /**
+   * JPEG of what a device shows (base64). capturePage() ignores the emulated viewport;
+   * the DevTools capture matches the device. `scale` 1 = device pixels (dpr × CSS px).
+   */
+  async capture(id: string, scale = 1): Promise<string | null> {
+    const d = this.devices.get(id);
+    if (!d) return null;
+    try {
+      const dbg = d.view.webContents.debugger;
+      const { cssVisualViewport: vv } = (await dbg.sendCommand('Page.getLayoutMetrics')) as {
+        cssVisualViewport: { pageX: number; pageY: number; clientWidth: number; clientHeight: number };
+      };
+      const { data } = (await dbg.sendCommand('Page.captureScreenshot', {
+        format: 'jpeg',
+        quality: 80,
+        clip: { x: vv.pageX, y: vv.pageY, width: vv.clientWidth, height: vv.clientHeight, scale },
+      })) as { data: string };
+      return data;
+    } catch {
+      try {
+        return (await d.view.webContents.capturePage()).toJPEG(80).toString('base64');
+      } catch {
+        return null; // view not painted yet
+      }
+    }
+  }
+
   async freeze(): Promise<Record<string, string>> {
     const shots: Record<string, string> = {};
-    await Promise.all(
-      this.entries().map(async (d) => {
-        if (!this.visible) return;
-        // capturePage() ignores the emulated viewport; the DevTools capture matches what the device shows.
-        try {
-          const dbg = d.view.webContents.debugger;
-          const { cssVisualViewport: vv } = (await dbg.sendCommand('Page.getLayoutMetrics')) as {
-            cssVisualViewport: { pageX: number; pageY: number; clientWidth: number; clientHeight: number };
-          };
-          const { data } = (await dbg.sendCommand('Page.captureScreenshot', {
-            format: 'jpeg',
-            quality: 80,
-            clip: { x: vv.pageX, y: vv.pageY, width: vv.clientWidth, height: vv.clientHeight, scale: 1 },
-          })) as { data: string };
-          shots[d.preset.id] = `data:image/jpeg;base64,${data}`;
-        } catch {
-          try {
-            shots[d.preset.id] = (await d.view.webContents.capturePage()).toDataURL();
-          } catch {
-            /* view not painted yet */
-          }
-        }
-      }),
-    );
+    if (this.visible) {
+      await Promise.all(
+        this.entries().map(async (d) => {
+          const data = await this.capture(d.preset.id);
+          if (data) shots[d.preset.id] = `data:image/jpeg;base64,${data}`;
+        }),
+      );
+    }
     this.frozen = true;
     for (const d of this.devices.values()) d.view.setVisible(false);
     return shots;

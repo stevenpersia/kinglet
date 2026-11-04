@@ -2,7 +2,7 @@
 
 Voir son site sur tous les écrans (iPhone, Android, iPad, desktop), en local, en preview et en prod, et vérifier l'aperçu de ses liens (WhatsApp, LinkedIn, Slack…) avant de les partager. Pensé pour les sites construits avec Claude.
 
-> Nom provisoire. État actuel : **phase 3**. Aperçu multi-appareils, aperçus de partage sur 7 plateformes avec correctif, 24 checks et exploration des pages. Packaging Linux et intégration continue en place.
+> Nom provisoire. État actuel : **phase 4**. Aperçu multi-appareils, aperçus de partage sur 7 plateformes avec correctif, 24 checks, exploration des pages et serveur MCP pour Claude Code. Packaging Linux et intégration continue en place.
 
 ## Ce que fait Parakeet
 
@@ -18,6 +18,7 @@ Voir son site sur tous les écrans (iPhone, Android, iPad, desktop), en local, e
   - **Technique** : statut HTTP, favicon, textes alternatifs, erreurs JavaScript, poids des images.
 
   Le débordement, les erreurs JavaScript et le poids des images sont mesurés dans les appareils, sur la page rendue. Le `noindex` est considéré comme normal en local et sur les previews.
+- **Claude Code (MCP)** : Claude voit ce que Parakeet voit. Il peut capturer les appareils, lire les balises, lancer les checks et vérifier lui-même ses corrections (détails plus bas).
 - **Pages** : la barre latérale liste les pages du site, trouvées via les liens du HTML, le sitemap et les liens de la page rendue (utile pour les SPA).
 
 ## Lancer en local (Linux)
@@ -61,6 +62,27 @@ PARAKEET_VERCEL_BYPASS=<secret "Protection Bypass for Automation"> pnpm dev
 
 Le secret est envoyé dans l'en-tête `x-vercel-protection-bypass` aux domaines `*.vercel.app`, à la fois dans les aperçus et lors de la lecture des balises.
 
+## Brancher Claude Code (MCP)
+
+La commande exacte pour ton installation est dans **Réglages** (bouton « Copier »). Avec le paquet pacman :
+
+```bash
+claude mcp add --scope user parakeet -- /usr/bin/parakeet --mcp --ozone-platform=headless
+```
+
+En développement, depuis le dépôt, Node suffit :
+
+```bash
+claude mcp add --scope user parakeet -- node /chemin/vers/parakeet/packages/mcp/src/cli.ts
+```
+
+Outils exposés : `status`, `open_url`, `set_devices`, `screenshot`, `get_page_meta`, `get_share_preview`, `run_checks`, `list_pages`. Deux commandes sont aussi disponibles dans Claude Code :
+
+- `/mcp__parakeet__fix_share` corrige les aperçus de partage de la page ouverte, puis vérifie ;
+- `/mcp__parakeet__fix_checks` corrige les problèmes trouvés par les checks, puis les relance.
+
+Le serveur MCP marche app fermée, sur une URL donnée. Avec l'app ouverte, il utilise la page affichée et les appareils émulés : captures, débordement horizontal, erreurs JavaScript. Il parle à l'app par un serveur local (`127.0.0.1`, jeton aléatoire dans `~/.config/Parakeet/mcp.json`), et chaque appel de Claude apparaît dans l'onglet MCP de l'inspecteur.
+
 ## Installer l'app (Arch / CachyOS)
 
 ```bash
@@ -94,7 +116,8 @@ L'autotest lance le site de démo et Parakeet, puis vérifie :
 - la synchro de navigation ;
 - les 24 checks sur une page aux défauts connus (débordement, erreur JavaScript) ;
 - l'exploration des pages ;
-- les 7 aperçus de partage et le correctif pour le framework détecté.
+- les 7 aperçus de partage et le correctif pour le framework détecté ;
+- le serveur MCP lancé comme le ferait Claude Code (`parakeet --mcp`), avec capture et checks via l'app.
 
 Sans écran, il utilise Xvfb et prend des captures avec ImageMagick dans `apps/desktop/selftest-output/`. Pour tester l'app packagée : `PARAKEET_BIN=dist/linux-unpacked/parakeet node scripts/selftest.mjs` depuis `apps/desktop`.
 
@@ -105,6 +128,7 @@ apps/desktop        app Electron (electron-vite)
   src/main          fenêtre, appareils émulés, réglages, raccourcis
   src/preload       ponts sécurisés vers l'interface et les pages émulées
   src/renderer      interface React + Tailwind (design « Graphite »)
+packages/mcp        serveur MCP (stdio) pour Claude Code, client du serveur de contrôle de l'app
 packages/core       lecture des balises comme les robots, aperçus des 7 plateformes, correctifs, fichiers du site, exploration, 24 checks
 fixtures/demo-site  site de test (Vite)
 ```

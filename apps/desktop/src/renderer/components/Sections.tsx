@@ -1,11 +1,11 @@
 import { activePresets, useStore, type Section } from '../store';
 import { CheckGroups } from './Checks';
 import { Icon } from './Icons';
+import { CopyButton, SLASH } from './Mcp';
 
-const SOON: Record<Exclude<Section, 'apercu' | 'partage' | 'checks'>, { title: string; text: string; phase: string }> = {
+const SOON: Record<Exclude<Section, 'apercu' | 'partage' | 'checks' | 'reglages'>, { title: string; text: string; phase: string }> = {
   comparer: { title: 'Comparer', text: 'Local, preview et prod côte à côte, avec les différences de balises surlignées.', phase: 'Phase 5 · Vercel' },
   deploiements: { title: 'Déploiements', text: 'Les déploiements Vercel de ton projet, chaque branche ouvrable sur n’importe quel appareil.', phase: 'Phase 5 · Vercel' },
-  reglages: { title: 'Réglages', text: 'Serveur MCP pour Claude Code, connexion Vercel, environnements et appareils par défaut.', phase: 'Phases 4 et 5' },
 };
 
 function Empty({ text }: { text: string }) {
@@ -55,6 +55,7 @@ export function ChecksPage() {
               {errors} problème{errors > 1 ? 's' : ''} · {warnings} à améliorer
             </div>
           </div>
+          {errors + warnings > 0 && <CopyButton text={SLASH.checks} label="Faire corriger par Claude" done="Commande copiée : colle-la dans Claude Code ✓" />}
           <button
             onClick={() => void analyze(report.url, { refreshSite: true })}
             disabled={analyzing}

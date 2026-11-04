@@ -15,6 +15,7 @@ const api: ParakeetApi = {
   crawl: (url, opts) => ipcRenderer.invoke('site:crawl', url, opts ?? {}),
   sharePreviews: (url) => ipcRenderer.invoke('share:previews', url),
   copy: (text) => ipcRenderer.send('clipboard:write', text),
+  mcpInfo: () => ipcRenderer.invoke('mcp:info'),
   windowControl: (action) => ipcRenderer.send('window:control', action),
   onEvent: (cb) => {
     const listener = (_e: unknown, ev: PreviewEvent) => cb(ev);

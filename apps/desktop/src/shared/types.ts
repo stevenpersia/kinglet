@@ -65,13 +65,32 @@ export interface ShareStudio {
 
 export type ShortcutAction = 'reload' | 'focus-url' | 'palette' | 'toggle-scroll-sync' | 'toggle-landscape' | 'settings';
 
+/** A call made by Claude Code through the MCP server. */
+export interface McpActivity {
+  at: number;
+  tool: string;
+  ok: boolean;
+  detail: string;
+  ms: number;
+}
+
+export interface McpInfo {
+  /** Command to register Parakeet in Claude Code. */
+  command: string;
+  /** How Claude Code launches the server (shown for information). */
+  launch: string;
+  activity: McpActivity[];
+}
+
 export type PreviewEvent =
   | { type: 'loaded'; url: string }
   | { type: 'loading'; url: string }
   | { type: 'failed'; url: string; error: string }
   | { type: 'navigated'; url: string }
   | { type: 'shortcut'; action: ShortcutAction }
-  | { type: 'window'; maximized: boolean };
+  | { type: 'window'; maximized: boolean }
+  | { type: 'settings'; settings: Settings }
+  | { type: 'mcp'; activity: McpActivity };
 
 export interface ParakeetApi {
   init(): Promise<InitState>;
@@ -95,6 +114,7 @@ export interface ParakeetApi {
   /** The 7 platform previews (one fetch per bot) and the suggested fix. */
   sharePreviews(url: string): Promise<ShareStudio>;
   copy(text: string): void;
+  mcpInfo(): Promise<McpInfo>;
   windowControl(action: 'minimize' | 'maximize' | 'close'): void;
   onEvent(cb: (e: PreviewEvent) => void): () => void;
 }
