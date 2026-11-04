@@ -1,0 +1,17 @@
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,sans-serif;background:#F6F2EC;color:#1F1C19}
+header{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid #E4DCD0}
+.nav{display:none;color:#5A5249}
+.burger{font-size:24px}
+@media (min-width:700px){.nav{display:inline}.burger{display:none}}
+main{padding:20px}
+.kicker{margin:0;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#2F5D50;font-weight:600}
+h1{font-family:Georgia,serif;font-weight:500;font-size:clamp(30px,6vw,56px);line-height:1.05;margin:10px 0 18px}
+.diag{display:grid;grid-template-columns:1fr;gap:6px;background:#fff;border:1px solid #E4DCD0;border-radius:12px;padding:12px;font-size:14px}
+.diag div{display:flex;justify-content:space-between;gap:12px}
+.diag span{color:#6B6258}
+@media (hover:hover){.diag{outline:3px solid #C2410C}}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:20px}
+@media (min-width:700px){.grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+article{display:flex;flex-direction:column;gap:4px;font-size:14px}
+.img{aspect-ratio:1;border-radius:12px;background:#E2D7CC}

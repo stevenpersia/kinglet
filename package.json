@@ -1,0 +1,12 @@
+{
+  "name": "parakeet",
+  "private": true,
+  "packageManager": "pnpm@10.28.0",
+  "scripts": {
+    "dev": "pnpm --filter @parakeet/desktop dev",
+    "demo": "pnpm --filter @parakeet/demo-site dev",
+    "test": "pnpm -r --if-present test",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "selftest": "pnpm --filter @parakeet/desktop selftest"
+  }
+}

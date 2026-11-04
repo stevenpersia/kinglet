@@ -1,0 +1,24 @@
+{
+  "name": "@parakeet/desktop",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Parakeet — preview your site on every screen",
+  "main": "out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "start": "electron-vite preview",
+    "typecheck": "tsc -p tsconfig.json",
+    "selftest": "electron-vite build && node scripts/selftest.mjs"
+  },
+  "dependencies": {
+    "@parakeet/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "electron": "^45.2.2",
+    "electron-vite": "^6.0.0",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.5"
+  }
+}

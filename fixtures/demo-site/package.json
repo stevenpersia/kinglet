@@ -1,0 +1,11 @@
+{
+  "name": "@parakeet/demo-site",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --port 5173 --strictPort --host 127.0.0.1"
+  },
+  "devDependencies": {
+    "vite": "^8.3.5"
+  }
+}

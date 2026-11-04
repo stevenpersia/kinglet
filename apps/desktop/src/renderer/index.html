@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src * data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:">
+  <title>Parakeet</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <div class="app">
+    <header class="titlebar">
+      <span class="mark" aria-hidden="true"><span></span></span>
+      <span class="brand">parakeet</span>
+      <div class="segmented" role="group" aria-label="Environnement">
+        <button class="seg on" aria-pressed="true"><span class="dot local"></span>Local</button>
+        <button class="seg" disabled title="Phase 5 : Vercel"><span class="dot preview"></span>Preview</button>
+        <button class="seg" disabled title="Phase 5 : Vercel"><span class="dot prod"></span>Prod</button>
+      </div>
+      <form class="urlbar" id="urlbar">
+        <span class="dot local" id="url-dot"></span>
+        <label class="sr-only" for="url">Adresse</label>
+        <input id="url" class="mono" spellcheck="false" autocomplete="off" placeholder="http://localhost:3000">
+        <span class="url-status" id="url-status"></span>
+      </form>
+      <button class="icon-btn" id="reload" aria-label="Recharger">
+        <svg width="13" height="13" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>
+      </button>
+      <div class="win-controls">
+        <button class="win-btn" data-win="minimize" aria-label="Réduire"><svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M1 5h8" stroke="currentColor" stroke-width="1.2"/></svg></button>
+        <button class="win-btn" data-win="maximize" aria-label="Agrandir"><svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><rect x="1.5" y="1.5" width="7" height="7" stroke="currentColor" stroke-width="1.2" fill="none"/></svg></button>
+        <button class="win-btn close" data-win="close" aria-label="Fermer"><svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M1.5 1.5l7 7M8.5 1.5l-7 7" stroke="currentColor" stroke-width="1.2"/></svg></button>
+      </div>
+    </header>
+
+    <div class="body">
+      <main class="stage-wrap">
+        <div class="toolbar">
+          <div class="chips" id="device-chips"></div>
+          <label class="chip toggle"><input type="checkbox" id="scroll-sync" checked> Scroll synchro</label>
+        </div>
+        <div class="stage" id="stage"></div>
+      </main>
+
+      <aside class="inspector" id="inspector">
+        <div class="lbl">Page</div>
+        <div class="empty" id="insp-empty">En attente du chargement…</div>
+        <div id="insp-content" hidden>
+          <div class="field-head"><span class="lbl">Title</span><span class="mono count" id="title-count"></span></div>
+          <div class="title" id="meta-title"></div>
+          <div class="field-head"><span class="lbl">Description</span><span class="mono count" id="desc-count"></span></div>
+          <div class="desc" id="meta-desc"></div>
+
+          <div class="panel">
+            <div class="panel-head"><span>Partage</span><span class="mono muted" id="share-score"></span></div>
+            <ul class="issues" id="issues"></ul>
+          </div>
+
+          <div class="lbl">Aperçu du lien · WhatsApp</div>
+          <div class="link-card">
+            <div class="link-img" id="link-img"></div>
+            <div class="link-body">
+              <span class="link-title" id="link-title"></span>
+              <span class="link-desc" id="link-desc"></span>
+              <span class="link-site mono" id="link-site"></span>
+            </div>
+          </div>
+          <div class="fine mono" id="fetch-info"></div>
+        </div>
+      </aside>
+    </div>
+
+    <footer class="statusbar mono">
+      <span id="st-server"></span>
+      <span id="st-session"></span>
+      <span class="spacer"></span>
+      <span id="st-version"></span>
+    </footer>
+  </div>
+  <script type="module" src="./main.ts"></script>
+</body>
+</html>

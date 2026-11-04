@@ -1,0 +1,121 @@
+import { parse } from 'node-html-parser';
+import { BOTS, type BotId } from './bots.ts';
+
+export interface PageMeta {
+  requestedUrl: string;
+  finalUrl: string;
+  status: number;
+  contentType: string | null;
+  fetchedAs: BotId;
+  durationMs: number;
+  title: string | null;
+  description: string | null;
+  lang: string | null;
+  viewport: string | null;
+  canonical: string | null;
+  themeColor: string | null;
+  icons: string[];
+  /** og:* properties, keys without the "og:" prefix. */
+  og: Record<string, string>;
+  /** twitter:* properties, keys without the "twitter:" prefix. */
+  twitter: Record<string, string>;
+  /** og:image resolved against the final URL, when present. */
+  ogImageUrl: string | null;
+  /** true when og:image is not an absolute http(s) URL (bots need absolute URLs). */
+  ogImageIsRelative: boolean;
+}
+
+export interface FetchOptions {
+  bot?: BotId;
+  /** Extra headers, e.g. the Vercel protection bypass. */
+  headers?: Record<string, string>;
+  timeoutMs?: number;
+  fetchImpl?: typeof fetch;
+}
+
+const clean = (v: string | undefined | null): string | null => {
+  if (v == null) return null;
+  const t = v.replace(/\s+/g, ' ').trim();
+  return t.length ? t : null;
+};
+
+export function parseMeta(html: string, baseUrl: string): Omit<PageMeta, 'requestedUrl' | 'finalUrl' | 'status' | 'contentType' | 'fetchedAs' | 'durationMs'> {
+  const root = parse(html, { lowerCaseTagName: true });
+  const head = root.querySelector('head') ?? root;
+
+  const og: Record<string, string> = {};
+  const twitter: Record<string, string> = {};
+  let description: string | null = null;
+  let viewport: string | null = null;
+  let themeColor: string | null = null;
+
+  for (const m of head.querySelectorAll('meta')) {
+    const key = (m.getAttribute('property') ?? m.getAttribute('name') ?? '').trim().toLowerCase();
+    const content = clean(m.getAttribute('content'));
+    if (!key || content == null) continue;
+    if (key.startsWith('og:')) {
+      const k = key.slice(3);
+      if (!(k in og)) og[k] = content; // first one wins, like most crawlers
+    } else if (key.startsWith('twitter:')) {
+      const k = key.slice(8);
+      if (!(k in twitter)) twitter[k] = content;
+    } else if (key === 'description' && description == null) description = content;
+    else if (key === 'viewport' && viewport == null) viewport = content;
+    else if (key === 'theme-color' && themeColor == null) themeColor = content;
+  }
+
+  const resolve = (href: string | null): string | null => {
+    if (!href) return null;
+    try {
+      return new URL(href, baseUrl).toString();
+    } catch {
+      return null;
+    }
+  };
+
+  const icons = head
+    .querySelectorAll('link')
+    .filter((l) => /(^|\s)(icon|apple-touch-icon|shortcut icon)(\s|$)/i.test(l.getAttribute('rel') ?? ''))
+    .map((l) => resolve(l.getAttribute('href') ?? null))
+    .filter((u): u is string => !!u);
+
+  const canonicalEl = head.querySelectorAll('link').find((l) => (l.getAttribute('rel') ?? '').toLowerCase() === 'canonical');
+  const rawImage = og['image'] ?? og['image:url'] ?? og['image:secure_url'] ?? null;
+
+  return {
+    title: clean(head.querySelector('title')?.text),
+    description,
+    lang: clean(root.querySelector('html')?.getAttribute('lang')),
+    viewport,
+    canonical: resolve(canonicalEl?.getAttribute('href') ?? null),
+    themeColor,
+    icons,
+    og,
+    twitter,
+    ogImageUrl: resolve(rawImage),
+    ogImageIsRelative: rawImage != null && !/^https?:\/\//i.test(rawImage),
+  };
+}
+
+/** Fetch a page the way a link-preview bot does (raw HTML, no JavaScript) and extract its tags. */
+export async function readPageMeta(url: string, opts: FetchOptions = {}): Promise<PageMeta> {
+  const bot = opts.bot ?? 'whatsapp';
+  const f = opts.fetchImpl ?? fetch;
+  const started = Date.now();
+  const res = await f(url, {
+    redirect: 'follow',
+    headers: { 'user-agent': BOTS[bot], accept: 'text/html,*/*;q=0.8', ...opts.headers },
+    signal: AbortSignal.timeout(opts.timeoutMs ?? 10_000),
+  });
+  const html = await res.text();
+  const finalUrl = res.url || url;
+  return {
+    requestedUrl: url,
+    finalUrl,
+    status: res.status,
+    contentType: res.headers.get('content-type'),
+    fetchedAs: bot,
+    durationMs: Date.now() - started,
+    ...parseMeta(html, finalUrl),
+  };
+}
