@@ -1,6 +1,6 @@
 import { join } from 'node:path';
 import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, Notification, shell } from 'electron';
-import { buildShareFix, checkShare, crawl, probeImage, readPageMeta, readSharePreviews, readSiteFiles, runChecks, score, vercelBypassHeaders, type CrawledPage, type SiteFiles } from '@parakeet/core';
+import { setLanguage, t, buildShareFix, checkShare, crawl, probeImage, readPageMeta, readSharePreviews, readSiteFiles, runChecks, score, vercelBypassHeaders, type CrawledPage, type SiteFiles } from '@parakeet/core';
 import { startStdio } from '@parakeet/mcp';
 import QRCode from 'qrcode';
 import type { AnalyzeReport, CompareColumn, DeviceSlot, EnvId, InitState, McpActivity, McpInfo, PhoneQr, PhoneState, PreviewEvent, Settings, ShareStudio } from '../shared/types';
@@ -50,6 +50,7 @@ const bypassHeaders = (url: string, browser = false) => vercelBypassHeaders(url,
 
 async function createWindow() {
   const settings = new SettingsStore();
+  setLanguage(settings.value.language);
   // Frameless window with our own title bar: no default menu (it would also steal Ctrl+R).
   Menu.setApplicationMenu(null);
 
@@ -153,7 +154,7 @@ async function createWindow() {
       lastBuild.set(vpId, key);
       if (before && before !== key && d.state === 'ERROR') {
         const project = settings.value.projects.find((p) => p.vercelProjectId === vpId);
-        notify(project?.id ?? null, `Build en erreur · ${project?.name ?? 'Vercel'}`, `${d.branch ?? ''} ${d.commitMessage ?? ''}`.trim());
+        notify(project?.id ?? null, t(`Build failed · ${project?.name ?? 'Vercel'}`, `Build en erreur · ${project?.name ?? 'Vercel'}`), `${d.branch ?? ''} ${d.commitMessage ?? ''}`.trim());
       }
     }
   });
@@ -208,11 +209,11 @@ async function createWindow() {
       openUrlProject(url);
     } else if (active?.lastUrl) {
       url = active.lastUrl;
-      detectedFrom = 'dernière session';
+      detectedFrom = t('last session', 'dernière session');
     } else {
       url = await detectLocalServer();
       if (url) {
-        detectedFrom = 'détecté';
+        detectedFrom = t('detected', 'détecté');
         openUrlProject(url);
       }
     }
@@ -225,7 +226,7 @@ async function createWindow() {
       url,
       detectedFrom,
       platform: {
-        sessionType: process.env.XDG_SESSION_TYPE ?? 'inconnu',
+        sessionType: process.env.XDG_SESSION_TYPE ?? t('unknown', 'inconnu'),
         electron: process.versions.electron,
         chrome: process.versions.chrome,
         version: app.getVersion(),
@@ -247,6 +248,7 @@ async function createWindow() {
   ipcMain.handle('preview:reload', () => devices.reload());
   ipcMain.handle('settings:update', (_e, patch: Partial<Settings>) => {
     const next = settings.update(patch);
+    if (patch.language) setLanguage(patch.language);
     // New devices load the current page; existing ones keep theirs.
     if (patch.active) devices.setActive(next.active);
     if (patch.scrollSync !== undefined) devices.setScrollSync(patch.scrollSync);
@@ -257,7 +259,7 @@ async function createWindow() {
     return next;
   });
   ipcMain.handle('projects:pick-folder', async () => {
-    const r = await dialog.showOpenDialog(win, { title: 'Dossier du projet', properties: ['openDirectory'], defaultPath: activeProject(settings.value)?.folder ?? app.getPath('home') });
+    const r = await dialog.showOpenDialog(win, { title: t('Project folder', 'Dossier du projet'), properties: ['openDirectory'], defaultPath: activeProject(settings.value)?.folder ?? app.getPath('home') });
     const folder = r.canceled ? null : (r.filePaths[0] ?? null);
     return folder ? { folder, vercelProjectId: vercelLinkOf(folder)?.projectId ?? null } : null;
   });
@@ -322,8 +324,12 @@ async function createWindow() {
     if (r.finished && project) {
       const st = tracker.projects[project.id]!;
       const n = st.files.length;
-      notify(project.id, `Claude a terminé · ${project.name}`, st.lastAction?.startsWith('Erreur') ? st.lastAction : n ? `${n} fichier${n > 1 ? 's' : ''} modifié${n > 1 ? 's' : ''}` : (st.prompt ?? ''));
-    } else if (r.event.kind === 'waiting' && project) notify(project.id, `Claude attend ta réponse · ${project.name}`, r.event.text ?? '');
+      notify(
+        project.id,
+        t(`Claude is done · ${project.name}`, `Claude a terminé · ${project.name}`),
+        r.event.kind === 'error' ? (st.lastAction ?? '') : n ? t(`${n} file${n > 1 ? 's' : ''} changed`, `${n} fichier${n > 1 ? 's' : ''} modifié${n > 1 ? 's' : ''}`) : (st.prompt ?? ''),
+      );
+    } else if (r.event.kind === 'waiting' && project) notify(project.id, t(`Claude is waiting for your reply · ${project.name}`, `Claude attend ta réponse · ${project.name}`), r.event.text ?? '');
   };
   ipcMain.handle('claude:state', () => ({ hooks: claudeHooks.state(), projects: tracker.projects }));
   ipcMain.handle('claude:install', () => claudeHooks.install());
@@ -343,7 +349,7 @@ async function createWindow() {
     },
     setActive: (ids) => {
       const known = PRESETS.filter((p) => ids.includes(p.id)).map((p) => p.id);
-      if (!known.length) throw new Error(`appareils inconnus : ${ids.join(', ')}`);
+      if (!known.length) throw new Error(t(`unknown devices: ${ids.join(', ')}`, `appareils inconnus : ${ids.join(', ')}`));
       const next = settings.update({ active: known });
       devices.setActive(next.active);
       emit({ type: 'settings', settings: next });
@@ -415,7 +421,7 @@ async function createWindow() {
     let withSecret = false;
     if (local) {
       const address = phoneState().address;
-      if (!lan.running || !address) throw new Error('Le partage sur le réseau local n’est pas activé.');
+      if (!lan.running || !address) throw new Error(t('Local network sharing is not turned on.', 'Le partage sur le réseau local n’est pas activé.'));
       const u = new URL(url);
       target = lan.pairUrl(address, u.pathname + u.search);
     } else {

@@ -3,6 +3,7 @@ import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { join } from 'node:path';
 import { CONTROL_FILE, type AppShot, type AppStatus, type ControlFile } from '@parakeet/mcp';
+import { t } from '@parakeet/core';
 import type { McpActivity } from '../shared/types';
 import type { DeviceManager } from './devices';
 
@@ -88,7 +89,7 @@ export function startControlServer(deps: Deps) {
         }
         case 'POST /navigate': {
           const url = String(body.url ?? '');
-          if (!/^https?:\/\//.test(url)) return send(res, 400, { error: 'url invalide' });
+          if (!/^https?:\/\//.test(url)) return send(res, 400, { error: t('invalid url', 'url invalide') });
           await deps.navigate(url);
           return send(res, 200, status());
         }
@@ -99,7 +100,7 @@ export function startControlServer(deps: Deps) {
         }
         case 'POST /analyze': {
           const url = typeof body.url === 'string' && body.url ? body.url : deps.devices.currentUrl;
-          if (!url) return send(res, 400, { error: 'aucune page ouverte' });
+          if (!url) return send(res, 400, { error: t('no page open', 'aucune page ouverte') });
           // Rendered measures come from the devices: they must show the page analysed.
           if (url !== deps.devices.currentUrl) await deps.navigate(url);
           const report = await deps.analyze(url);

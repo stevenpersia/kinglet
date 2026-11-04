@@ -1,5 +1,6 @@
 import { createServer, request, type IncomingHttpHeaders, type Server } from 'node:http';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { setLanguage } from '@parakeet/core';
 import { lanAddresses, LanProxy, type LanClient } from './lan';
 
 let site: Server;
@@ -51,7 +52,11 @@ describe('LanProxy', () => {
   it('refuses devices that did not scan the QR code', async () => {
     const res = await fetch(`${base}/`);
     expect(res.status).toBe(403);
-    expect(await res.text()).toMatch(/non appairé/);
+    expect(await res.text()).toMatch(/not paired/);
+    setLanguage('fr');
+    const fr = await (await fetch(`${base}/`)).text();
+    setLanguage('en');
+    expect(fr).toMatch(/non appairé/);
     expect((await fetch(`${base}/__parakeet/pair?t=wrong`)).status).toBe(403);
   });
 

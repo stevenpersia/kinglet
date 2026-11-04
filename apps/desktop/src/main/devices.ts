@@ -1,6 +1,6 @@
 import { join } from 'node:path';
 import { BaseWindow, WebContentsView, ipcMain, session, type Input, type Session } from 'electron';
-import { HEAVY_IMAGE_BYTES, type RenderedDevice } from '@parakeet/core';
+import { HEAVY_IMAGE_BYTES, getLanguage, t, type RenderedDevice } from '@parakeet/core';
 import type { DeviceLog, DevicePreset, DeviceSlot, PreviewEvent, ShortcutAction, Throttle } from '../shared/types';
 
 export const PREVIEW_PARTITION = 'persist:parakeet-preview';
@@ -70,9 +70,9 @@ const MEASURE = `(() => {
 
 const errorPage = (url: string, error: string) =>
   'data:text/html;charset=utf-8,' +
-  encodeURIComponent(`<!doctype html><meta name="viewport" content="width=device-width">
+  encodeURIComponent(`<!doctype html><html lang="${getLanguage()}"><meta name="viewport" content="width=device-width">
 <body style="margin:0;height:100vh;display:flex;align-items:center;justify-content:center;background:#111113;color:#A1A1AA;font:15px system-ui;text-align:center;padding:24px;box-sizing:border-box">
-<div><div style="color:#EDEDEF;font-weight:600;margin-bottom:8px">Rien à afficher</div>
+<div><div style="color:#EDEDEF;font-weight:600;margin-bottom:8px">${t('Nothing to show', 'Rien à afficher')}</div>
 <div style="font-family:monospace;font-size:13px;margin-bottom:12px">${url.replace(/</g, '&lt;')}</div>
 <div>${error.replace(/</g, '&lt;')}</div></div></body>`);
 
@@ -232,7 +232,7 @@ export class DeviceManager {
     });
     wc.on('did-fail-load', (_e, code, desc, url, isMainFrame) => {
       if (!isMainFrame || code === -3 /* aborted */) return;
-      const hint = code === -102 ? 'Aucun serveur ne répond. Lance ton serveur de dev (pnpm dev).' : `${desc} (${code})`;
+      const hint = code === -102 ? t('No server is responding. Start your dev server (pnpm dev).', 'Aucun serveur ne répond. Lance ton serveur de dev (pnpm dev).') : `${desc} (${code})`;
       void wc.loadURL(errorPage(url, hint));
       if (this.isPrimary(preset.id)) this.emit({ type: 'failed', url, error: hint });
     });
@@ -280,7 +280,7 @@ export class DeviceManager {
         entry.requests.delete(params.requestId);
         // Aborted by navigation, or the dev server's hot-reload socket closing: not errors.
         if (params.canceled || !req || params.type === 'WebSocket' || params.type === 'EventSource') return;
-        this.log(entry, { source: 'network', level: 'error', text: params.blockedReason ? `bloqué (${params.blockedReason})` : String(params.errorText), url: req.url, status: 0, method: req.method, resourceType: params.type });
+        this.log(entry, { source: 'network', level: 'error', text: params.blockedReason ? t(`blocked (${params.blockedReason})`, `bloqué (${params.blockedReason})`) : String(params.errorText), url: req.url, status: 0, method: req.method, resourceType: params.type });
       } else if (method === 'Network.loadingFinished') {
         entry.requests.delete(params.requestId);
       }

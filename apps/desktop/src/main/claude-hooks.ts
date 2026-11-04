@@ -1,6 +1,7 @@
 import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { t } from '@parakeet/core';
 import type { ClaudeHookState } from '../shared/types';
 
 /** Claude Code events Parakeet listens to. */
@@ -85,7 +86,7 @@ export class ClaudeHooks {
     const raw = readFileSync(this.file, 'utf8');
     if (!raw.trim()) return {};
     const parsed = JSON.parse(raw); // throws on a broken file: never overwrite it
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('format inattendu');
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error(t('unexpected format', 'format inattendu'));
     return parsed;
   }
 
@@ -100,7 +101,7 @@ export class ClaudeHooks {
     try {
       return { installed: hasHooks(this.read(), this.script), file: this.file, error: this.error };
     } catch (e) {
-      return { installed: false, file: this.file, error: `${this.file} illisible : ${(e as Error).message}` };
+      return { installed: false, file: this.file, error: t(`${this.file} is unreadable: ${(e as Error).message}`, `${this.file} illisible : ${(e as Error).message}`) };
     }
   }
 
@@ -112,7 +113,7 @@ export class ClaudeHooks {
       this.write(addHooks(this.read(), this.script));
       this.error = null;
     } catch (e) {
-      this.error = `Installation impossible : ${(e as Error).message}`;
+      this.error = t(`Couldn’t install: ${(e as Error).message}`, `Installation impossible : ${(e as Error).message}`);
     }
     return this.state();
   }
@@ -123,7 +124,7 @@ export class ClaudeHooks {
       rmSync(this.script, { force: true });
       this.error = null;
     } catch (e) {
-      this.error = `Désinstallation impossible : ${(e as Error).message}`;
+      this.error = t(`Couldn’t uninstall: ${(e as Error).message}`, `Désinstallation impossible : ${(e as Error).message}`);
     }
     return this.state();
   }

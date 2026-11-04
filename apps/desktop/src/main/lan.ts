@@ -2,6 +2,7 @@ import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { createServer, request as httpRequest, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { connect, type Socket } from 'node:net';
 import { networkInterfaces } from 'node:os';
+import { getLanguage, t } from '@parakeet/core';
 
 /**
  * "On my phone": a reverse proxy on the local network (0.0.0.0) to the local dev server.
@@ -42,7 +43,7 @@ export function lanAddresses(): LanAddress[] {
 }
 
 const page = (title: string, body: string) =>
-  `<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title></head>
+  `<!doctype html><html lang="${getLanguage()}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title></head>
 <body style="margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0a0a0b;color:#a1a1aa;font:16px system-ui;text-align:center;padding:24px;box-sizing:border-box">
 <div style="max-width:340px"><div style="color:#ededef;font-weight:600;font-size:18px;margin-bottom:10px">${title}</div>${body}</div></body></html>`;
 
@@ -100,7 +101,7 @@ export class LanProxy {
         return port;
       }
     }
-    throw new Error(`aucun port libre entre ${preferred} et ${preferred + 19}`);
+    throw new Error(t(`no free port between ${preferred} and ${preferred + 19}`, `aucun port libre entre ${preferred} et ${preferred + 19}`));
   }
 
   stop() {
@@ -137,7 +138,7 @@ export class LanProxy {
     if (url.pathname === `${PREFIX}/pair`) {
       if (url.searchParams.get('t') !== this.token) {
         res.writeHead(403, { 'content-type': 'text/html; charset=utf-8' });
-        return res.end(page('QR code expiré', 'Rouvre « Sur mon téléphone » dans Parakeet et scanne le nouveau code.'));
+        return res.end(page(t('QR code expired', 'QR code expiré'), t('Reopen “On my phone” in Parakeet and scan the new code.', 'Rouvre « Sur mon téléphone » dans Parakeet et scanne le nouveau code.')));
       }
       const next = url.searchParams.get('next') ?? '/';
       res.writeHead(302, { 'set-cookie': `${COOKIE}=${this.token}; Path=/; HttpOnly; SameSite=Lax`, location: next.startsWith('/') ? next : '/' });
@@ -146,7 +147,7 @@ export class LanProxy {
 
     if (!this.paired(req)) {
       res.writeHead(403, { 'content-type': 'text/html; charset=utf-8' });
-      return res.end(page('Appareil non appairé', 'Pour voir ce site, scanne le QR code dans Parakeet (bouton « Sur mon téléphone »).'));
+      return res.end(page(t('Device not paired', 'Appareil non appairé'), t('To view this site, scan the QR code in Parakeet (“On my phone” button).', 'Pour voir ce site, scanne le QR code dans Parakeet (bouton « Sur mon téléphone »).')));
     }
 
     if (url.pathname === `${PREFIX}/follow.js`) {
@@ -170,7 +171,7 @@ export class LanProxy {
     const targetOrigin = this.target();
     if (!targetOrigin) {
       res.writeHead(503, { 'content-type': 'text/html; charset=utf-8' });
-      return res.end(page('Aucun serveur local', 'Ouvre ton site en local dans Parakeet.'));
+      return res.end(page(t('No local server', 'Aucun serveur local'), t('Open your local site in Parakeet.', 'Ouvre ton site en local dans Parakeet.')));
     }
     this.proxy(req, res, new URL(targetOrigin));
   }
@@ -221,7 +222,7 @@ export class LanProxy {
     upstream.on('error', () => {
       if (res.headersSent) return res.end();
       res.writeHead(502, { 'content-type': 'text/html; charset=utf-8' });
-      res.end(page('Le serveur de dev ne répond pas', `${target.host} ne répond pas. Il a peut-être été arrêté.`));
+      res.end(page(t('The dev server is not responding', 'Le serveur de dev ne répond pas'), t(`${target.host} is not responding. It may have been stopped.`, `${target.host} ne répond pas. Il a peut-être été arrêté.`)));
     });
     req.pipe(upstream);
   }

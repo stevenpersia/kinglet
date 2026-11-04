@@ -1,3 +1,4 @@
+import { t } from '@parakeet/core';
 import type { ClaudeEvent, ClaudeProjectState } from '../shared/types';
 
 /** Fields of a Claude Code hook payload that Parakeet reads. */
@@ -20,8 +21,8 @@ const MAX_EVENTS = 60;
 /** Stop is not sent when the user interrupts Claude: a silent session goes back to idle. */
 export const IDLE_AFTER_MS = 10 * 60_000;
 
-const clip = (t: string | undefined, n = 140) => {
-  const v = (t ?? '').replace(/\s+/g, ' ').trim();
+const clip = (s: string | undefined, n = 140) => {
+  const v = (s ?? '').replace(/\s+/g, ' ').trim();
   return v.length > n ? `${v.slice(0, n - 1)}…` : v;
 };
 const rel = (file: string, folder: string | null) => (folder && file.startsWith(`${folder.replace(/\/+$/, '')}/`) ? file.slice(folder.replace(/\/+$/, '').length + 1) : file);
@@ -30,12 +31,12 @@ const rel = (file: string, folder: string | null) => (folder && file.startsWith(
 export function describeTool(p: HookPayload, folder: string | null): { text: string; file?: string } {
   const i = p.tool_input ?? {};
   const file = i.file_path ?? i.notebook_path;
-  if (p.tool_name && EDIT_TOOLS.has(p.tool_name) && file) return { text: `${p.tool_name === 'Write' ? 'écrit' : 'édite'} ${rel(file, folder)}`, file: rel(file, folder) };
-  if (p.tool_name === 'Bash') return { text: `lance ${clip(i.description || i.command, 60)}` };
-  if (p.tool_name === 'Read' && file) return { text: `lit ${rel(file, folder)}` };
-  if (p.tool_name === 'Grep' || p.tool_name === 'Glob') return { text: `cherche ${clip(i.pattern, 40)}` };
-  if (p.tool_name === 'WebFetch' || p.tool_name === 'WebSearch') return { text: 'cherche sur le web' };
-  return { text: p.tool_name ?? 'outil' };
+  if (p.tool_name && EDIT_TOOLS.has(p.tool_name) && file) return { text: `${p.tool_name === 'Write' ? t('writes', 'écrit') : t('edits', 'édite')} ${rel(file, folder)}`, file: rel(file, folder) };
+  if (p.tool_name === 'Bash') return { text: t(`runs ${clip(i.description || i.command, 60)}`, `lance ${clip(i.description || i.command, 60)}`) };
+  if (p.tool_name === 'Read' && file) return { text: t(`reads ${rel(file, folder)}`, `lit ${rel(file, folder)}`) };
+  if (p.tool_name === 'Grep' || p.tool_name === 'Glob') return { text: t(`searches ${clip(i.pattern, 40)}`, `cherche ${clip(i.pattern, 40)}`) };
+  if (p.tool_name === 'WebFetch' || p.tool_name === 'WebSearch') return { text: t('searches the web', 'cherche sur le web') };
+  return { text: p.tool_name ?? t('tool', 'outil') };
 }
 
 const empty = (now: number): ClaudeProjectState => ({ status: 'idle', since: now, lastAt: now, prompt: null, lastAction: null, files: [], seen: true, events: [] });
@@ -70,7 +71,7 @@ export class ClaudeTracker {
       case 'Notification':
         // idle_prompt: Claude finished and waits for the next prompt (Stop already said so).
         if (p.notification_type === 'idle_prompt') return null;
-        event = { at: now, projectId, sessionId, kind: 'waiting', text: clip(p.message) || 'Claude attend ta réponse' };
+        event = { at: now, projectId, sessionId, kind: 'waiting', text: clip(p.message) || t('Claude is waiting for your reply', 'Claude attend ta réponse') };
         break;
       case 'Stop':
         if (p.agent_id) return null; // a subagent finished, not the task
@@ -108,7 +109,7 @@ export class ClaudeTracker {
     } else if (event.kind === 'stop' || event.kind === 'error') {
       running.delete(sessionId);
       if (!running.size) {
-        Object.assign(next, { status: 'done', since: now, seen: false, lastAction: event.kind === 'error' ? `Erreur : ${event.text || 'la requête a échoué'}` : prev.lastAction });
+        Object.assign(next, { status: 'done', since: now, seen: false, lastAction: event.kind === 'error' ? t(`Error: ${event.text || 'the request failed'}`, `Erreur : ${event.text || 'la requête a échoué'}`) : prev.lastAction });
         finished = true;
       }
     } else if (event.kind === 'end') {

@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { app } from 'electron';
 import { autoUpdater, type ProgressInfo, type UpdateInfo } from 'electron-updater';
+import { t } from '@parakeet/core';
 import type { UpdateState } from '../shared/types';
 
 const SIX_HOURS = 6 * 60 * 60 * 1000;
@@ -16,8 +17,8 @@ function installKind(): UpdateState['kind'] {
 
 const explain = (e: Error) => {
   const m = e.message;
-  if (/404|Not Found|Unable to find latest version/i.test(m)) return 'Aucune release trouvée : le dépôt GitHub est privé (ou n’a pas encore de release).';
-  if (/ENOTFOUND|ECONNREFUSED|ETIMEDOUT|net::ERR/i.test(m)) return 'Pas de connexion à GitHub.';
+  if (/404|Not Found|Unable to find latest version/i.test(m)) return t('No release found: the GitHub repository is private (or has no release yet).', 'Aucune release trouvée : le dépôt GitHub est privé (ou n’a pas encore de release).');
+  if (/ENOTFOUND|ECONNREFUSED|ETIMEDOUT|net::ERR/i.test(m)) return t('No connection to GitHub.', 'Pas de connexion à GitHub.');
   return m.split('\n')[0]!;
 };
 

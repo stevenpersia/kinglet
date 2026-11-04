@@ -1,7 +1,7 @@
 import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { safeStorage } from 'electron';
-import { VercelClient, type VercelDeployment } from '@parakeet/core';
+import { t, VercelClient, type VercelDeployment } from '@parakeet/core';
 import type { VercelState, VercelTeamProject } from '../shared/types';
 
 interface Stored {
@@ -43,7 +43,7 @@ export class VercelService {
   }
 
   private client(teamId: string | null) {
-    if (!this.token) throw new Error('Vercel non connecté');
+    if (!this.token) throw new Error(t('Vercel not connected', 'Vercel non connecté'));
     return new VercelClient({ token: this.token, teamId, baseUrl: this.baseUrl });
   }
 
@@ -79,7 +79,7 @@ export class VercelService {
       this.token = this.stored!.encrypted ? safeStorage.decryptString(Buffer.from(this.stored!.token, 'base64')) : this.stored!.token;
       await this.open();
     } catch (e) {
-      this.update({ error: `Connexion Vercel impossible : ${(e as Error).message}` });
+      this.update({ error: t(`Couldn’t connect to Vercel: ${(e as Error).message}`, `Connexion Vercel impossible : ${(e as Error).message}`) });
     }
   }
 
