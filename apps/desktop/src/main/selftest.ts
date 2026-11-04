@@ -368,6 +368,13 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     await clickText('nav button', 'Compare');
     await sleep(2500);
     await shot('15-comparer');
+    // Visual comparison: each environment rendered off screen like a device, differences in red.
+    await clickText('[role=tab]', 'Visual');
+    const visualOk = await waitFor(() => js<boolean>(`document.querySelectorAll('main figure img').length >= 3 && [...document.querySelectorAll('main figcaption')].slice(1).every((f) => /%|identical/.test(f.textContent))`), 30_000, 500);
+    const visualText = await js<string>(`[...document.querySelectorAll('main figure')].map((f) => f.textContent).join(' | ')`);
+    await shot('15b-comparer-visuel');
+    criteria.push({ id: 'compare-visual', ok: visualOk && /LCP \d/.test(visualText), detail: visualText });
+    await clickText('[role=tab]', 'Tags and checks');
     await clickText('nav button', 'Settings');
     await clickText('[aria-label="Settings pages"] button', 'Vercel');
     await sleep(800);

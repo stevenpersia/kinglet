@@ -270,6 +270,16 @@ export interface CompareColumn {
   score: { passed: number; total: number } | null;
 }
 
+/** One environment rendered like a device, for the visual comparison. */
+export interface VisualColumn {
+  env: EnvId;
+  label: string;
+  url: string;
+  image: string | null;
+  vitals: Vitals | null;
+  error: string | null;
+}
+
 export interface ShareStudio {
   previews: SharePreviews;
   fix: ShareFix;
@@ -446,6 +456,8 @@ export interface ParakeetApi {
   };
   /** The same path on each environment: tags side by side and checks score. */
   compare(targets: { env: EnvId; label: string; url: string }[]): Promise<CompareColumn[]>;
+  /** The same page on each environment, rendered off screen like one device (PNG + Web Vitals). */
+  compareVisual(targets: { env: EnvId; label: string; url: string }[], deviceId: string): Promise<VisualColumn[]>;
   claude: {
     state(): Promise<{ hooks: ClaudeHookState; projects: Record<string, ClaudeProjectState> }>;
     /** Add Parakeet's hooks to ~/.claude/settings.json (a backup is kept). */

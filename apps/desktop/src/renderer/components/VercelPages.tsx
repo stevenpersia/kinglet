@@ -1,4 +1,5 @@
 import { PrBadge, usePullRequests } from './PullRequest';
+import { CompareVisual } from './CompareVisual';
 import { samePageOn, t, type VercelDeployment } from '@parakeet/core';
 import { useEffect, useState } from 'react';
 import type { CompareColumn, EnvId } from '../../shared/types';
@@ -137,6 +138,7 @@ export function ComparePage() {
   const vercel = projectVercel(s);
   const [columns, setColumns] = useState<CompareColumn[] | null>(null);
   const [loading, setLoading] = useState(false);
+  const [mode, setMode] = useState<'tags' | 'visual'>('tags');
   const envs = envTargets(activeProject(s.settings)?.localOrigin ?? null, vercel, previewId);
   const path = url ? new URL(url).pathname : '/';
 
@@ -167,21 +169,40 @@ export function ComparePage() {
           <h1 className="m-0 text-xl font-semibold tracking-[-0.02em]">{t('Compare', 'Comparer')}</h1>
           <p className="m-0 mt-1 text-muted">
             <span className="font-mono text-xs">{path}</span>{' '}
-            {t('on each environment, read as a crawler. Differences are highlighted.', 'sur chaque environnement, lue comme un robot. Les différences sont surlignées.')}
+            {mode === 'tags'
+              ? t('on each environment, read as a crawler. Differences are highlighted.', 'sur chaque environnement, lue comme un robot. Les différences sont surlignées.')
+              : t('on each environment, rendered like the chosen device, with its Web Vitals.', 'sur chaque environnement, rendue comme l’appareil choisi, avec ses Web Vitals.')}
           </p>
         </div>
-        <button onClick={() => void run()} disabled={loading} className={btn}>
-          <Icon name="reload" size={12} className={loading ? 'animate-spin' : ''} />
-          {loading ? t('Reading…', 'Lecture…') : t('Re-read', 'Relire')}
-        </button>
+        <div className="flex items-center gap-2">
+          <div role="tablist" className="flex gap-0.5 rounded-lg border border-line bg-bg p-0.5">
+            {(
+              [
+                ['tags', t('Tags and checks', 'Balises et checks')],
+                ['visual', t('Visual', 'Visuel')],
+              ] as const
+            ).map(([id, label]) => (
+              <button key={id} role="tab" aria-selected={mode === id} onClick={() => setMode(id)} className={`flex h-7 items-center rounded-md px-3 text-xs font-medium ${mode === id ? 'bg-raised text-fg shadow-[inset_0_0_0_1px_#2e2e33]' : 'text-faint hover:text-fg'}`}>
+                {label}
+              </button>
+            ))}
+          </div>
+          {mode === 'tags' && (
+            <button onClick={() => void run()} disabled={loading} className={btn}>
+              <Icon name="reload" size={12} className={loading ? 'animate-spin' : ''} />
+              {loading ? t('Reading…', 'Lecture…') : t('Re-read', 'Relire')}
+            </button>
+          )}
+        </div>
       </div>
+      {mode === 'visual' && targets.length >= 2 && <CompareVisual targets={targets} />}
       {targets.length < 2 && <p className="m-0 text-faint">
           {t(
             'You need at least two environments: open your local server, or wait for a preview to be ready.',
             'Il faut au moins deux environnements : ouvre ton serveur local, ou attends une preview prête.',
           )}
         </p>}
-      {columns && (
+      {mode === 'tags' && columns && (
         <div className="overflow-x-auto rounded-[10px] border border-line bg-card">
           <table className="w-full border-collapse text-xs">
             <thead>

@@ -536,6 +536,9 @@ async function createWindow() {
     ['theme-color', (m) => m.themeColor],
     ['lang', (m) => m.lang],
   ];
+  ipcMain.handle('compare:visual', (_e, targets: { env: EnvId; label: string; url: string }[], deviceId: string) =>
+    Promise.all(targets.map(async (x) => ({ ...x, ...(await devices.snapshot(x.url, deviceId)) }))),
+  );
   ipcMain.handle('compare:run', (_e, targets: { env: EnvId; label: string; url: string }[]): Promise<CompareColumn[]> =>
     Promise.all(
       targets.map(async (t) => {

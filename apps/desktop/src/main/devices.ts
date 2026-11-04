@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { BaseWindow, WebContentsView, ipcMain, screen, session, type Input, type Session } from 'electron';
+import { BaseWindow, BrowserWindow, WebContentsView, ipcMain, screen, session, type Input, type Session } from 'electron';
 import { HEAVY_IMAGE_BYTES, getLanguage, t, type RenderedDevice } from '@parakeet/core';
 import { globMatch } from '../shared/mocks';
 import type { ApiMock, DeviceLog, DevicePreset, DeviceSlot, ElementInfo, ElementMetrics, InspectState, MediaPrefs, PreviewEvent, ShortcutAction, Throttle } from '../shared/types';
@@ -258,6 +258,44 @@ export class DeviceManager {
       return (await d.view.webContents.executeJavaScript(code)) as ElementInfo | null;
     } catch {
       return null;
+    }
+  }
+
+  /**
+   * A page on another environment, rendered off screen like one of the devices: a PNG of the
+   * viewport (CSS px) and the Core Web Vitals. For the visual comparison of local, preview, prod.
+   */
+  async snapshot(url: string, presetId: string): Promise<{ image: string | null; vitals: RenderedDevice['vitals'] | null; error: string | null }> {
+    const preset = this.presets.find((p) => p.id === presetId);
+    if (!preset) return { image: null, vitals: null, error: 'unknown device' };
+    const { width, height } = this.viewport(preset);
+    const win = new BrowserWindow({ show: false, width, height, useContentSize: true, webPreferences: { offscreen: true, session: this.session, sandbox: true } });
+    try {
+      const wc = win.webContents;
+      wc.setAudioMuted(true);
+      if (preset.userAgent) wc.setUserAgent(preset.userAgent);
+      const timeout = <T,>(p: Promise<T>) => Promise.race([p, new Promise<never>((_, rej) => setTimeout(() => rej(new Error(t('timed out', 'délai dépassé'))), 20_000))]);
+      // Load first: emulating before the first navigation fails (the renderer process changes).
+      await timeout(wc.loadURL(url));
+      const dbg = wc.debugger;
+      dbg.attach('1.3');
+      await dbg.sendCommand('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: preset.mobile, screenWidth: width, screenHeight: height });
+      if (preset.touch) await dbg.sendCommand('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
+      const m = this.media;
+      await dbg.sendCommand('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: m.colorScheme === 'auto' ? '' : m.colorScheme }, { name: 'prefers-reduced-motion', value: m.reducedMotion ? 'reduce' : '' }] });
+      // Then load again, emulated, so the page and its Web Vitals are the device's.
+      await timeout(new Promise<void>((res) => {
+        wc.once('did-finish-load', () => res());
+        wc.reload();
+      }));
+      await new Promise((r) => setTimeout(r, 1200)); // late scripts, fonts, images
+      const measured = (await wc.executeJavaScript(MEASURE).catch(() => null)) as { vitals?: RenderedDevice['vitals'] } | null;
+      const { data } = (await dbg.sendCommand('Page.captureScreenshot', { format: 'png', clip: { x: 0, y: 0, width, height, scale: 1 } })) as { data: string };
+      return { image: `data:image/png;base64,${data}`, vitals: measured?.vitals ?? null, error: null };
+    } catch (e) {
+      return { image: null, vitals: null, error: (e as Error).message };
+    } finally {
+      win.destroy();
     }
   }
 
