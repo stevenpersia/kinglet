@@ -14,13 +14,16 @@ export const DEFAULTS: Settings = {
   scrollSync: true,
   landscape: false,
   throttle: { network: 'off', cpu: 1 },
-  language: 'en',
+  language: 'system',
   startup: 'restore',
   defaultSection: 'apercu',
   autoAnalyze: true,
   customDevices: [],
   deviceOrder: [],
   devicesPerProject: false,
+  onboarded: false,
+  claudePanel: true,
+  claudeAllowCommands: false,
 };
 
 /** Small JSON file in the user data folder (~/.config/Parakeet on Linux). */
@@ -39,7 +42,9 @@ export class SettingsStore {
     }
     const known = new Set([...PRESETS.map((p) => p.id), ...(stored.customDevices ?? []).map((d) => d.id)]);
     const active = (stored.active ?? DEFAULTS.active).filter((id) => known.has(id));
-    this.value = { ...DEFAULTS, ...stored, active: active.length ? active : DEFAULTS.active };
+    // People who used Parakeet before the first-run window don't need it.
+    const onboarded = stored.onboarded ?? (stored.projects?.length ?? 0) > 0;
+    this.value = { ...DEFAULTS, ...stored, onboarded, active: active.length ? active : DEFAULTS.active };
   }
 
   update(patch: Partial<Settings>): Settings {

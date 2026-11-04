@@ -129,6 +129,8 @@ const app = spawn(packaged ?? electronBin, args, {
     PARAKEET_VERCEL_API: vercelMock.url,
     PARAKEET_UPDATE_URL: 'http://127.0.0.1:5198/',
     PARAKEET_VERCEL_TEST_TOKEN: VERCEL_TOKEN,
+    PARAKEET_CLAUDE_BIN: join(root, 'fixtures/fake-claude/claude'),
+    PARAKEET_DEMO_DIR: demoDir,
   },
   stdio: ['ignore', 'pipe', 'inherit'],
 });

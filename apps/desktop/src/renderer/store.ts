@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { ClaudeProjectState, AnalyzeReport, CrawledPage, DevicePreset, EnvId, InitState, McpActivity, McpInfo, ParakeetApi, PhoneState, Project, Settings, ShareReport, UpdateState, VercelState, VercelTeamProject } from '../shared/types';
+import type { ChatAttachment, ChatState, GitHubState, ClaudeProjectState, AnalyzeReport, CrawledPage, DevicePreset, EnvId, InitState, McpActivity, McpInfo, ParakeetApi, PhoneState, Project, Settings, ShareReport, UpdateState, VercelState, VercelTeamProject } from '../shared/types';
 import { activeProject, closeProject as closeTab, openProject, patchProject, projectFromUrl } from '../shared/projects';
 import { envOf, envTargets, urlOnEnv, type ProjectVercel } from './lib/env';
 import { activeIds, allPresets } from '../shared/devices';
@@ -16,8 +16,8 @@ export const cleanError = (e: unknown) => String((e as Error)?.message ?? e).rep
 
 export type Section = 'apercu' | 'partage' | 'comparer' | 'deploiements' | 'checks' | 'reglages' | 'projets';
 /** Panel opened next to the devices from the left bar. */
-export type Panel = 'page' | 'checks';
-export type SettingsTab = 'general' | 'devices' | 'project' | 'vercel' | 'claude' | 'mcp' | 'updates';
+export type Panel = 'page' | 'checks' | 'claude';
+export type SettingsTab = 'general' | 'devices' | 'project' | 'vercel' | 'github' | 'claude' | 'mcp' | 'updates';
 export type LoadStatus = 'idle' | 'loading' | 'loaded' | 'failed';
 
 interface State {
@@ -42,6 +42,13 @@ interface State {
   /** Console drawer under the devices. */
   consoleOpen: boolean;
   settingsTab: SettingsTab;
+  /** Conversation with Claude, per project id. */
+  chats: Record<string, ChatState>;
+  /** Message being written in the Claude panel, per project id. */
+  drafts: Record<string, { text: string; attachments: ChatAttachment[] }>;
+  /** "Show Claude": the next click on a device points at a spot. */
+  pointing: boolean;
+  github: GitHubState | null;
   maximized: boolean;
   /** Device snapshots shown while native views are hidden under a menu. */
   frozen: Record<string, string> | null;
@@ -89,6 +96,11 @@ interface State {
   /** Open or close a panel next to the devices (opens the devices if needed). */
   togglePanel(p: Panel): void;
   toggleConsole(open?: boolean): void;
+  /** Open the Claude panel with a message (and things joined to it) ready to send. */
+  askClaude(text: string, attachments?: ChatAttachment[]): void;
+  setDraft(projectId: string, draft: { text: string; attachments: ChatAttachment[] }): void;
+  startPointing(): Promise<void>;
+  stopPointing(): void;
   /** Freeze native views as images while a menu or dialog covers the stage. */
   openOverlay(): Promise<void>;
   closeOverlay(): void;
@@ -101,7 +113,7 @@ let overlays = 0;
 export const useStore = create<State>((set, get) => ({
   ready: false,
   presets: [],
-  settings: { projects: [], openIds: [], activeId: null, recentUrls: [], active: [], scrollSync: true, landscape: false, throttle: { network: 'off', cpu: 1 }, language: 'en', startup: 'restore', defaultSection: 'apercu', autoAnalyze: true, customDevices: [], deviceOrder: [], devicesPerProject: false },
+  settings: { projects: [], openIds: [], activeId: null, recentUrls: [], active: [], scrollSync: true, landscape: false, throttle: { network: 'off', cpu: 1 }, language: 'en', startup: 'restore', defaultSection: 'apercu', autoAnalyze: true, customDevices: [], deviceOrder: [], devicesPerProject: false, onboarded: true, claudePanel: true, claudeAllowCommands: false },
   platform: null,
   url: null,
   detectedFrom: null,
@@ -118,6 +130,10 @@ export const useStore = create<State>((set, get) => ({
   panel: null,
   consoleOpen: false,
   settingsTab: 'general',
+  chats: {},
+  drafts: {},
+  pointing: false,
+  github: null,
   maximized: false,
   frozen: null,
   paletteOpen: false,
@@ -281,7 +297,35 @@ export const useStore = create<State>((set, get) => ({
     } else set({ panel: s.panel === p ? null : p });
     // Without automatic analysis, opening a panel reads the page.
     const after = get();
-    if (after.panel && !after.report && !after.analyzing && after.url && after.status === 'loaded') void after.analyze(after.url);
+    if (after.panel && after.panel !== 'claude' && !after.report && !after.analyzing && after.url && after.status === 'loaded') void after.analyze(after.url);
+  },
+
+  askClaude(text, attachments = []) {
+    const s = get();
+    const id = s.settings.activeId;
+    if (!id) return;
+    const prev = s.drafts[id] ?? { text: '', attachments: [] };
+    set({ drafts: { ...s.drafts, [id]: { text: !text ? prev.text : prev.text ? `${prev.text}\n${text}` : text, attachments: [...prev.attachments, ...attachments] } } });
+    if (s.section !== 'apercu') s.setSection('apercu');
+    set({ panel: 'claude' });
+  },
+
+  setDraft(projectId, draft) {
+    set({ drafts: { ...get().drafts, [projectId]: draft } });
+  },
+
+  async startPointing() {
+    const s = get();
+    if (s.pointing) return;
+    if (s.section !== 'apercu') s.setSection('apercu');
+    await s.openOverlay();
+    set({ pointing: true });
+  },
+
+  stopPointing() {
+    if (!get().pointing) return;
+    set({ pointing: false });
+    get().closeOverlay();
   },
 
   toggleConsole(open) {

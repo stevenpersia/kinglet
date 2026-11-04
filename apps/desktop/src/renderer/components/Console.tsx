@@ -43,7 +43,10 @@ export function ConsoleTab() {
 
   const send = () => {
     const labels = Object.fromEntries(devices.map((d) => [d.id, d.label]));
-    api().copy(consolePrompt(problems, { pageUrl: url, labels, throttled: throttleLabel(settings.throttle) }));
+    const prompt = consolePrompt(problems, { pageUrl: url, labels, throttled: throttleLabel(settings.throttle) });
+    // With the Claude panel: straight to Claude. Otherwise: ready to paste into Claude Code.
+    if (settings.claudePanel) return s.askClaude(prompt);
+    api().copy(prompt);
     setCopied(true);
     setTimeout(() => setCopied(false), 2500);
   };
@@ -86,7 +89,7 @@ export function ConsoleTab() {
             title={t('Copies the errors and what to do, ready to paste into Claude Code', 'Copie les erreurs et quoi faire, prêt à coller dans Claude Code')}
             className="inline-flex h-6 items-center gap-1.5 rounded-md bg-fg px-2 text-[11.5px] font-semibold whitespace-nowrap text-bg disabled:bg-raised disabled:font-medium disabled:text-ghost"
           >
-            {copied ? t('Copied ✓', 'Copié ✓') : t('Send to Claude', 'Envoyer à Claude')}
+            {copied ? t('Copied ✓', 'Copié ✓') : settings.claudePanel ? t('Ask Claude', 'Demander à Claude') : t('Send to Claude', 'Envoyer à Claude')}
           </button>
         </div>
         {copied && <p className="m-0 text-[11.5px] text-muted">{t('Paste it into Claude Code (or run /mcp__parakeet__fix_console).', 'Colle-le dans Claude Code (ou lance /mcp__parakeet__fix_console).')}</p>}

@@ -5,7 +5,8 @@ import { Icon, type IconName } from './Icons';
 import { DeviceSettings, GeneralSettings } from './GeneralSettings';
 import { ActivityList, CopyButton, SLASH } from './Mcp';
 import { ProjectSettings, VercelSettings } from './VercelSettings';
-import { ClaudeSettings } from './ClaudeSettings';
+import { ClaudePanelSettings, ClaudeSettings } from './ClaudeSettings';
+import { GitHubSettings } from './GitHubSettings';
 import { activeProject } from '../../shared/projects';
 
 const tools = (): [string, string][] => [
@@ -162,6 +163,7 @@ const NAV = (): { group: string; items: { id: SettingsTab; label: string; icon: 
       group: t('Integrations', 'Intégrations'),
       items: [
         { id: 'vercel', label: 'Vercel', icon: 'tri' },
+        { id: 'github', label: 'GitHub', icon: 'git' },
         { id: 'claude', label: 'Claude Code', icon: 'spark' },
         { id: 'mcp', label: t('MCP server', 'Serveur MCP'), icon: 'terminal' },
         { id: 'updates', label: t('Updates', 'Mises à jour'), icon: 'download' },
@@ -218,8 +220,14 @@ export function SettingsPage() {
             <ProjectSettings />
           ) : settingsTab === 'vercel' ? (
             <VercelSettings />
+          ) : settingsTab === 'github' ? (
+            <GitHubSettings />
           ) : settingsTab === 'claude' ? (
-            <ClaudeSettings />
+            <>
+              <ClaudePanelSettings />
+              <span className="label">{t('Session tracking', 'Suivi des sessions')}</span>
+              <ClaudeSettings />
+            </>
           ) : settingsTab === 'mcp' ? (
             <McpSettings />
           ) : (

@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { locale, t } from '@parakeet/core';
 import type { DevicePreset, Throttle } from '../../shared/types';
 import { BEZEL, fitScale, viewportOf } from '../lib/layout';
@@ -7,6 +7,8 @@ import { setActiveIds } from '../../shared/devices';
 import { ConsoleTab } from './Console';
 import { OldProdBanner } from './EnvSwitch';
 import { Icon } from './Icons';
+import { Welcome } from './Welcome';
+import type { Viewport } from '../lib/layout';
 
 const groups = (): { kind: DevicePreset['kind']; label: string }[] => [
   { kind: 'phone', label: t('Phones', 'Téléphones') },
@@ -133,7 +135,93 @@ function ThrottleMenu() {
 const seconds = (ms: number) => (ms < 1000 ? `${ms} ms` : `${(ms / 1000).toLocaleString(locale(), { maximumFractionDigits: 1 })} s`);
 const weight = (b: number) => (b < 1024 * 1024 ? `${Math.max(1, Math.round(b / 1024))} ${t('KB', 'Ko')}` : `${(b / 1024 / 1024).toLocaleString(locale(), { maximumFractionDigits: 1 })} ${t('MB', 'Mo')}`);
 
+/** The capture with a numbered pin where the user pointed (fx, fy: 0..1), as a JPEG. */
+async function pinned(src: string, fx: number, fy: number, n: number): Promise<string> {
+  const img = new Image();
+  img.src = src;
+  await img.decode();
+  const scale = Math.min(1, 900 / img.width);
+  const c = document.createElement('canvas');
+  c.width = Math.round(img.width * scale);
+  c.height = Math.round(img.height * scale);
+  const g = c.getContext('2d')!;
+  g.drawImage(img, 0, 0, c.width, c.height);
+  const r = Math.max(12, c.width / 30);
+  const x = fx * c.width;
+  const y = fy * c.height;
+  g.fillStyle = 'rgba(217,119,87,0.3)';
+  g.beginPath();
+  g.arc(x, y, r * 1.6, 0, Math.PI * 2);
+  g.fill();
+  g.fillStyle = '#d97757';
+  g.beginPath();
+  g.arc(x, y, r, 0, Math.PI * 2);
+  g.fill();
+  g.fillStyle = '#fff';
+  g.font = `600 ${Math.round(r * 1.1)}px sans-serif`;
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  g.fillText(String(n), x, y + 1);
+  return c.toDataURL('image/jpeg', 0.85);
+}
+
+/** "Show Claude": the click on a device becomes a capture with a pin, and the element under it. */
+async function pointAt(preset: DevicePreset, viewport: Viewport, el: HTMLElement, e: React.MouseEvent) {
+  const s = useStore.getState();
+  const r = el.getBoundingClientRect();
+  const fx = (e.clientX - r.left) / r.width;
+  const fy = (e.clientY - r.top) / r.height;
+  const x = Math.round(fx * viewport.width);
+  const y = Math.round(fy * viewport.height);
+  // What the device showed when pointing started (a DevTools capture would wait for the hidden view).
+  const shot = s.frozen?.[preset.id];
+  const id = s.settings.activeId;
+  const n = (id ? (s.drafts[id]?.attachments.filter((a) => a.kind === 'image').length ?? 0) : 0) + 1;
+  const [info, image] = await Promise.all([api().elementAt(preset.id, x, y), shot ? pinned(shot, fx, fy, n).catch(() => null) : Promise.resolve(null)]);
+  s.stopPointing();
+  const where = `${preset.label} (${viewport.width}×${viewport.height})`;
+  s.askClaude('', [
+    ...(image ? [{ kind: 'image' as const, label: t(`${preset.label} · pin ${n}`, `${preset.label} · épingle ${n}`), dataUrl: image }] : []),
+    {
+      kind: 'context' as const,
+      label: t(`pointed-element-${n}`, `element-montre-${n}`),
+      text: [
+        `Pin ${n} on ${where}, at x=${x}, y=${y} CSS px (page ${s.url ?? ''}).`,
+        info ? `Element: ${info.selector} <${info.tag}>, box ${Math.round(info.rect.x)},${Math.round(info.rect.y)} ${Math.round(info.rect.width)}×${Math.round(info.rect.height)}` : 'Element: unknown',
+        info?.text ? `Text: ${info.text}` : '',
+        info?.html ? `HTML: ${info.html}` : '',
+      ]
+        .filter(Boolean)
+        .join('\n'),
+    },
+  ]);
+}
+
+function PointingBar() {
+  const stopPointing = useStore((s) => s.stopPointing);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && stopPointing();
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [stopPointing]);
+  return (
+    <div role="status" className="absolute top-3 right-4 left-4 z-20 flex items-center gap-2.5 rounded-lg border border-[rgba(217,119,87,0.35)] bg-[#1c1513] shadow-xl shadow-black/50 px-3 py-2 text-[12.5px] text-muted">
+      <Icon name="target" size={13} className="text-[#d97757]" />
+      <span className="flex-1">{t('Click a spot on a device to show it to Claude.', 'Clique un endroit d’un appareil pour le montrer à Claude.')}</span>
+      <button onClick={stopPointing} className="h-7 rounded-ui border border-[#2a2a2f] bg-active px-2.5 text-xs font-medium text-fg hover:border-line-strong">
+        {t('Cancel (Esc)', 'Annuler (Échap)')}
+      </button>
+    </div>
+  );
+}
+
 export function Stage() {
+  const state = useStore();
+  if (!state.url && state.status === 'idle') return <Welcome />;
+  return <Devices />;
+}
+
+function Devices() {
   const state = useStore();
   const { settings, frozen, perf, logs } = state;
   const devices = activePresets(state);
@@ -175,8 +263,9 @@ export function Stage() {
   });
 
   return (
-    <main className="stage-bg flex min-w-0 flex-1 flex-col">
+    <main className="stage-bg relative flex min-w-0 flex-1 flex-col">
       <OldProdBanner />
+      {state.pointing && <PointingBar />}
       <DeviceToolbar scale={scale} />
       <div ref={stageRef} className="flex min-h-0 flex-1 items-center justify-center gap-11 overflow-hidden px-6 pt-2 pb-6">
         {items.map(({ preset, viewport }) => {
@@ -192,8 +281,9 @@ export function Stage() {
                     if (el) slotRefs.current.set(preset.id, el);
                     else slotRefs.current.delete(preset.id);
                   }}
-                  className="overflow-hidden bg-card"
+                  className={`overflow-hidden bg-card ${state.pointing ? 'cursor-crosshair ring-2 ring-[#d97757]/60' : ''}`}
                   style={{ width: w, height: h, borderRadius: radius }}
+                  onClick={state.pointing ? (e) => void pointAt(preset, viewport, e.currentTarget, e) : undefined}
                 >
                   {frozen?.[preset.id] && <img src={frozen[preset.id]} alt="" className="block size-full object-cover object-top" />}
                 </div>

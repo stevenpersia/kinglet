@@ -26,7 +26,9 @@ Voir son site sur tous les écrans (iPhone, Android, iPad, desktop), en local, e
   - **Prod** a son menu, comme Preview : la prod actuelle (celle que sert le domaine) en tête, avec un badge « En ligne », puis les prods précédentes. Une ancienne prod s'ouvre sur son adresse Vercel ; le bouton passe en orange et un bandeau propose de revenir à la prod actuelle.
   - **Déploiements** liste les builds, rafraîchis toutes les 30 s.
   - **Comparer** met côte à côte les balises et le score des checks de la page sur chaque environnement, avec les différences surlignées.
-- **Claude Code (MCP)** : Claude voit ce que Parakeet voit. Il peut capturer les appareils, lire les balises, lancer les checks et vérifier lui-même ses corrections (détails plus bas).
+- **Claude dans Parakeet** : un panneau à côté des appareils (`Ctrl J`) pour demander une retouche ou une nouvelle fonctionnalité. Parakeet lance Claude Code dans le dossier du projet, avec le serveur MCP déjà branché : Claude modifie le code puis vérifie le résultat sur les appareils. « Montrer » pose une épingle sur un appareil et joint la capture et l'élément pointé. Des boutons « Demander à Claude » sur la console, les checks et les aperçus de partage préremplissent le message. « Terminal » copie la commande qui reprend la même session dans un terminal (détails plus bas).
+- **Claude Code (MCP)** : dans le terminal, Claude voit aussi ce que Parakeet voit. Il peut capturer les appareils, lire les balises, lancer les checks et vérifier lui-même ses corrections (détails plus bas).
+- **Premier lancement** : un accueil guidé en 4 étapes, toutes facultatives (langue et appareils, comptes Vercel et GitHub, premier projet avec son dossier trouvé tout seul, Claude). Sans site ouvert, un écran d'accueil liste les serveurs de dev qui tournent.
 - **Projets en onglets** : chaque projet (Vercel ou simple adresse locale) a son onglet en haut, avec le favicon du site, avec ce qui s'y passe : Claude travaille, attend ta réponse, a terminé (« à voir »), build en cours ou en erreur. `Ctrl P` ouvre n'importe quel projet Vercel de tes équipes, ou une adresse. Un seul jeu d'appareils est affiché à la fois, celui de l'onglet actif ; chaque projet garde sa dernière page et son serveur local.
 - **Tous les projets** : une carte par projet ouvert (dernière capture, statut de Claude, dernier déploiement) et le fil d'activité de Claude sur tous les projets.
 - **Suivi de Claude Code** (à activer dans les réglages) : des hooks de Claude Code préviennent Parakeet de chaque demande, fichier modifié et fin de tâche, avec une notification système quand Claude termine ou qu'un build échoue (détails plus bas).
@@ -162,6 +164,10 @@ pnpm --filter @parakeet/web preview    # http://localhost:4173
 ```
 
 Ses tests la passent aux 24 checks et aux 7 aperçus de partage de Parakeet : tout doit être vert.
+
+## Claude dans Parakeet
+
+Il faut Claude Code installé sur l'ordinateur (`npm install -g @anthropic-ai/claude-code`) et connecté à ton compte ; Parakeet le cherche dans le `PATH`, `~/.local/bin` et `~/.claude/local`. Chaque message lance `claude -p` dans le dossier du projet, avec le serveur MCP de Parakeet et la session précédente reprise. Par défaut, Claude peut modifier les fichiers du dossier et utiliser Parakeet ; les commandes du shell (`npm install`, `git`…) sont bloquées et signalées dans le panneau. **Réglages → Claude Code → Laisser Claude lancer des commandes** les autorise sans demander.
 
 ## Suivi de Claude Code
 

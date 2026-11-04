@@ -51,6 +51,22 @@ const api: ParakeetApi = {
     qr: (url, local) => ipcRenderer.invoke('phone:qr', url, local),
   },
   windowControl: (action) => ipcRenderer.send('window:control', action),
+  localServers: () => ipcRenderer.invoke('detect:servers'),
+  findFolder: (vercelProjectId) => ipcRenderer.invoke('projects:find-folder', vercelProjectId),
+  elementAt: (deviceId, x, y) => ipcRenderer.invoke('preview:element-at', deviceId, x, y),
+  github: {
+    state: () => ipcRenderer.invoke('github:state'),
+    connect: (token) => ipcRenderer.invoke('github:connect', token),
+    disconnect: () => ipcRenderer.invoke('github:disconnect'),
+  },
+  chat: {
+    cli: () => ipcRenderer.invoke('chat:cli'),
+    state: (projectId) => ipcRenderer.invoke('chat:state', projectId),
+    send: (projectId, text, attachments) => ipcRenderer.invoke('chat:send', projectId, text, attachments),
+    stop: (projectId) => ipcRenderer.send('chat:stop', projectId),
+    clear: (projectId) => ipcRenderer.send('chat:clear', projectId),
+    installMcp: () => ipcRenderer.invoke('chat:install-mcp'),
+  },
   onEvent: (cb) => {
     const listener = (_e: unknown, ev: PreviewEvent) => cb(ev);
     ipcRenderer.on('app:event', listener);
