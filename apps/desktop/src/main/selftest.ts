@@ -608,6 +608,20 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     await js(`window.parakeet.updateSettings({ media: { colorScheme: 'auto', reducedMotion: false, moreContrast: false } })`);
     criteria.push({ id: 'media', ok: mediaOn && mediaOff, detail: `sombre + animations réduites + contraste : ${mediaOn ? 'vus par les pages' : 'absents'} · clair : ${mediaOff ? 'ok' : 'échec'}` });
 
+    // 26-inspect. Inspector: hover the title on one device, it is measured on all of them.
+    await clickText('main button', 'Inspect');
+    await waitFor(() => js<boolean>(`!!document.querySelector('[aria-label=Inspector]')`), 3000);
+    await sleep(800);
+    const inspected0 = devices.entries()[0]!;
+    const r = (await inspected0.view.webContents.executeJavaScript(`(() => { const b = document.querySelector('h1').getBoundingClientRect(); return { x: b.left + 8, y: b.top + 8 }; })()`)) as { x: number; y: number };
+    inspected0.view.webContents.sendInputEvent({ type: 'mouseMove', x: Math.round(r.x * inspected0.scale), y: Math.round(r.y * inspected0.scale) });
+    const rows = await waitFor(() => js<boolean>(`[...document.querySelectorAll('[aria-label=Inspector] tbody tr')].length === ${devices.entries().length} && [...document.querySelectorAll('[aria-label=Inspector] tbody tr')].every((tr) => /[0-9]+ × [0-9]+/.test(tr.textContent))`), 5000);
+    const inspectText = await js<string>(`document.querySelector('[aria-label=Inspector]')?.textContent ?? ''`);
+    await shot('32-inspecteur');
+    await js(`document.querySelector('[aria-label="Stop inspecting"]')?.click()`);
+    const inspectOff = await waitFor(() => js<boolean>(`!document.querySelector('[aria-label=Inspector]')`), 3000);
+    criteria.push({ id: 'inspector', ok: rows && inspectText.includes('h1') && inspectOff, detail: inspectText.slice(0, 160) });
+
     // 26a. Claude panel: Claude Code (a stand-in here) in the project folder, with Parakeet's MCP, a pointed spot joined.
     await js(`(async () => {
       const s = await window.parakeet.updateSettings({});

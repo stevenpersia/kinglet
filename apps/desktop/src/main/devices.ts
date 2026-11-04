@@ -1,7 +1,7 @@
 import { join } from 'node:path';
 import { BaseWindow, WebContentsView, ipcMain, screen, session, type Input, type Session } from 'electron';
 import { HEAVY_IMAGE_BYTES, getLanguage, t, type RenderedDevice } from '@parakeet/core';
-import type { DeviceLog, DevicePreset, DeviceSlot, ElementInfo, MediaPrefs, PreviewEvent, ShortcutAction, Throttle } from '../shared/types';
+import type { DeviceLog, DevicePreset, DeviceSlot, ElementInfo, ElementMetrics, InspectState, MediaPrefs, PreviewEvent, ShortcutAction, Throttle } from '../shared/types';
 
 export const PREVIEW_PARTITION = 'persist:parakeet-preview';
 
@@ -184,6 +184,23 @@ export class DeviceManager {
     private presets: DevicePreset[],
     private emit: (e: PreviewEvent) => void,
   ) {
+    // Inspector: the element hovered on one device is shown and measured on all of them.
+    const show = (selector: string, picked: boolean) => {
+      if (this.inspectLocked && !picked) return;
+      this.inspected = { selector, picked, devices: {} };
+      for (const d of this.devices.values()) d.view.webContents.send('device:inspect-show', selector, picked);
+    };
+    ipcMain.on('device:inspect-hover', (_e, selector: string) => show(selector, false));
+    ipcMain.on('device:inspect-pick', (_e, selector: string) => {
+      this.inspectLocked = !(this.inspectLocked && this.inspected?.selector === selector);
+      show(selector, this.inspectLocked);
+    });
+    ipcMain.on('device:inspect-metrics', (event, selector: string, m: ElementMetrics | null) => {
+      const d = [...this.devices.values()].find((x) => x.view.webContents.id === event.sender.id);
+      if (!d || !this.inspected || this.inspected.selector !== selector) return;
+      this.inspected.devices[d.preset.id] = m;
+      this.emit({ type: 'inspect', state: { ...this.inspected, devices: { ...this.inspected.devices } } });
+    });
     ipcMain.on('device:scroll', (event, ratio: number) => {
       if (process.env.PARAKEET_DEBUG) console.log(`[scroll] from ${event.sender.id} ratio ${ratio}`);
       if (!this.scrollSync) return;
@@ -321,6 +338,7 @@ export class DeviceManager {
       if (this.isPrimary(preset.id) && this.url) this.emit({ type: 'loading', url: this.url });
     });
     wc.on('did-finish-load', () => {
+      if (this.inspecting) wc.send('device:inspect-mode', true);
       if (wc.getURL().startsWith('data:')) return;
       if (this.isPrimary(preset.id)) this.emit({ type: 'loaded', url: wc.getURL() });
       // loadEventEnd is set once the load handlers have run.
@@ -420,6 +438,22 @@ export class DeviceManager {
     for (const d of this.devices.values()) void this.applyThrottle(d);
   }
 
+  private inspecting = false;
+  private inspectLocked = false;
+  private inspected: InspectState | null = null;
+
+  setInspect(on: boolean) {
+    this.inspecting = on;
+    this.inspectLocked = false;
+    this.inspected = null;
+    for (const d of this.devices.values()) {
+      d.view.webContents.send('device:inspect-mode', on);
+      // Touch devices turn the mouse into touches: no hover. The inspector needs a mouse.
+      if (d.preset.touch && d.view.webContents.debugger.isAttached())
+        void d.view.webContents.debugger.sendCommand('Emulation.setEmitTouchEventsForMouse', { enabled: !on, configuration: 'mobile' }).catch(() => undefined);
+    }
+  }
+
   /** Dark mode, reduced motion, high contrast: what the page sees in its CSS media queries. */
   setMedia(m: MediaPrefs) {
     this.media = m;
@@ -498,7 +532,7 @@ export class DeviceManager {
       screenOrientation: landscape ? { type: 'landscapePrimary', angle: 90 } : { type: 'portraitPrimary', angle: 0 },
     });
     await send('Emulation.setTouchEmulationEnabled', { enabled: preset.touch, maxTouchPoints: preset.touch ? 5 : 1 });
-    await send('Emulation.setEmitTouchEventsForMouse', { enabled: preset.touch, configuration: preset.touch ? 'mobile' : 'desktop' });
+    await send('Emulation.setEmitTouchEventsForMouse', { enabled: preset.touch && !this.inspecting, configuration: preset.touch ? 'mobile' : 'desktop' });
     if (preset.userAgent) {
       const platform = preset.userAgent.includes('Android') ? 'Linux armv81' : preset.userAgent.includes('iPhone') ? 'iPhone' : 'MacIntel';
       await send('Emulation.setUserAgentOverride', { userAgent: preset.userAgent, platform });

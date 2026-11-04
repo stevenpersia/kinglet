@@ -54,6 +54,7 @@ const api: ParakeetApi = {
   localServers: () => ipcRenderer.invoke('detect:servers'),
   findFolder: (vercelProjectId) => ipcRenderer.invoke('projects:find-folder', vercelProjectId),
   elementAt: (deviceId, x, y) => ipcRenderer.invoke('preview:element-at', deviceId, x, y),
+  setInspect: (on) => ipcRenderer.send('preview:inspect', on),
   github: {
     state: () => ipcRenderer.invoke('github:state'),
     pullRequests: (repo, branches) => ipcRenderer.invoke('github:prs', repo, branches),

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { ChatAttachment, ChatState, GitHubState, ClaudeProjectState, AnalyzeReport, CrawledPage, DevicePreset, EnvId, InitState, McpActivity, McpInfo, ParakeetApi, PhoneState, Project, Settings, ShareReport, UpdateState, VercelState, VercelTeamProject } from '../shared/types';
+import type { ChatAttachment, ChatState, GitHubState, InspectState, ClaudeProjectState, AnalyzeReport, CrawledPage, DevicePreset, EnvId, InitState, McpActivity, McpInfo, ParakeetApi, PhoneState, Project, Settings, ShareReport, UpdateState, VercelState, VercelTeamProject } from '../shared/types';
 import { activeProject, closeProject as closeTab, openProject, patchProject, projectFromUrl } from '../shared/projects';
 import { envOf, envTargets, urlOnEnv, type ProjectVercel } from './lib/env';
 import { activeIds, allPresets } from '../shared/devices';
@@ -49,6 +49,10 @@ interface State {
   /** "Show Claude": the next click on a device points at a spot. */
   pointing: boolean;
   github: GitHubState | null;
+  /** Inspector mode, and the element hovered or picked. */
+  inspecting: boolean;
+  inspect: InspectState | null;
+  toggleInspect(on?: boolean): void;
   maximized: boolean;
   /** Device snapshots shown while native views are hidden under a menu. */
   frozen: Record<string, string> | null;
@@ -134,6 +138,13 @@ export const useStore = create<State>((set, get) => ({
   drafts: {},
   pointing: false,
   github: null,
+  inspecting: false,
+  inspect: null,
+  toggleInspect(on) {
+    const next = on ?? !get().inspecting;
+    set({ inspecting: next, inspect: null });
+    api().setInspect(next);
+  },
   maximized: false,
   frozen: null,
   paletteOpen: false,

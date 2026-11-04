@@ -293,7 +293,8 @@ export type PreviewEvent =
   | { type: 'perf'; perf: DevicePerf }
   | { type: 'favicon'; url: string; pageUrl: string }
   | { type: 'github'; state: GitHubState }
-  | { type: 'chat'; state: ChatState };
+  | { type: 'chat'; state: ChatState }
+  | { type: 'inspect'; state: InspectState };
 
 /** The pull request opened from a branch, and the state of its CI. */
 export interface PullRequest {
@@ -353,6 +354,31 @@ export interface ChatApproval {
   detail: string;
   /** The full input, readable (command, file, …). */
   input: string;
+}
+
+/** How an element looks on one device (inspector). null: not on this device. */
+export interface ElementMetrics {
+  tag: string;
+  text: string;
+  shown: boolean;
+  width: number;
+  height: number;
+  x: number;
+  y: number;
+  margin: string;
+  padding: string;
+  font: string;
+  lineHeight: string;
+  color: string;
+  background: string;
+  display: string;
+}
+
+/** The element hovered (or picked) in inspector mode, measured on every device. */
+export interface InspectState {
+  selector: string;
+  picked: boolean;
+  devices: Record<string, ElementMetrics | null>;
 }
 
 /** What is under a point of a device's page. */
@@ -434,6 +460,8 @@ export interface ParakeetApi {
   localServers(): Promise<LocalServer[]>;
   /** Folder on disk of a Vercel project (its .vercel/project.json), searched in the usual code folders. */
   findFolder(vercelProjectId: string): Promise<string | null>;
+  /** Inspector mode: hover an element on a device, see it on all of them. */
+  setInspect(on: boolean): void;
   /** The element under a point (CSS px) of a device's page. */
   elementAt(deviceId: string, x: number, y: number): Promise<ElementInfo | null>;
   github: {

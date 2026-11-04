@@ -8,6 +8,7 @@ import { ConsoleTab } from './Console';
 import { OldProdBanner } from './EnvSwitch';
 import { Icon } from './Icons';
 import { Welcome } from './Welcome';
+import { InspectBar } from './InspectBar';
 import type { Viewport } from '../lib/layout';
 
 const groups = (): { kind: DevicePreset['kind']; label: string }[] => [
@@ -49,6 +50,15 @@ function DeviceToolbar({ scale }: { scale: number }) {
         </div>
       ))}
       <div className="ml-auto flex items-center gap-1.5">
+        <button
+          aria-pressed={state.inspecting}
+          onClick={() => state.toggleInspect()}
+          title={t('Inspect an element on every device', 'Inspecter un élément sur tous les appareils')}
+          className={chip(state.inspecting)}
+        >
+          <Icon name="target" size={13} />
+          {t('Inspect', 'Inspecter')}
+        </button>
         <MediaMenu />
         <ThrottleMenu />
         <button aria-pressed={settings.landscape} onClick={() => void updateSettings({ landscape: !settings.landscape })} title={t('Landscape (Ctrl+Shift+O)', 'Paysage (Ctrl+Maj+O)')} className={chip(settings.landscape)}>
@@ -395,6 +405,7 @@ function Devices() {
           );
         })}
       </div>
+      {state.inspecting && <InspectBar />}
       {state.consoleOpen && <ConsoleDrawer />}
     </main>
   );

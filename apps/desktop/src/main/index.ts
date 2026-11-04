@@ -438,6 +438,7 @@ async function createWindow() {
   // First run: local servers and their folders, GitHub.
   ipcMain.handle('detect:servers', () => detectLocalServers());
   ipcMain.handle('projects:find-folder', (_e, vercelProjectId: string) => findVercelFolder(vercelProjectId));
+  ipcMain.on('preview:inspect', (_e, on: boolean) => devices.setInspect(on));
   ipcMain.handle('preview:element-at', (_e, id: string, x: number, y: number) => devices.elementAt(id, x, y));
 
   const github = new GitHubService(app.getPath('userData'), (state) => emit({ type: 'github', state }));
