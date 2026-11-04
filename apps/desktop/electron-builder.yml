@@ -1,0 +1,43 @@
+appId: dev.parakeet.app
+productName: Parakeet
+executableName: parakeet
+artifactName: ${productName}-${version}-${arch}.${ext}
+directories:
+  output: dist
+  buildResources: build
+# Everything the app needs is bundled by electron-vite into out/.
+files:
+  - out/**
+  - package.json
+  - build/icon.png
+asar: true
+npmRebuild: false
+linux:
+  target:
+    - AppImage
+    - pacman
+  category: Development
+  syncDesktopName: true
+  icon: build/icon.png
+  synopsis: Voir son site sur tous les écrans
+  description: Aperçu multi-appareils, balises de partage et checks pour les sites construits avec Claude.
+  maintainer: Steven Persia
+  desktop:
+    entry:
+      StartupWMClass: parakeet
+      Keywords: preview;responsive;mobile;opengraph;
+publish: null
+pacman:
+  packageName: parakeet
+  # electron-builder's defaults name packages that are gone from Arch (http-parser, libappindicator-gtk3…).
+  depends:
+    - gtk3
+    - nss
+    - alsa-lib
+    - libxss
+    - libxtst
+    - libnotify
+    - xdg-utils
+    - at-spi2-core
+    - libdrm
+    - mesa

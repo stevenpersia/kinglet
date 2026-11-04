@@ -57,9 +57,11 @@ if (!display && !process.env.WAYLAND_DISPLAY) {
 }
 
 // 4. Parakeet
-const args = ['.'];
+// PARAKEET_BIN=dist/linux-unpacked/parakeet runs the acceptance test against the packaged app.
+const packaged = process.env.PARAKEET_BIN ? resolve(appDir, process.env.PARAKEET_BIN) : null;
+const args = packaged ? [] : ['.'];
 if (process.getuid?.() === 0) args.push('--no-sandbox'); // Chromium refuses to sandbox as root (containers)
-const app = spawn(electronBin, args, {
+const app = spawn(packaged ?? electronBin, args, {
   cwd: appDir,
   env: {
     ...process.env,

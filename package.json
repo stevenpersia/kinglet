@@ -7,6 +7,7 @@
     "demo": "pnpm --filter @parakeet/demo-site dev",
     "test": "pnpm -r --if-present test",
     "typecheck": "pnpm -r --if-present typecheck",
-    "selftest": "pnpm --filter @parakeet/desktop selftest"
+    "selftest": "pnpm --filter @parakeet/desktop selftest",
+    "dist": "pnpm --filter @parakeet/desktop dist"
   }
 }

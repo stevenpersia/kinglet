@@ -25,12 +25,20 @@ export interface DeviceSlot {
   scale: number;
 }
 
+export interface Settings {
+  url: string | null;
+  recentUrls: string[];
+  active: string[];
+  scrollSync: boolean;
+  landscape: boolean;
+}
+
 export interface InitState {
   presets: DevicePreset[];
-  active: string[];
+  settings: Settings;
   url: string | null;
   detectedFrom: string | null;
-  platform: { sessionType: string; electron: string; chrome: string };
+  platform: { sessionType: string; electron: string; chrome: string; version: string; isDev: boolean };
 }
 
 export interface ShareReport {
@@ -39,19 +47,32 @@ export interface ShareReport {
   issues: Issue[];
 }
 
+export type ShortcutAction = 'reload' | 'focus-url' | 'palette' | 'toggle-scroll-sync' | 'toggle-landscape' | 'settings';
+
 export type PreviewEvent =
   | { type: 'loaded'; url: string }
+  | { type: 'loading'; url: string }
   | { type: 'failed'; url: string; error: string }
-  | { type: 'navigated'; url: string };
+  | { type: 'navigated'; url: string }
+  | { type: 'shortcut'; action: ShortcutAction }
+  | { type: 'window'; maximized: boolean };
 
 export interface ParakeetApi {
   init(): Promise<InitState>;
   navigate(url: string): Promise<void>;
   reload(): Promise<void>;
-  setActive(ids: string[]): Promise<void>;
+  updateSettings(patch: Partial<Settings>): Promise<Settings>;
   setLayout(slots: DeviceSlot[]): void;
-  setScrollSync(on: boolean): void;
+  /** Hide the native device views (e.g. on another section). */
+  setPreviewsVisible(visible: boolean): void;
+  /**
+   * Native views always draw above the UI. Before showing a menu or a dialog over the stage,
+   * freeze: views are captured as images and hidden. Returns one data URL per device id.
+   */
+  freeze(): Promise<Record<string, string>>;
+  unfreeze(): void;
+  openDevtools(deviceId: string): void;
   readShare(url: string): Promise<ShareReport>;
   windowControl(action: 'minimize' | 'maximize' | 'close'): void;
-  onPreview(cb: (e: PreviewEvent) => void): () => void;
+  onEvent(cb: (e: PreviewEvent) => void): () => void;
 }

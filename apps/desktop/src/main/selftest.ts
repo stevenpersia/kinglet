@@ -134,6 +134,51 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     await shot('04-fenetre-redimensionnee');
     win.setSize(1440, 900);
     await sleep(600);
+
+    // ---- Phase 1 ----
+    const ui = (e: object) => win.webContents.send('app:event', e);
+
+    // 7. Landscape, driven through the UI like the shortcut would
+    ui({ type: 'shortcut', action: 'toggle-landscape' });
+    const rotated = await waitFor(async () => (await evalAll()).every((d) => d.preset.kind === 'desktop' || d.innerWidth === d.preset.height), 5000);
+    await sleep(800);
+    await shot('05-paysage');
+    criteria.push({ id: 'landscape', ok: rotated, detail: (await evalAll()).map((d) => `${d.id} ${d.innerWidth}×${d.innerHeight}`).join(', ') });
+    await sleep(500); // settings are written 300 ms after a change
+    const settingsFile = join(app.getPath('userData'), 'settings.json');
+    let persisted = false;
+    try {
+      persisted = JSON.parse(readFileSync(settingsFile, 'utf8')).landscape === true;
+    } catch {
+      /* not written */
+    }
+    criteria.push({ id: 'settings-persisted', ok: persisted, detail: persisted ? 'paysage enregistré dans settings.json' : 'settings.json non mis à jour' });
+    ui({ type: 'shortcut', action: 'toggle-landscape' });
+    await waitFor(async () => (await evalAll()).every((d) => d.innerWidth === d.preset.width), 5000);
+
+    // 8. Command palette over the stage: native views must be frozen (hidden, replaced by images)
+    ui({ type: 'shortcut', action: 'palette' });
+    const hidden = await waitFor(() => devices.entries().every((d) => !d.view.getVisible()), 3000);
+    await sleep(600);
+    await shot('06-palette');
+    ui({ type: 'shortcut', action: 'palette' });
+    const shown = await waitFor(() => devices.entries().every((d) => d.view.getVisible()), 3000);
+    criteria.push({ id: 'palette-freeze', ok: hidden && shown, detail: `vues masquées pendant la palette : ${hidden}, réaffichées après : ${shown}` });
+
+    // 9. Navigation sync: a link clicked in the first device is followed by the others
+    if (first && others.length) {
+      await first.view.webContents.executeJavaScript(`(document.getElementById('link-atelier-mobile') || document.getElementById('link-atelier')).click()`);
+      const followed = await waitFor(() => devices.entries().every((d) => d.view.webContents.getURL().endsWith('/atelier.html')), 6000);
+      await sleep(1200);
+      await shot('07-navigation-synchro');
+      criteria.push({ id: 'navigation-sync', ok: followed, detail: devices.entries().map((d) => `${d.preset.id} → ${new URL(d.view.webContents.getURL()).pathname}`).join(', ') });
+    }
+
+    // 10. Partage section
+    ui({ type: 'shortcut', action: 'focus-url' });
+    await win.webContents.executeJavaScript(`[...document.querySelectorAll('nav button')].find((b) => b.textContent.includes('Partage'))?.click()`);
+    await sleep(1200);
+    await shot('08-section-partage');
   } catch (e) {
     report['error'] = (e as Error).stack;
   }

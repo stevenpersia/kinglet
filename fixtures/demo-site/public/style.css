@@ -15,3 +15,4 @@ h1{font-family:Georgia,serif;font-weight:500;font-size:clamp(30px,6vw,56px);line
 @media (min-width:700px){.grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 article{display:flex;flex-direction:column;gap:4px;font-size:14px}
 .img{aspect-ratio:1;border-radius:12px;background:#E2D7CC}
+a{color:inherit}

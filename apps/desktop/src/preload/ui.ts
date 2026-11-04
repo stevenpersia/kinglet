@@ -5,15 +5,18 @@ const api: ParakeetApi = {
   init: () => ipcRenderer.invoke('app:init'),
   navigate: (url) => ipcRenderer.invoke('preview:navigate', url),
   reload: () => ipcRenderer.invoke('preview:reload'),
-  setActive: (ids) => ipcRenderer.invoke('preview:set-active', ids),
+  updateSettings: (patch) => ipcRenderer.invoke('settings:update', patch),
   setLayout: (slots) => ipcRenderer.send('preview:layout', slots),
-  setScrollSync: (on) => ipcRenderer.send('preview:scroll-sync', on),
+  setPreviewsVisible: (visible) => ipcRenderer.send('preview:visible', visible),
+  freeze: () => ipcRenderer.invoke('preview:freeze'),
+  unfreeze: () => ipcRenderer.send('preview:unfreeze'),
+  openDevtools: (id) => ipcRenderer.send('preview:devtools', id),
   readShare: (url) => ipcRenderer.invoke('share:read', url),
   windowControl: (action) => ipcRenderer.send('window:control', action),
-  onPreview: (cb) => {
+  onEvent: (cb) => {
     const listener = (_e: unknown, ev: PreviewEvent) => cb(ev);
-    ipcRenderer.on('preview:event', listener);
-    return () => ipcRenderer.removeListener('preview:event', listener);
+    ipcRenderer.on('app:event', listener);
+    return () => ipcRenderer.removeListener('app:event', listener);
   },
 };
 
