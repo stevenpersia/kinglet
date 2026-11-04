@@ -1,3 +1,4 @@
+import type { ConsoleEntry } from '@parakeet/core';
 import { readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
@@ -125,6 +126,10 @@ export class AppControl {
   screenshot(device: string | null) {
     return this.call<{ shots: AppShot[] }>('POST', '/screenshot', { device });
   }
+  logs() {
+    return this.call<{ url: string | null; throttle: { network: string; cpu: number }; logs: ConsoleEntry[] }>('GET', '/logs');
+  }
+
   deployments() {
     return this.call<{ project: { name: string; productionUrl: string | null } | null; deployments: Deployment[] }>('GET', '/deployments');
   }

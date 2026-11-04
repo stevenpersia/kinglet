@@ -24,7 +24,7 @@ export function App() {
       const s = useStore.getState();
       switch (e.type) {
         case 'loading':
-          useStore.setState({ status: 'loading', error: null });
+          useStore.setState({ status: 'loading', error: null, perf: {} });
           break;
         case 'loaded':
           useStore.setState({ status: 'loaded', url: e.url, error: null });
@@ -66,6 +66,12 @@ export function App() {
         case 'update':
           useStore.setState({ update: e.state });
           break;
+        case 'logs':
+          useStore.setState((st) => ({ logs: [...st.logs.filter((l) => !e.cleared.includes(l.deviceId)), ...e.entries].slice(-1500) }));
+          break;
+        case 'perf':
+          useStore.setState((st) => ({ perf: { ...st.perf, [e.perf.deviceId]: e.perf } }));
+          break;
         case 'claude':
           useStore.setState({ claude: e.projects });
           break;
@@ -91,6 +97,7 @@ export function App() {
     void store.init().then(async () => {
       await store.loadMcp();
       const claude = await api().claude.state();
+      useStore.setState({ logs: await api().logs() });
       useStore.setState({ vercel: await api().vercel.state(), update: await api().update.state(), claude: claude.projects, claudeHooks: claude.hooks });
     });
     return off;

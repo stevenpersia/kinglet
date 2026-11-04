@@ -50,7 +50,7 @@ function Card({ project, index, st }: { project: Project; index: number; st: Pro
       </button>
       <div className="flex min-w-0 flex-1 flex-col gap-2.5">
         <div className="flex items-center gap-2.5">
-          <ProjectBadge name={project.name} size={22} />
+          <ProjectBadge name={project.name} favicon={project.favicon} size={22} />
           <h2 className="m-0 min-w-0 flex-1 truncate text-[15px] font-semibold">{project.name}</h2>
           {index < 9 && <span className="font-mono text-[11px] text-faint">Ctrl {index + 1}</span>}
         </div>

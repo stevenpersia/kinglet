@@ -37,3 +37,5 @@ export {
   type DeploymentState,
 } from './vercel.ts';
 export { fetchExplained } from './net.ts';
+export { t, setLanguage, getLanguage, locale, ago, type Language } from './i18n.ts';
+export { consolePrompt, formatEntries, groupEntries, type ConsoleEntry } from './console.ts';

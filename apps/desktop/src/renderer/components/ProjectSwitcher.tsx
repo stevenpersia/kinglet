@@ -109,7 +109,7 @@ export function ProjectSwitcher() {
       const detail = [st.detail, r.project.localOrigin ? `local ${host(r.project.localOrigin)}` : null, host(pv?.productionUrl ?? null)].filter(Boolean).join(' · ');
       return (
         <div className={base}>
-          <ProjectBadge name={r.project.name} size={22} />
+          <ProjectBadge name={r.project.name} favicon={r.project.favicon} size={22} />
           <span className="flex min-w-0 flex-1 flex-col">
             <span className="font-medium text-fg">{r.project.name}</span>
             <span className="truncate text-[11.5px] text-faint">{detail || home(r.project.folder) || 'Aucun environnement connu'}</span>

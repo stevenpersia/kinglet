@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, useState } from 'react';
-import type { DevicePreset } from '../../shared/types';
+import { locale, t } from '@parakeet/core';
+import type { DevicePreset, Throttle } from '../../shared/types';
 import { BEZEL, fitScale, viewportOf } from '../lib/layout';
 import { activePresets, api, useStore } from '../store';
 import { Icon } from './Icons';
@@ -40,6 +41,7 @@ function DeviceToolbar({ scale }: { scale: number }) {
         </div>
       ))}
       <div className="ml-auto flex items-center gap-1.5">
+        <ThrottleMenu />
         <button aria-pressed={settings.landscape} onClick={() => void updateSettings({ landscape: !settings.landscape })} title="Paysage (Ctrl+Maj+O)" className={chip(settings.landscape)}>
           <Icon name="rotate" size={13} />
           Paysage
@@ -54,10 +56,83 @@ function DeviceToolbar({ scale }: { scale: number }) {
   );
 }
 
+const NETWORK: { id: Throttle['network']; label: () => string; hint: () => string }[] = [
+  { id: 'off', label: () => t('Fast', 'Rapide'), hint: () => t('Your connection', 'Ta connexion') },
+  { id: '4g', label: () => t('Slow 4G', '4G lente'), hint: () => '1,6 Mb/s · 150 ms' },
+  { id: '3g', label: () => t('Slow 3G', '3G lente'), hint: () => '400 kb/s · 2 s' },
+];
+const CPU: { id: Throttle['cpu']; label: () => string; hint: () => string }[] = [
+  { id: 1, label: () => t('Full speed', 'Pleine vitesse'), hint: () => t('Your computer', 'Ton ordinateur') },
+  { id: 4, label: () => t('Mid-range phone', 'Téléphone moyen'), hint: () => 'CPU ×4' },
+  { id: 6, label: () => t('Low-end phone', 'Téléphone d’entrée de gamme'), hint: () => 'CPU ×6' },
+];
+
+/** Slow network and CPU for phones and tablets: a site is much slower there than on a PC. */
+function ThrottleMenu() {
+  const { settings, updateSettings, openOverlay, closeOverlay } = useStore();
+  const [open, setOpen] = useState(false);
+  const th = settings.throttle;
+  const on = th.network !== 'off' || th.cpu > 1;
+  const toggle = async () => {
+    if (open) {
+      setOpen(false);
+      closeOverlay();
+    } else {
+      await openOverlay();
+      setOpen(true);
+    }
+  };
+  const set = (patch: Partial<Throttle>) => void updateSettings({ throttle: { ...th, ...patch } });
+  const row = (active: boolean) => `flex w-full items-center justify-between gap-3 rounded-md px-2.5 py-1.5 text-left text-xs ${active ? 'bg-active text-fg' : 'text-muted hover:bg-active/60 hover:text-fg'}`;
+  return (
+    <div className="relative">
+      <button
+        aria-pressed={on}
+        aria-expanded={open}
+        onClick={toggle}
+        title={t('Slow network and CPU (phones and tablets)', 'Réseau et CPU ralentis (téléphones et tablettes)')}
+        className={`inline-flex h-[26px] items-center gap-1.5 rounded-md border px-2.5 text-xs ${on ? 'border-[#5c4a26] bg-[rgba(230,192,123,0.08)] font-medium text-warn' : 'border-line text-muted hover:border-line-strong'}`}
+      >
+        <svg width="13" height="13" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20a8 8 0 1 1 8-8M12 12l4-4" stroke="currentColor" strokeWidth="1.8" fill="none" strokeLinecap="round" /></svg>
+        {on ? [th.network !== 'off' ? NETWORK.find((n) => n.id === th.network)!.label() : null, th.cpu > 1 ? `CPU ×${th.cpu}` : null].filter(Boolean).join(' · ') : t('Full speed', 'Pleine vitesse')}
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={toggle} />
+          <div role="menu" className="absolute top-8 right-0 z-50 w-72 rounded-[10px] border border-line bg-card p-1 shadow-2xl shadow-black/60">
+            <div className="label px-2.5 pt-2 pb-1.5">{t('Network', 'Réseau')}</div>
+            {NETWORK.map((n) => (
+              <button key={n.id} role="menuitemradio" aria-checked={th.network === n.id} onClick={() => set({ network: n.id })} className={row(th.network === n.id)}>
+                {n.label()}
+                <span className="font-mono text-[10.5px] text-ghost">{n.hint()}</span>
+              </button>
+            ))}
+            <div className="label px-2.5 pt-3 pb-1.5">CPU</div>
+            {CPU.map((c) => (
+              <button key={c.id} role="menuitemradio" aria-checked={th.cpu === c.id} onClick={() => set({ cpu: c.id })} className={row(th.cpu === c.id)}>
+                {c.label()}
+                <span className="font-mono text-[10.5px] text-ghost">{c.hint()}</span>
+              </button>
+            ))}
+            <p className="m-0 px-2.5 pt-2.5 pb-2 text-[11.5px] leading-normal text-faint">
+              {t('Applies to phones and tablets; screens stay at full speed. Reload to see the page load again.', 'S’applique aux téléphones et tablettes ; les écrans restent à pleine vitesse. Recharge pour revoir le chargement.')}
+            </p>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+const seconds = (ms: number) => (ms < 1000 ? `${ms} ms` : `${(ms / 1000).toLocaleString(locale(), { maximumFractionDigits: 1 })} s`);
+const weight = (b: number) => (b < 1024 * 1024 ? `${Math.max(1, Math.round(b / 1024))} ${t('KB', 'Ko')}` : `${(b / 1024 / 1024).toLocaleString(locale(), { maximumFractionDigits: 1 })} ${t('MB', 'Mo')}`);
+
 export function Stage() {
   const state = useStore();
-  const { settings, frozen } = state;
+  const { settings, frozen, perf, logs } = state;
   const devices = activePresets(state);
+  const errorsOf = (id: string) => logs.filter((l) => l.deviceId === id && l.level === 'error').length;
+  const throttled = (p: DevicePreset) => p.kind !== 'desktop' && (settings.throttle.network !== 'off' || settings.throttle.cpu > 1);
   const stageRef = useRef<HTMLDivElement>(null);
   const slotRefs = useRef(new Map<string, HTMLDivElement>());
   const [size, setSize] = useState({ w: 0, h: 0 });
@@ -120,7 +195,27 @@ export function Stage() {
                 <span>
                   {preset.label} · {viewport.width} × {viewport.height}
                 </span>
-                <button onClick={() => api().openDevtools(preset.id)} title="Ouvrir les DevTools de cet appareil" aria-label={`DevTools ${preset.label}`} className="rounded p-0.5 text-ghost hover:bg-active hover:text-fg">
+                {perf[preset.id] && (
+                  <span
+                    title={t(`Loaded in ${seconds(perf[preset.id]!.loadMs)} (DOM ready ${seconds(perf[preset.id]!.domMs)}), ${perf[preset.id]!.requests} requests`, `Chargée en ${seconds(perf[preset.id]!.loadMs)} (DOM prêt ${seconds(perf[preset.id]!.domMs)}), ${perf[preset.id]!.requests} requêtes`)}
+                    className={throttled(preset) ? 'text-warn' : ''}
+                  >
+                    · {seconds(perf[preset.id]!.loadMs)} · {weight(perf[preset.id]!.bytes)}
+                  </span>
+                )}
+                {errorsOf(preset.id) > 0 && (
+                  <button
+                    onClick={() => {
+                      useStore.setState({ consoleDevice: preset.id });
+                      state.setInspectorTab('console');
+                    }}
+                    title={t('See the console of this device', 'Voir la console de cet appareil')}
+                    className="flex items-center gap-1 rounded bg-[rgba(242,139,130,0.12)] px-1.5 py-px font-mono text-[10.5px] text-err hover:bg-[rgba(242,139,130,0.2)]"
+                  >
+                    {errorsOf(preset.id)} {errorsOf(preset.id) > 1 ? t('errors', 'erreurs') : t('error', 'erreur')}
+                  </button>
+                )}
+                <button onClick={() => api().openDevtools(preset.id)} title={t('Open this device’s DevTools', 'Ouvrir les DevTools de cet appareil')} aria-label={`DevTools ${preset.label}`} className="rounded p-0.5 text-ghost hover:bg-active hover:text-fg">
                   <Icon name="code" size={12} />
                 </button>
               </div>

@@ -2,6 +2,9 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import {
   buildShareFix,
+  consolePrompt,
+  formatEntries,
+  t,
   crawl,
   PLATFORMS,
   probeImage,
@@ -191,6 +194,27 @@ export function createParakeetServer(opts: Options = {}) {
   );
 
   server.registerTool(
+    'get_console',
+    {
+      title: t('Device console', 'Console des appareils'),
+      description: t(
+        'Console messages (errors, warnings) and network errors (failed requests, HTTP 4xx/5xx) of each emulated device in Parakeet, since the page was last loaded. Needs the app open.',
+        'Messages de console (erreurs, avertissements) et erreurs réseau (requêtes échouées, HTTP 4xx/5xx) de chaque appareil émulé dans Parakeet, depuis le dernier chargement de la page. Nécessite l’app ouverte.',
+      ),
+      inputSchema: { all: z.boolean().optional().describe(t('Include info and debug messages too', 'Inclure aussi les messages info et debug')) },
+    },
+    async ({ all }) => {
+      const control = await app();
+      if (!control) return fail(APP_CLOSED);
+      const { url, logs, throttle } = await control.logs();
+      const kept = all ? logs : logs.filter((l) => l.level === 'error' || l.level === 'warning');
+      if (!kept.length) return text(t(`Console clean on ${url ?? 'the page'}: no errors or warnings.`, `Console propre sur ${url ?? 'la page'} : aucune erreur ni avertissement.`));
+      const slow = throttle.network !== 'off' || throttle.cpu > 1 ? ` · ${t('throttled', 'ralenti')} : ${throttle.network}, CPU ×${throttle.cpu}` : '';
+      return text([`${url ?? ''}${slow}`, '', ...formatEntries(kept, { pageUrl: url })].join('\n'));
+    },
+  );
+
+  server.registerTool(
     'get_page_meta',
     { title: 'Balises de la page', description: 'Lit la page comme un robot de partage (HTML brut, sans JavaScript) : title, description, Open Graph, Twitter, viewport, lang, canonical, icônes.', inputSchema: { url: urlArg } },
     async ({ url }) => {
@@ -297,6 +321,25 @@ export function createParakeetServer(opts: Options = {}) {
             'Ensuite appelle run_checks pour vérifier, et screenshot si tu as touché à la mise en page mobile.',
           ].join('\n')
         : `Tous les checks passent sur ${r.url}. Rien à faire.`;
+      return { messages: [{ role: 'user', content: { type: 'text', text: body } }] };
+    },
+  );
+
+  server.registerPrompt(
+    'fix_console',
+    {
+      title: t('Fix console errors', 'Corriger les erreurs de console'),
+      description: t('Fixes the JavaScript and network errors seen in Parakeet’s devices on the open page, then checks the console again.', 'Corrige les erreurs JavaScript et réseau vues dans les appareils de Parakeet sur la page ouverte, puis revérifie la console.'),
+      argsSchema: {},
+    },
+    async () => {
+      const control = await app();
+      if (!control) return { messages: [{ role: 'user', content: { type: 'text', text: APP_CLOSED } }] };
+      const { url, logs } = await control.logs();
+      const body = consolePrompt(
+        logs.filter((l) => l.level === 'error' || l.level === 'warning'),
+        { pageUrl: url },
+      );
       return { messages: [{ role: 'user', content: { type: 'text', text: body } }] };
     },
   );

@@ -88,6 +88,7 @@ async function createWindow() {
   app.on('will-quit', () => lan.stop());
 
   const emit = (e: PreviewEvent) => {
+    if (e.type === 'favicon') return void saveFavicon(e.url, e.pageUrl);
     const localOrigin = activeProject(settings.value)?.localOrigin;
     if ((e.type === 'loaded' || e.type === 'navigated') && localOrigin && e.url.startsWith(localOrigin)) {
       const u = new URL(e.url);
@@ -96,7 +97,36 @@ async function createWindow() {
     if (!win.isDestroyed()) win.webContents.send('app:event', e);
   };
   const devices = new DeviceManager(win, PRESETS, emit);
+  devices.setThrottle(settings.value.throttle);
   devices.setScrollSync(settings.value.scrollSync);
+  /** The site's favicon, kept on the project for its tab (also when closed). */
+  async function saveFavicon(url: string, pageUrl: string) {
+    const project = activeProject(settings.value);
+    const origin = (u: string | null | undefined) => {
+      try {
+        return u ? new URL(u).origin : null;
+      } catch {
+        return null;
+      }
+    };
+    // The devices may still show the previous project's page right after a tab switch.
+    if (!project || origin(pageUrl) !== origin(project.lastUrl)) return;
+    let data: string | null = null;
+    try {
+      if (url.startsWith('data:image/')) data = url;
+      else if (/^https?:/.test(url)) {
+        const res = await devices.session.fetch(url);
+        const type = res.headers.get('content-type')?.split(';')[0]?.trim() ?? '';
+        const buf = Buffer.from(await res.arrayBuffer());
+        if (res.ok && type.startsWith('image/') && buf.length <= 256 * 1024) data = `data:${type};base64,${buf.toString('base64')}`;
+      }
+    } catch {
+      return; // offline, server stopped: keep the previous one
+    }
+    if (!data || data.length > 400_000 || project.favicon === data || activeProject(settings.value)?.id !== project.id) return;
+    settings.update(patchProject(settings.value, project.id, { favicon: data }));
+    emit({ type: 'settings', settings: settings.value });
+  }
   devices.setLandscape(settings.value.landscape);
 
   /** System notification, unless the user is already looking at that project. */
@@ -221,6 +251,7 @@ async function createWindow() {
     if (patch.active) devices.setActive(next.active);
     if (patch.scrollSync !== undefined) devices.setScrollSync(patch.scrollSync);
     if (patch.landscape !== undefined) devices.setLandscape(patch.landscape);
+    if (patch.throttle) devices.setThrottle(patch.throttle);
     if (patch.openIds || patch.projects) watchOpenProjects();
     emit({ type: 'settings', settings: next });
     return next;
@@ -234,6 +265,7 @@ async function createWindow() {
   ipcMain.on('preview:visible', (_e, visible: boolean) => devices.setVisible(visible));
   ipcMain.handle('preview:freeze', () => devices.freeze());
   ipcMain.handle('preview:thumbnail', () => devices.thumbnail());
+  ipcMain.handle('preview:logs', () => devices.allLogs());
   ipcMain.on('preview:unfreeze', () => devices.unfreeze());
   ipcMain.on('preview:devtools', (_e, id: string) => devices.openDevtools(id));
   // Site-wide files and crawl results are cached per origin (they rarely change while you work on a page).
@@ -320,6 +352,7 @@ async function createWindow() {
       const id = activeProject(settings.value)?.vercelProjectId;
       return { project: vercel.state.projects.find((p) => p.id === id) ?? null, deployments: id ? (vercel.state.deployments[id] ?? []) : [] };
     },
+    logs: () => ({ url: devices.currentUrl, throttle: devices.throttling, logs: devices.allLogs() }),
     onClaudeEvent: (payload) => onClaudeEvent(payload as HookPayload),
     onListen: (port, token) => claudeHooks.publish(port, token),
     onActivity: (a) => {

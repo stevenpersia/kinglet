@@ -14,7 +14,7 @@ export const api = (): ParakeetApi => window.parakeet;
 export const cleanError = (e: unknown) => String((e as Error)?.message ?? e).replace(/^Error invoking remote method '[^']+': (?:\w*Error: )?/, '');
 
 export type Section = 'apercu' | 'partage' | 'comparer' | 'deploiements' | 'checks' | 'reglages' | 'projets';
-export type InspectorTab = 'page' | 'partage' | 'checks' | 'mcp';
+export type InspectorTab = 'page' | 'partage' | 'checks' | 'console' | 'mcp';
 export type LoadStatus = 'idle' | 'loading' | 'loaded' | 'failed';
 
 interface State {
@@ -61,6 +61,12 @@ interface State {
   switcherOpen: boolean;
   /** Claude Code activity per project id. */
   claude: Record<string, ClaudeProjectState>;
+  /** Console and network log of the devices (since each one's last page load). */
+  logs: import('../shared/types').DeviceLog[];
+  /** Load time and weight of the page, per device. */
+  perf: Record<string, import('../shared/types').DevicePerf>;
+  /** Device shown in the console tab (null: all). */
+  consoleDevice: string | null;
   /** Last capture of each project (overview cards). */
   thumbs: Record<string, string>;
   claudeHooks: import('../shared/types').ClaudeHookState | null;
@@ -83,7 +89,7 @@ let overlays = 0;
 export const useStore = create<State>((set, get) => ({
   ready: false,
   presets: [],
-  settings: { projects: [], openIds: [], activeId: null, recentUrls: [], active: [], scrollSync: true, landscape: false },
+  settings: { projects: [], openIds: [], activeId: null, recentUrls: [], active: [], scrollSync: true, landscape: false, throttle: { network: 'off', cpu: 1 }, language: 'en' },
   platform: null,
   url: null,
   detectedFrom: null,
@@ -107,6 +113,9 @@ export const useStore = create<State>((set, get) => ({
   switcherOpen: false,
   claude: {},
   thumbs: {},
+  logs: [],
+  perf: {},
+  consoleDevice: null,
   claudeHooks: null,
   phone: null,
   update: null,

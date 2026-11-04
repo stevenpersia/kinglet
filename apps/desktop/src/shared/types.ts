@@ -38,6 +38,8 @@ export interface Project {
   folder: string | null;
   /** Last page shown, restored when the tab is opened again. */
   lastUrl: string | null;
+  /** The site's favicon (data URL), seen the last time the project was shown. */
+  favicon?: string | null;
 }
 
 export interface Settings {
@@ -49,6 +51,46 @@ export interface Settings {
   active: string[];
   scrollSync: boolean;
   landscape: boolean;
+  /** Slow network and CPU, applied to phones and tablets (screens stay at full speed). */
+  throttle: Throttle;
+  language: Language;
+}
+
+export type Language = 'en' | 'fr';
+
+export interface Throttle {
+  network: 'off' | '4g' | '3g';
+  /** CPU slowdown factor: 1 (off), 4 (mid-range phone), 6 (low-end phone). */
+  cpu: 1 | 4 | 6;
+}
+
+/** One line of a device's console or network log. */
+export interface DeviceLog {
+  id: number;
+  at: number;
+  deviceId: string;
+  source: 'console' | 'network';
+  level: 'error' | 'warning' | 'info' | 'debug';
+  text: string;
+  /** Script (console) or request (network) URL. */
+  url?: string;
+  line?: number;
+  /** HTTP status (network), 0 when the request failed without a response. */
+  status?: number;
+  method?: string;
+  resourceType?: string;
+}
+
+/** How long a page took to load on one device, and what it weighed. */
+export interface DevicePerf {
+  deviceId: string;
+  url: string;
+  loadMs: number;
+  /** DOMContentLoaded. */
+  domMs: number;
+  /** Bytes transferred (document + resources). */
+  bytes: number;
+  requests: number;
 }
 
 export interface InitState {
@@ -201,7 +243,10 @@ export type PreviewEvent =
   | { type: 'vercel'; state: VercelState }
   | { type: 'phone'; state: PhoneState }
   | { type: 'update'; state: UpdateState }
-  | { type: 'claude'; projects: Record<string, ClaudeProjectState> };
+  | { type: 'claude'; projects: Record<string, ClaudeProjectState> }
+  | { type: 'logs'; entries: DeviceLog[]; cleared: string[] }
+  | { type: 'perf'; perf: DevicePerf }
+  | { type: 'favicon'; url: string; pageUrl: string };
 
 export interface ParakeetApi {
   init(): Promise<InitState>;
@@ -219,6 +264,8 @@ export interface ParakeetApi {
   unfreeze(): void;
   /** Small capture of the page on the first phone (data URL). */
   thumbnail(): Promise<string | null>;
+  /** Console and network log of every device since its last page load. */
+  logs(): Promise<DeviceLog[]>;
   openDevtools(deviceId: string): void;
   /** Read the page like the bots do, measure it in the devices, run the checks. */
   analyze(url: string, opts?: { refreshSite?: boolean }): Promise<AnalyzeReport>;

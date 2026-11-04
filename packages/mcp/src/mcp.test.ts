@@ -55,9 +55,9 @@ describe('MCP server, app closed (headless)', () => {
   it('lists the tools and the prompts', async () => {
     const client = await connect();
     const tools = (await client.listTools()).tools.map((t) => t.name).sort();
-    expect(tools).toEqual(['get_page_meta', 'get_share_preview', 'list_deployments', 'list_pages', 'open_url', 'run_checks', 'screenshot', 'set_devices', 'status']);
+    expect(tools).toEqual(['get_console', 'get_page_meta', 'get_share_preview', 'list_deployments', 'list_pages', 'open_url', 'run_checks', 'screenshot', 'set_devices', 'status']);
     const prompts = (await client.listPrompts()).prompts.map((p) => p.name).sort();
-    expect(prompts).toEqual(['fix_checks', 'fix_share']);
+    expect(prompts).toEqual(['fix_checks', 'fix_console', 'fix_share']);
     await client.close();
   });
 

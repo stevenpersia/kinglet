@@ -15,6 +15,7 @@ interface Deps {
   navigate(url: string): Promise<void>;
   onActivity(a: McpActivity): void;
   deployments(): { project: unknown; deployments: unknown[] };
+  logs(): unknown;
   /** A Claude Code hook event (see claude-hooks.ts). */
   onClaudeEvent?(payload: Record<string, unknown>): void;
   /** The server listens: where to reach it. */
@@ -72,6 +73,8 @@ export function startControlServer(deps: Deps) {
       switch (`${req.method} ${req.url}`) {
         case 'GET /status':
           return send(res, 200, status());
+        case 'GET /logs':
+          return send(res, 200, deps.logs());
         case 'GET /deployments':
           return send(res, 200, deps.deployments());
         case 'POST /activity': {

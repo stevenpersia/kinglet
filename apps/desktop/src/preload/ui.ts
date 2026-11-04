@@ -11,6 +11,7 @@ const api: ParakeetApi = {
   freeze: () => ipcRenderer.invoke('preview:freeze'),
   unfreeze: () => ipcRenderer.send('preview:unfreeze'),
   thumbnail: () => ipcRenderer.invoke('preview:thumbnail'),
+  logs: () => ipcRenderer.invoke('preview:logs'),
   openDevtools: (id) => ipcRenderer.send('preview:devtools', id),
   analyze: (url, opts) => ipcRenderer.invoke('page:analyze', url, opts ?? {}),
   crawl: (url, opts) => ipcRenderer.invoke('site:crawl', url, opts ?? {}),

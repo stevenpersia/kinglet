@@ -242,7 +242,7 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
       if (img) writeFileSync(join(outDir, 'mcp-screenshot-iphone.jpg'), Buffer.from(img, 'base64'));
       criteria.push({
         id: 'mcp',
-        ok: tools === 9 && statusText.includes('iPhone 16') && img.startsWith('/9j/') && /Checks pour .* \d+\/\d+/.test(checksText) && !checksText.includes('sans mesures'),
+        ok: tools === 10 && statusText.includes('iPhone 16') && img.startsWith('/9j/') && /Checks pour .* \d+\/\d+/.test(checksText) && !checksText.includes('sans mesures'),
         detail: `${tools} outils · status « ${statusText.split('\n')[1] ?? ''} » · capture ${Math.round((img.length * 3) / 4 / 1024)} Ko · ${checksText.split('\n')[0]}`,
       });
     } catch (e) {
@@ -509,6 +509,65 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     criteria.push({ id: 'claude-hooks-uninstall', ok: !uninstalled.installed && JSON.stringify(JSON.parse(readFileSync(hooks.file, 'utf8'))) === '{}', detail: 'hooks retirés, réglages de Claude Code laissés vides comme avant' });
     ui({ type: 'shortcut', action: 'overview' });
     await sleep(500);
+
+    // ---- Devtools ----
+    // 24. Favicon of the site kept on the project (its tab shows it).
+    const cur = await js<{ projects: { id: string; favicon?: string | null }[]; activeId: string }>(`window.parakeet.updateSettings({})`);
+    const fav = cur.projects.find((p) => p.id === cur.activeId)?.favicon ?? '';
+    const tabImg = await js<boolean>(`!!document.querySelector('[aria-label="Projets ouverts"] [aria-selected=true] img[src^="data:image/"]')`);
+    criteria.push({ id: 'favicon', ok: fav.startsWith('data:image/') && tabImg, detail: `${fav.slice(0, 26)}… · ${tabImg ? 'shown in the tab' : 'not in the tab'}` });
+
+    // 25. Console and network errors, live and per device (atelier.html calls an undefined function).
+    await devices.navigate('http://localhost:5173/atelier.html');
+    await waitFor(() => devices.entries().every((d) => !d.view.webContents.isLoading()), 8000);
+    await sleep(800);
+    await devices.entries()[0]!.view.webContents.executeJavaScript(`fetch('http://127.0.0.1:9/parakeet-missing.png').catch(() => {}); console.warn('parakeet selftest warning'); 1`);
+    type L = { deviceId: string; source: string; level: string; status?: number; text: string };
+    let logs: L[] = [];
+    const gotLogs = await waitFor(async () => {
+      logs = await js<L[]>(`window.parakeet.logs()`);
+      return logs.some((l) => l.source === 'network' && l.text !== '' && JSON.stringify(l).includes('parakeet-missing')) && devices.entries().every((d) => logs.some((l) => l.deviceId === d.preset.id && l.source === 'console' && l.level === 'error'));
+    }, 5000);
+    const uiCount = await waitFor(async () => {
+      await clickText('[role=tab]', 'Console');
+      return js<boolean>(`[...document.querySelectorAll('[aria-label=Console] li')].some((li) => li.textContent.includes('parakeet-missing.png'))`);
+    }, 3000);
+    await sleep(500);
+    await shot('23-console');
+    const firstId = devices.entries()[0]!.preset.id;
+    criteria.push({
+      id: 'console',
+      ok: gotLogs && uiCount && logs.some((l) => l.deviceId === firstId && l.level === 'warning' && l.text.includes('parakeet selftest')),
+      detail: devices.entries().map((d) => `${d.preset.id}: ${logs.filter((l) => l.deviceId === d.preset.id && l.level === 'error').length} errors`).join(', ') + ` · failed request ${logs.some((l) => l.source === 'network' && JSON.stringify(l).includes('parakeet-missing')) ? 'seen' : 'missing'} · ${uiCount ? 'listed in the Console tab' : 'not in the tab'}`,
+    });
+
+    // 26. Slow 3G + mid-range phone CPU: one request and a fixed computation, timed in the phone
+    //     before and after (a full page reload over slow 3G would take minutes on a Vite dev server).
+    const probe = () =>
+      devices.entries()[0]!.view.webContents.executeJavaScript(`(async () => {
+        let t = performance.now();
+        await fetch('/?parakeet-probe=' + Math.random(), { cache: 'no-store' });
+        const net = Math.round(performance.now() - t);
+        t = performance.now();
+        let x = 0;
+        for (let i = 0; i < 3e7; i++) x += i % 7;
+        return { net, cpu: Math.round(performance.now() - t), x };
+      })()`) as Promise<{ net: number; cpu: number }>;
+    const fast = await probe();
+    await js(`window.parakeet.updateSettings({ throttle: { network: '3g', cpu: 4 } })`);
+    await sleep(600);
+    const slow = await probe();
+    await sleep(300);
+    await shot('24-3g-lente');
+    await js(`window.parakeet.updateSettings({ throttle: { network: 'off', cpu: 1 } })`);
+    await sleep(600);
+    const back = await probe();
+    criteria.push({
+      id: 'throttle',
+      ok: slow.net >= 1900 && slow.cpu > fast.cpu * 2.5 && back.net < 1000,
+      detail: `request ${fast.net} → ${slow.net} ms, computation ${fast.cpu} → ${slow.cpu} ms (slow 3G, CPU ×4), back to ${back.net} ms`,
+    });
+    await clickText('[role=tab]', 'Page');
 
     // 10. Partage section
     ui({ type: 'shortcut', action: 'focus-url' });

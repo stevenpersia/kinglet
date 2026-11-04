@@ -18,7 +18,8 @@ function normalizeUrl(raw: string): string | null {
 }
 
 /** Initials on the project's colour. */
-export function ProjectBadge({ name, size = 18 }: { name: string; size?: number }) {
+export function ProjectBadge({ name, favicon, size = 18 }: { name: string; favicon?: string | null; size?: number }) {
+  if (favicon) return <img src={favicon} alt="" aria-hidden="true" draggable={false} className="shrink-0 rounded-[4px] object-contain" style={{ width: size, height: size }} />;
   return (
     <span
       aria-hidden="true"
@@ -55,7 +56,7 @@ function Tab({ project, index }: { project: Project; index: number }) {
       className={`group no-drag relative -mb-px flex max-w-[236px] min-w-[120px] flex-1 items-center gap-2 border-r border-line-soft pr-1.5 pl-3 text-[12.5px] ${on ? 'bg-card font-medium text-fg shadow-[inset_0_1px_0_#ededef]' : 'border-b text-faint hover:bg-active/60 hover:text-muted'}`}
     >
       <button onClick={() => void s.selectProject(project.id)} className="absolute inset-0" aria-label={`${project.name}, ${st.label}`} />
-      <ProjectBadge name={project.name} />
+      <ProjectBadge name={project.name} favicon={project.favicon} />
       <span className="pointer-events-none min-w-0 flex-1 truncate">{project.name}</span>
       {st.kind !== 'idle' && (
         <span className="pointer-events-none flex shrink-0 items-center gap-1.5 text-[11px]" style={{ color: st.color }}>

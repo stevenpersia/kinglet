@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { closeProject, migrateSettings, openProject, projectForFolder, projectFromUrl, visit } from './projects';
 import type { Project, Settings } from './types';
 
-const base: Settings = { projects: [], openIds: [], activeId: null, recentUrls: [], active: [], scrollSync: true, landscape: false };
+const base: Settings = { projects: [], openIds: [], activeId: null, recentUrls: [], active: [], scrollSync: true, landscape: false, throttle: { network: 'off', cpu: 1 }, language: 'en' };
 const p = (id: string, extra: Partial<Project> = {}): Project => ({ id, name: id, vercelProjectId: null, teamId: null, localOrigin: null, folder: null, lastUrl: null, ...extra });
 
 describe('migrateSettings', () => {

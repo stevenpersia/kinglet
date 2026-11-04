@@ -5,7 +5,7 @@ import { migrateSettings } from '../shared/projects';
 import type { Settings } from '../shared/types';
 import { DEFAULT_ACTIVE, PRESETS } from './presets';
 
-const DEFAULTS: Settings = { projects: [], openIds: [], activeId: null, recentUrls: [], active: DEFAULT_ACTIVE, scrollSync: true, landscape: false };
+const DEFAULTS: Settings = { projects: [], openIds: [], activeId: null, recentUrls: [], active: DEFAULT_ACTIVE, scrollSync: true, landscape: false, throttle: { network: 'off', cpu: 1 }, language: 'en' };
 
 /** Small JSON file in the user data folder (~/.config/Parakeet on Linux). */
 export class SettingsStore {
