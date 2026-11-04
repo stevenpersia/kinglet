@@ -70,7 +70,7 @@ function RecentMenu() {
 }
 
 export function TitleBar() {
-  const { url, status, detectedFrom, navigate, maximized, urlFocusTick, vercel } = useStore();
+  const { url, status, detectedFrom, navigate, maximized, urlFocusTick, vercel, phone } = useStore();
   const env = envOf(url, vercel);
   const [draft, setDraft] = useState(url ?? '');
   const input = useRef<HTMLInputElement>(null);
@@ -117,6 +117,15 @@ export function TitleBar() {
 
       <button onClick={() => void api().reload()} aria-label="Recharger (Ctrl+R)" title="Recharger (Ctrl+R)" className="no-drag flex size-7 items-center justify-center rounded-ui border border-line text-muted hover:border-line-strong hover:text-fg">
         <Icon name="reload" size={13} />
+      </button>
+      <button
+        onClick={() => useStore.setState({ phoneOpen: true })}
+        title="Ouvrir cette page sur ton téléphone"
+        className="no-drag flex h-7 items-center gap-2 rounded-ui border border-line px-2.5 text-xs text-muted hover:border-line-strong hover:text-fg"
+      >
+        <Icon name="phone" size={13} />
+        Sur mon téléphone
+        {!!phone?.clients.length && <span className="size-1.5 rounded-full bg-ok" aria-label="téléphone connecté" />}
       </button>
       <button onClick={() => useStore.setState({ paletteOpen: true })} className="no-drag flex h-7 items-center gap-2.5 rounded-ui border border-line pr-2 pl-2.5 text-xs text-faint hover:border-line-strong">
         Rechercher <Kbd>Ctrl K</Kbd>

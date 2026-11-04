@@ -1,6 +1,6 @@
 import { mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { app, safeStorage, type BrowserWindow } from 'electron';
+import { app, BrowserWindow, safeStorage } from 'electron';
 import { checkShare, probeImage, readPageMeta } from '@parakeet/core';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
@@ -335,6 +335,69 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     await shot('16-reglages-vercel');
     await clickText('nav button', 'Aperçu');
     await sleep(600);
+
+    // ---- Phase 6 ----
+    // 19. On my phone: a hidden Chromium window plays the phone (scans the QR code)
+    type Phone = { running: boolean; port: number; address: string; clients: unknown[] };
+    await devices.navigate('http://localhost:5173/');
+    await sleep(1200);
+    const phoneOn = (await js(`window.parakeet.phone.start()`)) as Phone;
+    const qr = (await js(`window.parakeet.phone.qr('http://localhost:5173/', true)`)) as { url: string; svg: string };
+    const unpaired = await fetch(`http://${phoneOn.address}:${phoneOn.port}/`).then((r) => r.status);
+    const phoneWin = new BrowserWindow({ show: false, width: 393, height: 852, webPreferences: { backgroundThrottling: false } });
+    const phoneLog: string[] = [];
+    phoneWin.webContents.on('console-message', (e) => phoneLog.push((e as unknown as { message: string }).message));
+    try {
+      await phoneWin.loadURL(qr.url);
+      const phoneJs = <T,>(code: string) => phoneWin.webContents.executeJavaScript(code) as Promise<T>;
+      const loadedOnPhone = await waitFor(async () => (await phoneJs<string>('document.title')).includes('Maison Sable'), 8000);
+      // Hot reload through the proxy (WebSocket)
+      let hmrOnPhone = false;
+      if (hmrFile) {
+        // The page loads before Vite's WebSocket is connected: wait for it, or the change is missed.
+        await waitFor(() => phoneLog.some((m) => m.includes('[vite] connected')), 8000);
+        const original = readFileSync(hmrFile, 'utf8');
+        writeFileSync(hmrFile, `export const headline = 'Vu sur le téléphone ✓';\n`);
+        hmrOnPhone = await waitFor(async () => (await phoneJs<string | null>(`document.getElementById('headline')?.textContent ?? null`)) === 'Vu sur le téléphone ✓', 8000);
+        writeFileSync(hmrFile, original);
+        await sleep(800);
+      }
+      // Follow Parakeet's navigation
+      await devices.navigate('http://localhost:5173/atelier.html');
+      const followed = await waitFor(() => phoneWin.webContents.getURL().endsWith('/atelier.html'), 8000);
+      // After a navigation the phone reconnects to the follow channel: wait for it.
+      let state = (await js(`window.parakeet.phone.state()`)) as Phone;
+      await waitFor(async () => (state = (await js(`window.parakeet.phone.state()`)) as Phone).clients.length >= 1, 5000);
+      criteria.push({
+        id: 'phone',
+        ok: qr.svg.startsWith('<svg') && unpaired === 403 && loadedOnPhone && hmrOnPhone && followed && state.clients.length >= 1,
+        detail: `${hmrOnPhone ? '' : `[console : ${phoneLog.slice(-3).join(' | ')}] `}${phoneOn.address}:${phoneOn.port} · non appairé ${unpaired} · page ${loadedOnPhone} · rechargement à chaud ${hmrOnPhone} · suit la navigation ${followed} · ${state.clients.length} appareil(s)`,
+      });
+      // Online pages: direct QR, with the bypass secret for a protected preview only
+      const prodQr = (await js(`window.parakeet.phone.qr('http://127.0.0.1:5175/', false)`)) as { url: string; withSecret: boolean };
+      const previewQr = (await js(`window.parakeet.phone.qr('http://127.0.0.1:5176/', false)`)) as { url: string; withSecret: boolean };
+      const previewPhone = new BrowserWindow({ show: false, webPreferences: { backgroundThrottling: false } });
+      await previewPhone.loadURL(previewQr.url);
+      const previewTitle = (await previewPhone.webContents.executeJavaScript('document.title')) as string;
+      previewPhone.destroy();
+      criteria.push({
+        id: 'phone-online',
+        // (the fake prod runs on 127.0.0.1, which this test sends the secret to: only the preview is checked)
+        ok: prodQr.url.startsWith('http://127.0.0.1:5175/') && previewQr.withSecret && previewTitle.includes('Maison Sable'),
+        detail: `prod ${prodQr.url} · preview protégée : secret dans le lien ${previewQr.withSecret}, ouverte « ${previewTitle} »`,
+      });
+    } finally {
+      phoneWin.destroy();
+    }
+    await devices.navigate('http://localhost:5173/');
+    await sleep(1200);
+    await clickText('header button', 'Sur mon téléphone');
+    await sleep(1500);
+    await shot('17-telephone');
+    await js(`window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))`);
+    const closed = await waitFor(async () => !(await js<boolean>(`!!document.querySelector('[aria-label="Sur mon téléphone"][role=dialog]')`)) && devices.entries().every((d) => d.view.getVisible()), 3000);
+    criteria.push({ id: 'phone-dialog', ok: closed, detail: closed ? 'fermé avec Échap, aperçus réaffichés' : 'toujours ouvert' });
+    await js(`window.parakeet.phone.stop()`);
 
     // 10. Partage section
     ui({ type: 'shortcut', action: 'focus-url' });

@@ -31,6 +31,7 @@ export function Palette() {
     const go = (s: Section, label: string): Command => ({ id: `go-${s}`, label: `Aller à ${label}`, run: () => setSection(s) });
     return [
       { id: 'reload', label: 'Recharger les appareils', hint: 'Ctrl R', run: () => void api().reload() },
+      { id: 'phone', label: 'Ouvrir sur mon téléphone (QR code)', run: () => useStore.setState({ phoneOpen: true }) },
       { id: 'url', label: 'Changer d’adresse', hint: 'Ctrl L', run: () => useStore.setState((s) => ({ urlFocusTick: s.urlFocusTick + 1 })) },
       { id: 'landscape', label: settings.landscape ? 'Passer en portrait' : 'Passer en paysage', hint: 'Ctrl Maj O', run: () => void updateSettings({ landscape: !settings.landscape }) },
       { id: 'sync', label: settings.scrollSync ? 'Désactiver la synchro' : 'Activer la synchro', hint: 'Ctrl Maj S', run: () => void updateSettings({ scrollSync: !settings.scrollSync }) },

@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Inspector } from './components/Inspector';
 import { Palette } from './components/Palette';
+import { PhoneDialog } from './components/PhoneDialog';
 import { ChecksPage } from './components/Sections';
 import { ComparePage, DeploymentsPage } from './components/VercelPages';
 import { SettingsPage } from './components/SettingsPage';
@@ -50,6 +51,9 @@ export function App() {
         case 'vercel':
           useStore.setState({ vercel: e.state });
           break;
+        case 'phone':
+          useStore.setState({ phone: e.state });
+          break;
         case 'shortcut':
           if (e.action === 'reload') void api().reload();
           else if (e.action === 'focus-url') useStore.setState({ urlFocusTick: s.urlFocusTick + 1 });
@@ -93,6 +97,7 @@ export function App() {
       </div>
       <StatusBar />
       <Palette />
+      <PhoneDialog />
     </div>
   );
 }

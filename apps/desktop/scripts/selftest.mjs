@@ -58,13 +58,22 @@ const envPage = (env, extra) => (req, res) => {
 // The preview behaves like a protected Vercel deployment: 401 without the bypass secret; with
 // x-vercel-set-bypass-cookie, a redirect to itself that sets a cookie (browsers keep it, bots must not ask).
 const previewPage = envPage('preview', '<meta property="og:title" content="Maison Sable"><meta property="og:site_name" content="Maison Sable"><meta name="twitter:card" content="summary_large_image">');
+const SECRETS = ['secret-de-test', 'mock-bypass-secret'];
 const preview = createServer((req, res) => {
-  if (!['secret-de-test', 'mock-bypass-secret'].includes(req.headers['x-vercel-protection-bypass'])) {
+  // Like Vercel: the secret in a header or in the query string; with set-bypass-cookie, a redirect
+  // that sets a cookie, which is then enough on its own.
+  const url = new URL(req.url, 'http://x');
+  const secret = req.headers['x-vercel-protection-bypass'] ?? url.searchParams.get('x-vercel-protection-bypass');
+  const hasCookie = String(req.headers.cookie ?? '').includes('_vercel_jwt=ok');
+  const wantsCookie = req.headers['x-vercel-set-bypass-cookie'] ?? url.searchParams.get('x-vercel-set-bypass-cookie');
+  if (!hasCookie && !SECRETS.includes(secret)) {
     res.writeHead(401, { 'content-type': 'text/html' });
     return res.end('<html><head><title>Authentication Required</title></head><body>Vercel</body></html>');
   }
-  if (req.headers['x-vercel-set-bypass-cookie'] && !String(req.headers.cookie ?? '').includes('_vercel_jwt')) {
-    res.writeHead(307, { location: req.url, 'set-cookie': '_vercel_jwt=ok; Path=/; HttpOnly; SameSite=Lax' });
+  if (wantsCookie && !hasCookie) {
+    url.searchParams.delete('x-vercel-protection-bypass');
+    url.searchParams.delete('x-vercel-set-bypass-cookie');
+    res.writeHead(307, { location: url.pathname + url.search, 'set-cookie': '_vercel_jwt=ok; Path=/; HttpOnly; SameSite=Lax' });
     return res.end();
   }
   previewPage(req, res);

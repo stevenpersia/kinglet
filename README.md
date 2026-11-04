@@ -2,7 +2,7 @@
 
 Voir son site sur tous les écrans (iPhone, Android, iPad, desktop), en local, en preview et en prod, et vérifier l'aperçu de ses liens (WhatsApp, LinkedIn, Slack…) avant de les partager. Pensé pour les sites construits avec Claude.
 
-> Nom provisoire. État actuel : **phase 5**. Aperçu multi-appareils, local / preview / prod via Vercel, aperçus de partage sur 7 plateformes avec correctif, 24 checks, exploration des pages et serveur MCP pour Claude Code. Packaging Linux et intégration continue en place.
+> Nom provisoire. État actuel : **phase 6**. Aperçu multi-appareils, ton site sur ton vrai téléphone, local / preview / prod via Vercel, aperçus de partage sur 7 plateformes avec correctif, 24 checks, exploration des pages et serveur MCP pour Claude Code. Packaging Linux et intégration continue en place.
 
 ## Ce que fait Parakeet
 
@@ -18,6 +18,9 @@ Voir son site sur tous les écrans (iPhone, Android, iPad, desktop), en local, e
   - **Technique** : statut HTTP, favicon, textes alternatifs, erreurs JavaScript, poids des images.
 
   Le débordement, les erreurs JavaScript et le poids des images sont mesurés dans les appareils, sur la page rendue. Le `noindex` est considéré comme normal en local et sur les previews.
+- **Sur mon téléphone** : un QR code ouvre la page affichée sur ton vrai téléphone.
+  - **En local**, Parakeet relaie ton serveur de dev sur le Wi-Fi. Seul un appareil qui a scanné le code y a accès, le rechargement à chaud marche aussi, et le téléphone peut suivre la navigation de Parakeet.
+  - **En preview ou en prod**, le QR code ouvre directement l'URL. Pour une preview protégée, il contient le secret de contournement.
 - **Local, preview, prod (Vercel)** : un clic affiche la même page sur ton serveur local, sur une preview (au choix par branche) ou en production.
   - **Déploiements** liste les builds, rafraîchis toutes les 30 s.
   - **Comparer** met côte à côte les balises et le score des checks de la page sur chaque environnement, avec les différences surlignées.
@@ -65,6 +68,15 @@ Dans **Réglages → Vercel** :
 2. Choisis le compte ou l'équipe, puis le projet du site. Parakeet récupère le domaine de production et les déploiements.
 
 **Previews protégées.** Si le projet a un secret « Protection Bypass for Automation », Parakeet l'utilise pour ouvrir et lire les previews. Sinon, un bouton propose d'en créer un : c'est une modification du projet Vercel, faite uniquement sur ta demande. La variable `PARAKEET_VERCEL_BYPASS=<secret>` reste prioritaire si tu préfères ne pas connecter ton compte. Le secret est envoyé dans l'en-tête `x-vercel-protection-bypass` aux domaines `*.vercel.app`.
+
+## Sur mon téléphone
+
+Bouton **Sur mon téléphone** dans la barre du haut, ou `Ctrl K` puis « téléphone ». En local, active le partage sur le réseau, puis scanne le QR code avec le téléphone, connecté au même Wi-Fi.
+
+- **Port** : 47800 par défaut, ou le suivant s'il est pris. Si un pare-feu bloque : `sudo ufw allow 47800/tcp` ou `sudo firewall-cmd --add-port=47800/tcp`.
+- **Appairage** : le QR code contient un jeton à usage de cookie, renouvelé à chaque activation. Sans lui, un appareil du réseau reçoit un refus (403).
+- **En-têtes** : le relais réécrit `Host` et `Origin` vers `localhost`, ce qui évite les blocages de Vite (`allowedHosts`) et de Next.js (`allowedDevOrigins`). Les WebSocket du rechargement à chaud passent.
+- **Suivi** : un petit script injecté dans les pages HTML fait suivre au téléphone la navigation de Parakeet (désactivable).
 
 ## Brancher Claude Code (MCP)
 
@@ -122,7 +134,8 @@ L'autotest lance le site de démo et Parakeet, puis vérifie :
 - l'exploration des pages ;
 - les 7 aperçus de partage et le correctif pour le framework détecté ;
 - le serveur MCP lancé comme le ferait Claude Code (`parakeet --mcp`), avec capture et checks via l'app ;
-- Vercel contre une fausse API : connexion, projet, bascule local → prod → preview → local sur le même chemin, secret de contournement du projet, comparaison des trois environnements.
+- Vercel contre une fausse API : connexion, projet, bascule local → prod → preview → local sur le même chemin, secret de contournement du projet, comparaison des trois environnements, preview protégée (appareils et robots) ;
+- le téléphone, joué par une fenêtre Chromium cachée : refus sans appairage, page via le QR code, rechargement à chaud à travers le relais, suivi de la navigation, QR code de preview protégée.
 
 Sans écran, il utilise Xvfb et prend des captures avec ImageMagick dans `apps/desktop/selftest-output/`. Pour tester l'app packagée : `PARAKEET_BIN=dist/linux-unpacked/parakeet node scripts/selftest.mjs` depuis `apps/desktop`.
 

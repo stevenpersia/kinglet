@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { AnalyzeReport, CrawledPage, DevicePreset, EnvId, InitState, McpActivity, McpInfo, ParakeetApi, Settings, ShareReport, VercelState } from '../shared/types';
+import type { AnalyzeReport, CrawledPage, DevicePreset, EnvId, InitState, McpActivity, McpInfo, ParakeetApi, PhoneState, Settings, ShareReport, VercelState } from '../shared/types';
 import { envOf, envTargets, urlOnEnv } from './lib/env';
 
 declare global {
@@ -42,6 +42,8 @@ interface State {
   urlFocusTick: number;
   mcp: McpInfo | null;
   vercel: VercelState | null;
+  phone: PhoneState | null;
+  phoneOpen: boolean;
   /** Preview deployment chosen in the environment switch (null: latest). */
   previewId: string | null;
 
@@ -89,6 +91,8 @@ export const useStore = create<State>((set, get) => ({
   urlFocusTick: 0,
   mcp: null,
   vercel: null,
+  phone: null,
+  phoneOpen: false,
   previewId: null,
 
   async init() {

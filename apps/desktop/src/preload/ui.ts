@@ -27,6 +27,14 @@ const api: ParakeetApi = {
   },
   compare: (targets) => ipcRenderer.invoke('compare:run', targets),
   openExternal: (url) => ipcRenderer.send('shell:open', url),
+  phone: {
+    state: () => ipcRenderer.invoke('phone:state'),
+    start: () => ipcRenderer.invoke('phone:start'),
+    stop: () => ipcRenderer.invoke('phone:stop'),
+    setFollow: (on) => ipcRenderer.invoke('phone:follow', on),
+    setAddress: (address) => ipcRenderer.invoke('phone:address', address),
+    qr: (url, local) => ipcRenderer.invoke('phone:qr', url, local),
+  },
   windowControl: (action) => ipcRenderer.send('window:control', action),
   onEvent: (cb) => {
     const listener = (_e: unknown, ev: PreviewEvent) => cb(ev);

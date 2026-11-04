@@ -2,10 +2,12 @@ import { join } from 'node:path';
 import { app, BrowserWindow, clipboard, ipcMain, Menu, shell } from 'electron';
 import { buildShareFix, checkShare, crawl, probeImage, readPageMeta, readSharePreviews, readSiteFiles, runChecks, score, vercelBypassHeaders, type CrawledPage, type SiteFiles } from '@parakeet/core';
 import { startStdio } from '@parakeet/mcp';
-import type { AnalyzeReport, CompareColumn, DeviceSlot, EnvId, InitState, McpActivity, McpInfo, PreviewEvent, Settings, ShareStudio } from '../shared/types';
+import QRCode from 'qrcode';
+import type { AnalyzeReport, CompareColumn, DeviceSlot, EnvId, InitState, McpActivity, McpInfo, PhoneQr, PhoneState, PreviewEvent, Settings, ShareStudio } from '../shared/types';
 import { startControlServer } from './control';
 import { mcpLaunch } from './mcp-launch';
 import { VercelService } from './vercel';
+import { lanAddresses, LanProxy } from './lan';
 import { detectLocalServer } from './detect';
 import { DeviceManager, shortcutFor } from './devices';
 import { PRESETS } from './presets';
@@ -60,7 +62,28 @@ async function createWindow() {
     },
   });
 
+  // "On my phone": proxy to the local dev server, created on demand. Paired phones follow local navigation.
+  let lanAddress: string | null = null;
+  const lan = new LanProxy(
+    () => settings.value.localOrigin,
+    (clients) => {
+      lanClients = clients;
+      emit({ type: 'phone', state: phoneState() });
+    },
+  );
+  const phoneState = (): PhoneState => {
+    const addresses = lanAddresses();
+    const address = addresses.find((a) => a.address === lanAddress)?.address ?? addresses[0]?.address ?? null;
+    return { running: lan.running, port: lan.port, addresses, address, follow: lan.follow, clients: lanClients };
+  };
+  let lanClients: PhoneState['clients'] = [];
+  app.on('will-quit', () => lan.stop());
+
   const emit = (e: PreviewEvent) => {
+    if ((e.type === 'loaded' || e.type === 'navigated') && settings.value.localOrigin && e.url.startsWith(settings.value.localOrigin)) {
+      const u = new URL(e.url);
+      lan.notify(u.pathname + u.search);
+    }
     if (!win.isDestroyed()) win.webContents.send('app:event', e);
   };
   const devices = new DeviceManager(win, PRESETS, emit);
@@ -210,6 +233,47 @@ async function createWindow() {
   ipcMain.handle('vercel:disconnect', vercelCall(() => vercel.disconnect()));
   ipcMain.on('shell:open', (_e, url: string) => {
     if (/^https:\/\//.test(url)) void shell.openExternal(url);
+  });
+
+  // On my phone
+  ipcMain.handle('phone:state', () => phoneState());
+  ipcMain.handle('phone:start', async () => {
+    await lan.start();
+    return phoneState();
+  });
+  ipcMain.handle('phone:stop', () => {
+    lan.stop();
+    return phoneState();
+  });
+  ipcMain.handle('phone:follow', (_e, on: boolean) => {
+    lan.follow = on;
+    return phoneState();
+  });
+  ipcMain.handle('phone:address', (_e, address: string) => {
+    lanAddress = address;
+    return phoneState();
+  });
+  ipcMain.handle('phone:qr', async (_e, url: string, local: boolean): Promise<PhoneQr> => {
+    let target = url;
+    let withSecret = false;
+    if (local) {
+      const address = phoneState().address;
+      if (!lan.running || !address) throw new Error('Le partage sur le réseau local n’est pas activé.');
+      const u = new URL(url);
+      target = lan.pairUrl(address, u.pathname + u.search);
+    } else {
+      // Protected preview: Vercel accepts the bypass in the query string (the phone gets a cookie).
+      const secret = bypassHeaders(url)['x-vercel-protection-bypass'];
+      if (secret) {
+        const u = new URL(url);
+        u.searchParams.set('x-vercel-protection-bypass', secret);
+        u.searchParams.set('x-vercel-set-bypass-cookie', 'true');
+        target = u.toString();
+        withSecret = true;
+      }
+    }
+    const svg = await QRCode.toString(target, { type: 'svg', margin: 1, errorCorrectionLevel: 'M', color: { dark: '#0a0a0b', light: '#ffffff' } });
+    return { url: target, svg, withSecret };
   });
 
   // Compare: the same page on each environment, read like a bot (fast, no devices needed).

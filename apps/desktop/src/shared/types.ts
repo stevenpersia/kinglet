@@ -76,6 +76,22 @@ export interface VercelState {
 
 export type EnvId = 'local' | 'preview' | 'prod';
 
+export interface PhoneState {
+  running: boolean;
+  port: number | null;
+  addresses: { address: string; iface: string }[];
+  address: string | null;
+  follow: boolean;
+  clients: { id: number; userAgent: string; since: number }[];
+}
+
+export interface PhoneQr {
+  url: string;
+  svg: string;
+  /** The URL carries the Vercel bypass secret (protected preview). */
+  withSecret: boolean;
+}
+
 export interface CompareColumn {
   env: EnvId;
   label: string;
@@ -119,7 +135,8 @@ export type PreviewEvent =
   | { type: 'window'; maximized: boolean }
   | { type: 'settings'; settings: Settings }
   | { type: 'mcp'; activity: McpActivity }
-  | { type: 'vercel'; state: VercelState };
+  | { type: 'vercel'; state: VercelState }
+  | { type: 'phone'; state: PhoneState };
 
 export interface ParakeetApi {
   init(): Promise<InitState>;
@@ -156,6 +173,15 @@ export interface ParakeetApi {
   /** The same path on each environment: tags side by side and checks score. */
   compare(targets: { env: EnvId; label: string; url: string }[]): Promise<CompareColumn[]>;
   openExternal(url: string): void;
+  phone: {
+    state(): Promise<PhoneState>;
+    start(): Promise<PhoneState>;
+    stop(): Promise<PhoneState>;
+    setFollow(on: boolean): Promise<PhoneState>;
+    setAddress(address: string): Promise<PhoneState>;
+    /** QR for the current page: through the local proxy (local), or the URL itself (preview, prod). */
+    qr(url: string, local: boolean): Promise<PhoneQr>;
+  };
   windowControl(action: 'minimize' | 'maximize' | 'close'): void;
   onEvent(cb: (e: PreviewEvent) => void): () => void;
 }
