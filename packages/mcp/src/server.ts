@@ -302,7 +302,7 @@ export function createParakeetServer(opts: Options = {}) {
   server.registerTool(
     'run_checks',
     {
-      title: t('Run the 24 checks', 'Lancer les 24 checks'),
+      title: t('Run the 30 checks', 'Lancer les 30 checks'),
       description: t(
         'SEO, sharing, mobile and technical. With the app open, includes the measures in the devices (horizontal overflow, JavaScript errors, heavy images).',
         'SEO, partage, mobile et technique. Avec l’app ouverte, inclut les mesures dans les appareils (débordement horizontal, erreurs JavaScript, images lourdes).',
@@ -383,7 +383,7 @@ export function createParakeetServer(opts: Options = {}) {
     'fix_checks',
     {
       title: t('Fix the checks', 'Corriger les checks'),
-      description: t('Fixes the problems found by the 24 checks on the page open in Parakeet, then runs the checks again.', 'Corrige les problèmes trouvés par les 24 checks sur la page ouverte dans Parakeet, puis relance les checks.'),
+      description: t('Fixes the problems found by the 30 checks on the page open in Parakeet, then runs the checks again.', 'Corrige les problèmes trouvés par les 30 checks sur la page ouverte dans Parakeet, puis relance les checks.'),
       argsSchema: { url: z.string().optional() },
     },
     async ({ url }) => {

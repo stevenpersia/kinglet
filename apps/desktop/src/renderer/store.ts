@@ -29,7 +29,7 @@ interface State {
   detectedFrom: string | null;
   status: LoadStatus;
   error: string | null;
-  /** Last analysis of the current page (share tags + 24 checks). */
+  /** Last analysis of the current page (share tags + 30 checks). */
   report: AnalyzeReport | null;
   share: ShareReport | null;
   shareError: string | null;

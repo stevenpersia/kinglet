@@ -1,4 +1,4 @@
-import type { CheckResult, CrawledPage, ImageProbe, Issue, PageMeta, ShareFix, SharePreviews, SiteFiles, VercelDeployment, VercelProject, VercelTeam, VercelUser } from '@parakeet/core';
+import type { Vitals, CheckResult, CrawledPage, ImageProbe, Issue, PageMeta, ShareFix, SharePreviews, SiteFiles, VercelDeployment, VercelProject, VercelTeam, VercelUser } from '@parakeet/core';
 
 export interface DevicePreset {
   id: string;
@@ -150,13 +150,15 @@ export interface ShareReport {
   issues: Issue[];
 }
 
-/** Everything known about the current page: share tags, site files, the 24 checks. */
+/** Everything known about the current page: share tags, site files, the 30 checks. */
 export interface AnalyzeReport {
   url: string;
   share: ShareReport;
   site: SiteFiles | null;
   checks: CheckResult[];
   score: { passed: number; total: number };
+  /** Core Web Vitals of each device (by device id). */
+  vitals?: Record<string, Vitals>;
 }
 
 export type { CheckResult, CrawledPage, ShareFix, SharePreviews, VercelDeployment, VercelProject };

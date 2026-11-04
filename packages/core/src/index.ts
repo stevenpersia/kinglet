@@ -15,6 +15,7 @@ export {
   type CheckStatus,
   type CheckInput,
   type RenderedDevice,
+  type Vitals,
 } from './checks.ts';
 export { readSiteFiles, parseRobots, parseSitemap, type SiteFiles } from './site.ts';
 export { crawl, type CrawledPage } from './crawl.ts';

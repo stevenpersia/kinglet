@@ -198,9 +198,16 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     const atelier = await analyze('http://localhost:5173/atelier.html');
     const st = Object.fromEntries(atelier.checks.map((c) => [c.id, c.status]));
     criteria.push({
-      id: 'checks-24',
-      ok: atelier.checks.length === 24 && st['overflow'] === 'error' && st['console'] === 'error' && st['og-site-name'] === 'warning' && st['robots'] === 'warning',
+      id: 'checks-30',
+      ok: atelier.checks.length === 30 && st['overflow'] === 'error' && st['console'] === 'error' && st['og-site-name'] === 'warning' && st['robots'] === 'warning',
       detail: `${atelier.checks.length} checks, ${atelier.score.passed}/${atelier.score.total} · débordement ${st['overflow']}, erreurs JS ${st['console']}, robots.txt ${st['robots']} (le serveur Vite renvoie sa page HTML)`,
+    });
+    // Measured in the devices: the « mentions » link of atelier.html is tiny and pale on purpose.
+    const det = (id: string) => atelier.checks.find((c) => c.id === id)?.detail ?? '';
+    criteria.push({
+      id: 'checks-mobile',
+      ok: st['tap-targets'] === 'warning' && st['small-text'] === 'warning' && st['contrast'] === 'warning' && st['safe-area'] === 'ok' && det('tap-targets').includes('mentions') && st['lcp'] !== 'skip' && st['cls'] !== 'skip',
+      detail: ['tap-targets', 'small-text', 'contrast', 'safe-area', 'lcp', 'cls'].map((id) => `${id} ${st[id]}: ${det(id)}`).join(' · '),
     });
     report['checks-atelier'] = atelier.checks;
 

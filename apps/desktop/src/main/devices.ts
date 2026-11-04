@@ -55,16 +55,83 @@ const serial = <T,>(d: DeviceEntry, job: () => Promise<T>): Promise<T> => {
 };
 
 /** Runs inside a device page: what only the rendered page (after JavaScript) can tell. */
-const MEASURE = `(() => {
+const MEASURE = `(async () => {
   const heavy = performance.getEntriesByType('resource')
     .filter((e) => e.initiatorType === 'img' || /\\.(png|jpe?g|webp|gif|avif)(\\?|$)/i.test(e.name))
     .map((e) => ({ url: e.name, bytes: e.transferSize || e.encodedBodySize || 0 }))
     .filter((i) => i.bytes > ${HEAVY_IMAGE_BYTES});
+  const visible = (el, r) => r.width > 0 && r.height > 0 && r.bottom > 0 && r.right > 0 && r.left < innerWidth && getComputedStyle(el).visibility !== 'hidden' && getComputedStyle(el).opacity !== '0';
+  const name = (el) => {
+    const txt = (el.getAttribute('aria-label') || el.innerText || el.value || el.getAttribute('title') || '').trim().replace(/\\s+/g, ' ');
+    return el.tagName.toLowerCase() + (txt ? ' « ' + txt.slice(0, 24) + ' »' : '');
+  };
+  // Tap targets under 24×24 CSS px; a link inside a sentence is exempt (WCAG 2.5.8).
+  const small = [];
+  for (const el of document.querySelectorAll('a[href], button, input:not([type=hidden]), select, textarea, [role=button], [role=link], [onclick]')) {
+    const r = el.getBoundingClientRect();
+    if (!visible(el, r) || (r.width >= 24 && r.height >= 24)) continue;
+    const p = el.parentElement;
+    if (el.tagName === 'A' && p && getComputedStyle(el).display === 'inline' && (p.innerText || '').trim().length > (el.innerText || '').trim().length + 20) continue;
+    small.push(name(el));
+  }
+  // Text: size and contrast, on elements that hold their own text.
+  const lum = (c) => { const v = c / 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
+  const parse = (s) => { const m = s.match(/rgba?\\(([^)]+)\\)/); if (!m) return null; const p = m[1].split(/[ ,/]+/).filter(Boolean).map(Number); return { r: p[0], g: p[1], b: p[2], a: p.length > 3 ? p[3] : 1 }; };
+  const L = (c) => 0.2126 * lum(c.r) + 0.7152 * lum(c.g) + 0.0722 * lum(c.b);
+  const bgOf = (el) => {
+    for (let e = el; e; e = e.parentElement) {
+      const cs = getComputedStyle(e);
+      if (cs.backgroundImage && cs.backgroundImage !== 'none') return null; // image or gradient: unknown
+      const c = parse(cs.backgroundColor);
+      if (c && c.a > 0.9) return c;
+    }
+    return { r: 255, g: 255, b: 255, a: 1 };
+  };
+  const tiny = []; let minPx = 99; const low = []; let seen = 0;
+  const walker = document.createTreeWalker(document.body || document.documentElement, NodeFilter.SHOW_TEXT);
+  const done = new Set();
+  while (walker.nextNode() && seen < 600) {
+    const node = walker.currentNode;
+    if (!node.textContent.trim()) continue;
+    const el = node.parentElement;
+    if (!el || done.has(el) || /^(SCRIPT|STYLE|NOSCRIPT)$/.test(el.tagName)) continue;
+    done.add(el);
+    const r = el.getBoundingClientRect();
+    if (!visible(el, r)) continue;
+    seen++;
+    const cs = getComputedStyle(el);
+    const px = parseFloat(cs.fontSize);
+    const label = '« ' + node.textContent.trim().replace(/\\s+/g, ' ').slice(0, 24) + ' »';
+    if (px < 12) { tiny.push(label); minPx = Math.min(minPx, Math.round(px * 10) / 10); }
+    const fg = parse(cs.color); const bg = bgOf(el);
+    if (fg && bg && fg.a > 0.5) {
+      const a = L(fg), b = L(bg);
+      const ratio = (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+      const large = px >= 24 || (px >= 18.66 && Number(cs.fontWeight) >= 700);
+      if (ratio < (large ? 3 : 4.5)) low.push(label + ' ' + ratio.toFixed(1) + ':1');
+    }
+  }
+  // Notch: viewport-fit=cover asks to draw under it; then the CSS should use the safe-area insets.
+  const vp = document.querySelector('meta[name=viewport]')?.getAttribute('content') || '';
+  let insets = /safe-area-inset/.test(document.documentElement.outerHTML.slice(0, 200000));
+  if (!insets) for (const sh of document.styleSheets) { try { for (const rule of sh.cssRules) if (rule.cssText.includes('safe-area-inset')) { insets = true; break; } } catch {} if (insets) break; }
+  // Core Web Vitals, from the buffered performance entries.
+  const entries = (type) => new Promise((res) => { try { const got = []; const po = new PerformanceObserver((l) => got.push(...l.getEntries())); po.observe({ type, buffered: true }); setTimeout(() => { got.push(...po.takeRecords()); po.disconnect(); res(got); }, 100); } catch { res([]); } });
+  const [lcpList, shifts] = await Promise.all([entries('largest-contentful-paint'), entries('layout-shift')]);
+  const nav = performance.getEntriesByType('navigation')[0];
+  const fcp = performance.getEntriesByName('first-contentful-paint')[0];
+  const lcp = lcpList.length ? lcpList[lcpList.length - 1].startTime : null;
+  const cls = shifts.filter((e) => !e.hadRecentInput).reduce((s, e) => s + e.value, 0);
   return {
     // Mobile browsers zoom out to fit a too-wide page (innerWidth grows with it): compare with the screen.
     overflowPx: Math.max(0, Math.max(document.documentElement.scrollWidth, document.body ? document.body.scrollWidth : 0) - screen.width),
     heavyImages: heavy,
     links: [...document.querySelectorAll('a[href]')].map((a) => a.href),
+    smallTargets: { count: small.length, examples: small.slice(0, 3) },
+    smallText: { count: tiny.length, minPx: tiny.length ? minPx : 0, examples: tiny.slice(0, 3) },
+    lowContrast: { count: low.length, examples: low.slice(0, 3) },
+    notchUnsafe: /viewport-fit\\s*=\\s*cover/.test(vp) && !insets,
+    vitals: { lcpMs: lcp != null ? Math.round(lcp) : null, cls: Math.round(cls * 1000) / 1000, fcpMs: fcp ? Math.round(fcp.startTime) : null, ttfbMs: nav ? Math.round(nav.responseStart) : null },
   };
 })()`;
 
@@ -545,8 +612,9 @@ export class DeviceManager {
         const url = d.view.webContents.getURL();
         if (!/^https?:/.test(url)) return null;
         try {
-          const m = (await d.view.webContents.executeJavaScript(MEASURE)) as { overflowPx: number; heavyImages: { url: string; bytes: number }[]; links: string[] };
-          return { device: { id: d.preset.id, label: d.preset.label, overflowPx: m.overflowPx, heavyImages: m.heavyImages, consoleErrors: [...d.consoleErrors] }, links: m.links };
+          const m = (await d.view.webContents.executeJavaScript(MEASURE)) as Omit<RenderedDevice, 'id' | 'label' | 'consoleErrors' | 'touch'> & { links: string[] };
+          const { links, ...rest } = m;
+          return { device: { ...rest, id: d.preset.id, label: d.preset.label, touch: d.preset.touch, consoleErrors: [...d.consoleErrors] }, links };
         } catch {
           return null;
         }

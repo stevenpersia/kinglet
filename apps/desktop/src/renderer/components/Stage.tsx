@@ -367,6 +367,14 @@ function Devices() {
                     · {seconds(perf[preset.id]!.loadMs)} · {weight(perf[preset.id]!.bytes)}
                   </span>
                 )}
+                {state.report?.vitals?.[preset.id]?.lcpMs != null && (
+                  <span
+                    title={t('Core Web Vitals: largest paint (good under 2.5 s) and layout shifts (good under 0.1)', 'Core Web Vitals : plus grand affichage (bon sous 2,5 s) et décalages (bon sous 0,1)')}
+                    className={state.report.vitals[preset.id]!.lcpMs! > 2500 || (state.report.vitals[preset.id]!.cls ?? 0) > 0.1 ? 'text-warn' : ''}
+                  >
+                    · LCP {seconds(state.report.vitals[preset.id]!.lcpMs!)} · CLS {(state.report.vitals[preset.id]!.cls ?? 0).toFixed(2)}
+                  </span>
+                )}
                 {errorsOf(preset.id) > 0 && (
                   <button
                     onClick={() => {

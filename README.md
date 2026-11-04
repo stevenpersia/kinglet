@@ -2,7 +2,7 @@
 
 Voir son site sur tous les écrans (iPhone, Android, iPad, desktop), en local, en preview et en prod, et vérifier l'aperçu de ses liens (WhatsApp, LinkedIn, Slack…) avant de les partager. Pensé pour les sites construits avec Claude.
 
-> Nom provisoire. État actuel : **phase 7**, version 0.1.0. Aperçu multi-appareils, ton site sur ton vrai téléphone, local / preview / prod via Vercel, aperçus de partage sur 7 plateformes avec correctif, 24 checks, exploration des pages et serveur MCP pour Claude Code. Releases GitHub avec mises à jour automatiques, landing page, intégration continue.
+> Nom provisoire. État actuel : **phase 7**, version 0.1.0. Aperçu multi-appareils, ton site sur ton vrai téléphone, local / preview / prod via Vercel, aperçus de partage sur 7 plateformes avec correctif, 30 checks, exploration des pages et serveur MCP pour Claude Code. Releases GitHub avec mises à jour automatiques, landing page, intégration continue.
 
 ## Ce que fait Parakeet
 
@@ -12,11 +12,11 @@ Voir son site sur tous les écrans (iPhone, Android, iPad, desktop), en local, e
   - La page est lue par le robot de chaque plateforme, avec son user agent et sans JavaScript.
   - Chaque rendu suit les règles de sa plateforme : textes coupés, recadrage en 1,91:1, carte X selon `twitter:card`, bordure Discord selon `theme-color`. Les rendus et les limites restent approximatifs.
   - Parakeet détecte le framework (Next.js, Nuxt, Astro, SvelteKit, Vite/HTML) et propose le correctif à coller au bon endroit, avec un prompt prêt pour Claude.
-- **Checks** : 24 vérifications en 4 familles.
+- **Checks** : 30 vérifications en 4 familles.
   - **SEO** : titre, description, lang, canonical, h1, indexation, robots.txt, sitemap.
   - **Partage** : og:title, og:description, og:site_name, image, format de l'image, twitter:card.
-  - **Mobile** : viewport, débordement horizontal, theme-color, apple-touch-icon, manifest.
-  - **Technique** : statut HTTP, favicon, textes alternatifs, erreurs JavaScript, poids des images.
+  - **Mobile** : viewport, débordement horizontal, zones tactiles trop petites (moins de 24×24 px), texte sous 12 px, encoche (viewport-fit=cover sans safe-area), theme-color, apple-touch-icon, manifest.
+  - **Technique** : statut HTTP, favicon, textes alternatifs, contraste du texte, erreurs JavaScript, poids des images, Core Web Vitals (LCP et CLS, aussi affichés sous chaque appareil).
 
   Le débordement, les erreurs JavaScript et le poids des images sont mesurés dans les appareils, sur la page rendue. Le `noindex` est considéré comme normal en local et sur les previews.
 - **Sur mon téléphone** : un QR code ouvre la page affichée sur ton vrai téléphone.
@@ -163,7 +163,7 @@ Le workflow `release.yml` refait les tests, construit, teste l'app packagée (mi
 pnpm --filter @parakeet/web preview    # http://localhost:4173
 ```
 
-Ses tests la passent aux 24 checks et aux 7 aperçus de partage de Parakeet : tout doit être vert.
+Ses tests la passent aux 30 checks et aux 7 aperçus de partage de Parakeet : tout doit être vert.
 
 ## Claude dans Parakeet
 
@@ -197,7 +197,7 @@ L'autotest lance le site de démo et Parakeet, puis vérifie :
 - le mode paysage et l'enregistrement des réglages ;
 - le gel des aperçus sous la palette ;
 - la synchro de navigation ;
-- les 24 checks sur une page aux défauts connus (débordement, erreur JavaScript) ;
+- les 30 checks sur une page aux défauts connus (débordement, erreur JavaScript) ;
 - l'exploration des pages ;
 - les 7 aperçus de partage et le correctif pour le framework détecté ;
 - le serveur MCP lancé comme le ferait Claude Code (`parakeet --mcp`), avec capture et checks via l'app ;
@@ -222,7 +222,7 @@ apps/desktop        app Electron (electron-vite)
   src/preload       ponts sécurisés vers l'interface et les pages émulées
   src/renderer      interface React + Tailwind (design « Graphite »)
 packages/mcp        serveur MCP (stdio) pour Claude Code, client du serveur de contrôle de l'app
-packages/core       lecture des balises comme les robots, aperçus des 7 plateformes, correctifs, fichiers du site, exploration, 24 checks
+packages/core       lecture des balises comme les robots, aperçus des 7 plateformes, correctifs, fichiers du site, exploration, 30 checks
 apps/web            landing page statique (Vercel)
 fixtures/demo-site  site de test (Vite)
 fixtures/vercel-mock  fausse API Vercel pour les tests

@@ -59,7 +59,7 @@ export function checkShare(meta: PageMeta, image?: ImageProbe | null): Issue[] {
 }
 
 /* ------------------------------------------------------------------ */
-/* Full check list (the « 24 checks »)                                 */
+/* Full check list (the « 30 checks »)                                 */
 /* ------------------------------------------------------------------ */
 
 export type CheckGroup = 'seo' | 'partage' | 'mobile' | 'technique';
@@ -82,6 +82,25 @@ export interface RenderedDevice {
   overflowPx: number;
   consoleErrors: string[];
   heavyImages: { url: string; bytes: number }[];
+  /** Touch screen: taps matter (tap targets). */
+  touch?: boolean;
+  /** Buttons and links smaller than 24×24 CSS px (WCAG 2.5.8), links inside a sentence aside. */
+  smallTargets?: { count: number; examples: string[] };
+  /** Visible text under 12 px. */
+  smallText?: { count: number; minPx: number; examples: string[] };
+  /** Text whose contrast with its background is under 4.5:1 (3:1 for large text). */
+  lowContrast?: { count: number; examples: string[] };
+  /** viewport-fit=cover without env(safe-area-inset-*) anywhere: content goes under the notch. */
+  notchUnsafe?: boolean;
+  vitals?: Vitals;
+}
+
+/** Core Web Vitals measured in a device (ms, CLS unitless). */
+export interface Vitals {
+  lcpMs: number | null;
+  cls: number | null;
+  fcpMs: number | null;
+  ttfbMs: number | null;
 }
 
 export interface CheckInput {
@@ -122,6 +141,9 @@ export function isNonProduction(url: string): boolean {
 }
 
 const kb = (b: number) => `${Math.round(b / 1024)} ${t('KB', 'Ko')}`;
+
+/** "1.2 s" / "1,2 s", or ms under a second. */
+const secs = (ms: number) => (ms < 1000 ? `${Math.round(ms)} ms` : `${t((ms / 1000).toFixed(1), (ms / 1000).toFixed(1).replace('.', ','))} s`);
 
 /** "1 image" / "2 images" (English; the French strings keep their own plural). */
 const n = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
@@ -223,6 +245,51 @@ export function runChecks({ meta, image, site, rendered }: CheckInput): CheckRes
         : t(`None on ${n(rendered.length, 'device')}.`, `Aucun sur ${rendered.length} appareil${rendered.length > 1 ? 's' : ''}.`),
     );
   }
+  // Mobile, measured in the rendered page (touch devices for tap targets).
+  const touchDevices = rendered?.filter((r) => r.touch && r.smallTargets) ?? [];
+  const targets = t('Tap targets', 'Zones tactiles');
+  if (!touchDevices.length) add('tap-targets', 'mobile', targets, 'skip', inDevices);
+  else {
+    const worst = [...touchDevices].sort((a, b) => b.smallTargets!.count - a.smallTargets!.count)[0]!;
+    const c = worst.smallTargets!.count;
+    add(
+      'tap-targets',
+      'mobile',
+      targets,
+      c ? 'warning' : 'ok',
+      c
+        ? t(`${c} too small (under 24×24 px) on ${worst.label}: ${worst.smallTargets!.examples.join(', ')}`, `${c} trop petite${c > 1 ? 's' : ''} (moins de 24×24 px) sur ${worst.label} : ${worst.smallTargets!.examples.join(', ')}`)
+        : t('Every button and link can be tapped (24×24 px or more).', 'Tous les boutons et liens se touchent bien (24×24 px ou plus).'),
+    );
+  }
+  const textDevices = rendered?.filter((r) => r.smallText) ?? [];
+  const textSize = t('Text size', 'Taille du texte');
+  if (!textDevices.length) add('small-text', 'mobile', textSize, 'skip', inDevices);
+  else {
+    const worst = [...textDevices].sort((a, b) => b.smallText!.count - a.smallText!.count)[0]!;
+    const st = worst.smallText!;
+    add(
+      'small-text',
+      'mobile',
+      textSize,
+      st.count ? 'warning' : 'ok',
+      st.count
+        ? t(`${st.count} text${st.count > 1 ? 's' : ''} under 12 px on ${worst.label} (down to ${st.minPx} px): ${st.examples.join(', ')}`, `${st.count} texte${st.count > 1 ? 's' : ''} sous 12 px sur ${worst.label} (jusqu’à ${st.minPx} px) : ${st.examples.join(', ')}`)
+        : t('No text under 12 px.', 'Aucun texte sous 12 px.'),
+    );
+  }
+  const notch = t('Notch and rounded corners', 'Encoche et coins arrondis');
+  if (!rendered?.some((r) => r.notchUnsafe !== undefined)) add('safe-area', 'mobile', notch, 'skip', inDevices);
+  else
+    add(
+      'safe-area',
+      'mobile',
+      notch,
+      rendered.some((r) => r.notchUnsafe) ? 'warning' : 'ok',
+      rendered.some((r) => r.notchUnsafe)
+        ? t('viewport-fit=cover, but no env(safe-area-inset-*) in the CSS: content can go under the notch.', 'viewport-fit=cover, mais aucun env(safe-area-inset-*) dans le CSS : le contenu peut passer sous l’encoche.')
+        : t('Content stays clear of the notch.', 'Le contenu reste hors de l’encoche.'),
+    );
   add('theme-color', 'mobile', t('Theme color', 'Couleur du thème'), meta.themeColor ? 'ok' : 'warning', meta.themeColor ?? t('Missing: the mobile browser bar keeps its default color.', 'Absente : la barre du navigateur mobile reste par défaut.'));
   add(
     'apple-touch-icon',
@@ -266,6 +333,36 @@ export function runChecks({ meta, image, site, rendered }: CheckInput): CheckRes
         ? t(`${meta.imgMissingAlt} of ${n(meta.imgCount, 'image')} without alt.`, `${meta.imgMissingAlt} image${meta.imgMissingAlt > 1 ? 's' : ''} sur ${meta.imgCount} sans alt.`)
         : t(`${n(meta.imgCount, 'image')}, all with alt.`, `${meta.imgCount} image${meta.imgCount > 1 ? 's' : ''}, toutes avec alt.`),
   );
+  const contrastDevices = rendered?.filter((r) => r.lowContrast) ?? [];
+  const contrast = t('Text contrast', 'Contraste du texte');
+  if (!contrastDevices.length) add('contrast', 'technique', contrast, 'skip', inDevices);
+  else {
+    const worst = [...contrastDevices].sort((a, b) => b.lowContrast!.count - a.lowContrast!.count)[0]!;
+    const c = worst.lowContrast!.count;
+    add(
+      'contrast',
+      'technique',
+      contrast,
+      c ? 'warning' : 'ok',
+      c ? t(`${c} text${c > 1 ? 's' : ''} hard to read (under 4.5:1): ${worst.lowContrast!.examples.join(', ')}`, `${c} texte${c > 1 ? 's' : ''} peu lisible${c > 1 ? 's' : ''} (moins de 4,5:1) : ${worst.lowContrast!.examples.join(', ')}`) : t('Every text is readable (4.5:1 or more).', 'Tous les textes sont lisibles (4,5:1 ou plus).'),
+    );
+  }
+  // Core Web Vitals: the slowest device decides (phones, with the throttling chosen).
+  const withVitals = rendered?.filter((r) => r.vitals) ?? [];
+  const lcps = withVitals.filter((r) => r.vitals!.lcpMs != null).sort((a, b) => b.vitals!.lcpMs! - a.vitals!.lcpMs!);
+  if (!lcps.length) add('lcp', 'technique', t('Largest paint (LCP)', 'Plus grand affichage (LCP)'), 'skip', inDevices);
+  else {
+    const w = lcps[0]!;
+    const ms = w.vitals!.lcpMs!;
+    add('lcp', 'technique', t('Largest paint (LCP)', 'Plus grand affichage (LCP)'), ms > 4000 ? 'error' : ms > 2500 ? 'warning' : 'ok', t(`${secs(ms)} on ${w.label} (good under 2.5 s).`, `${secs(ms)} sur ${w.label} (bon sous 2,5 s).`));
+  }
+  const clss = withVitals.filter((r) => r.vitals!.cls != null).sort((a, b) => b.vitals!.cls! - a.vitals!.cls!);
+  if (!clss.length) add('cls', 'technique', t('Layout shifts (CLS)', 'Décalages (CLS)'), 'skip', inDevices);
+  else {
+    const w = clss[0]!;
+    const v = w.vitals!.cls!;
+    add('cls', 'technique', t('Layout shifts (CLS)', 'Décalages (CLS)'), v > 0.25 ? 'error' : v > 0.1 ? 'warning' : 'ok', t(`${v.toFixed(3)} on ${w.label} (good under 0.1).`, `${v.toFixed(3).replace('.', ',')} sur ${w.label} (bon sous 0,1).`));
+  }
   const jsErrors = t('JavaScript errors', 'Erreurs JavaScript');
   const imageWeight = t('Image weight', 'Poids des images');
   if (!rendered?.length) {

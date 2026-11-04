@@ -295,7 +295,8 @@ async function createWindow() {
     if (opts.refreshSite || !siteCache.has(key)) siteCache.set(key, readSiteFiles(meta.finalUrl, { manifest: meta.manifest, favicon: meta.icons[0] ?? null }, { headers }));
     const site = await siteCache.get(key)!.catch(() => null);
     const checks = runChecks({ meta, image, site, rendered: rendered.devices });
-    return { url, share: { meta, image, issues: checkShare(meta, image) }, site, checks, score: score(checks) };
+    const vitals = Object.fromEntries(rendered.devices.filter((r) => r.vitals).map((r) => [r.id, r.vitals!]));
+    return { url, share: { meta, image, issues: checkShare(meta, image) }, site, checks, score: score(checks), vitals };
   }
   ipcMain.handle('page:analyze', (_e, url: string, opts: { refreshSite?: boolean }) => analyzePage(url, opts));
 
