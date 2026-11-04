@@ -133,6 +133,10 @@ export class AppControl {
   deployments() {
     return this.call<{ project: { name: string; productionUrl: string | null } | null; deployments: Deployment[] }>('GET', '/deployments');
   }
+  /** Ask the person in front of Parakeet whether Claude may use a tool (waits for the answer). */
+  approve(req: { tool: string; input: unknown; chat: string | null }) {
+    return this.call<{ allow: boolean; message?: string }>('POST', '/approve', req, 30 * 60_000);
+  }
   /** Tell the app what Claude just did (shown in its MCP activity). */
   report(activity: Activity) {
     return this.call<{ ok: true }>('POST', '/activity', activity, 3000);

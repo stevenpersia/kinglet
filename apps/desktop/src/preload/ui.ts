@@ -65,6 +65,7 @@ const api: ParakeetApi = {
     send: (projectId, text, attachments) => ipcRenderer.invoke('chat:send', projectId, text, attachments),
     stop: (projectId) => ipcRenderer.send('chat:stop', projectId),
     clear: (projectId) => ipcRenderer.send('chat:clear', projectId),
+    approve: (projectId, id, allow, all) => ipcRenderer.send('chat:approve', projectId, id, allow, !!all),
     installMcp: () => ipcRenderer.invoke('chat:install-mcp'),
   },
   onEvent: (cb) => {

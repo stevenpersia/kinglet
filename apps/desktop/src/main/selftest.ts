@@ -255,7 +255,7 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
       if (img) writeFileSync(join(outDir, 'mcp-screenshot-iphone.jpg'), Buffer.from(img, 'base64'));
       criteria.push({
         id: 'mcp',
-        ok: tools === 10 && statusText.includes('iPhone 16') && img.startsWith('/9j/') && /Checks for .* \d+\/\d+/.test(checksText) && !checksText.includes('without measures'),
+        ok: tools === 11 && statusText.includes('iPhone 16') && img.startsWith('/9j/') && /Checks for .* \d+\/\d+/.test(checksText) && !checksText.includes('without measures'),
         detail: `${tools} outils · status « ${statusText.split('\n')[1] ?? ''} » · capture ${Math.round((img.length * 3) / 4 / 1024)} Ko · ${checksText.split('\n')[0]}`,
       });
     } catch (e) {
@@ -631,6 +631,20 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     await js(`document.querySelector('textarea[aria-label="Message to Claude"]').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))`);
     const resumed = await waitFor(() => js<boolean>(`[...document.querySelectorAll('aside[aria-label=Claude] p')].some((p) => p.textContent.includes('resume fake-session-1'))`), 8000);
     criteria.push({ id: 'claude-resume', ok: resumed, detail: resumed ? 'session fake-session-1 reprise' : 'session non reprise' });
+    // Before a command, Claude asks; the panel shows the question and the answer goes back to Claude.
+    await js(`(() => {
+      const ta = document.querySelector('textarea[aria-label="Message to Claude"]');
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(ta, 'Install zod and use it');
+      ta.dispatchEvent(new Event('input', { bubbles: true }));
+    })()`);
+    await sleep(200);
+    await js(`document.querySelector('textarea[aria-label="Message to Claude"]').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))`);
+    const asked = await waitFor(() => js<boolean>(`!!document.querySelector('[role=alertdialog][aria-label="Claude asks"]')?.textContent.includes('npm install zod')`), 8000);
+    await shot('30-claude-demande');
+    await clickText('[role=alertdialog] button', 'Allow');
+    let approval = '';
+    const allowed = await waitFor(async () => (approval = await js<string>(`[...document.querySelectorAll('aside[aria-label=Claude] p')].map((p) => p.textContent).find((x) => x.includes('approval')) ?? ''`)) !== '', 8000);
+    criteria.push({ id: 'claude-approval', ok: asked && allowed && approval.includes('allowed') && approval.includes('mcp__parakeet__approve'), detail: approval || `question ${asked ? 'affichée' : 'absente'}` });
     await clickText('nav button', 'Claude'); // close the panel
 
     // 26b. Settings: a custom device is emulated like the built-in ones, then removed.

@@ -324,6 +324,26 @@ export function createParakeetServer(opts: Options = {}) {
     },
   );
 
+  // Claude Code's --permission-prompt-tool: Parakeet's Claude panel asks before a command runs.
+  server.registerTool(
+    'approve',
+    {
+      title: t('Ask before a command', 'Demander avant une commande'),
+      description: t(
+        'Used by Claude Code inside Parakeet (permission prompt): asks the user in Parakeet whether a tool may run. Do not call it yourself.',
+        'Utilisé par Claude Code dans Parakeet (demande de permission) : demande à l’utilisateur dans Parakeet si un outil peut s’exécuter. Ne l’appelle pas toi-même.',
+      ),
+      inputSchema: { tool_name: z.string(), input: z.record(z.string(), z.unknown()).optional(), tool_use_id: z.string().optional() },
+    },
+    async ({ tool_name, input }) => {
+      const control = await app();
+      const deny = (message: string) => text(JSON.stringify({ behavior: 'deny', message }));
+      if (!control) return deny(appClosed());
+      const r = await control.approve({ tool: tool_name, input: input ?? {}, chat: process.env.PARAKEET_CHAT_PROJECT ?? null });
+      return r.allow ? text(JSON.stringify({ behavior: 'allow', updatedInput: input ?? {} })) : deny(r.message ?? t('The user refused.', 'L’utilisateur a refusé.'));
+    },
+  );
+
   server.registerTool(
     'list_pages',
     {

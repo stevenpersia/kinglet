@@ -319,6 +319,18 @@ export interface ChatState {
   sessionId: string | null;
   running: boolean;
   items: ChatItem[];
+  /** Claude waits for the user's go-ahead to run a tool. */
+  pending: ChatApproval | null;
+  /** Every tool allowed for the rest of this conversation. */
+  allowAll: boolean;
+}
+
+export interface ChatApproval {
+  id: string;
+  name: string;
+  detail: string;
+  /** The full input, readable (command, file, …). */
+  input: string;
 }
 
 /** What is under a point of a device's page. */
@@ -413,6 +425,8 @@ export interface ParakeetApi {
     send(projectId: string, text: string, attachments: ChatAttachment[]): Promise<void>;
     stop(projectId: string): void;
     clear(projectId: string): void;
+    /** Answer Claude's request to run a tool; `all`: allow everything for this conversation. */
+    approve(projectId: string, id: string, allow: boolean, all?: boolean): void;
     /** Run `claude mcp add` (user scope) so Claude in a terminal sees Parakeet too. */
     installMcp(): Promise<{ ok: boolean; output: string }>;
   };

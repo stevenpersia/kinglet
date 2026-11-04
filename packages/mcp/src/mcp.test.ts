@@ -55,7 +55,7 @@ describe('MCP server, app closed (headless)', () => {
   it('lists the tools and the prompts', async () => {
     const client = await connect();
     const tools = (await client.listTools()).tools.map((t) => t.name).sort();
-    expect(tools).toEqual(['get_console', 'get_page_meta', 'get_share_preview', 'list_deployments', 'list_pages', 'open_url', 'run_checks', 'screenshot', 'set_devices', 'status']);
+    expect(tools).toEqual(['approve', 'get_console', 'get_page_meta', 'get_share_preview', 'list_deployments', 'list_pages', 'open_url', 'run_checks', 'screenshot', 'set_devices', 'status']);
     const prompts = (await client.listPrompts()).prompts.map((p) => p.name).sort();
     expect(prompts).toEqual(['fix_checks', 'fix_console', 'fix_share']);
     await client.close();
@@ -95,6 +95,8 @@ describe('MCP server, app open', () => {
       let body = '';
       req.on('data', (c) => (body += c));
       req.on('end', () => {
+        // The answer depends on the command: read the body first.
+        if (req.url === '/approve') return res.end(JSON.stringify(body.includes('rm -rf') ? { allow: false, message: 'no' } : { allow: true }));
         if (req.url === '/activity') calls.push(`activity ${JSON.parse(body).tool}`);
         else calls.push(`${req.method} ${req.url}`);
       });
@@ -102,6 +104,7 @@ describe('MCP server, app open', () => {
       if (req.url === '/screenshot') res.end(JSON.stringify({ shots: [{ id: 'iphone-16', label: 'iPhone 16', width: 393, height: 852, mime: 'image/jpeg', data: 'aGVsbG8=' }] }));
       else if (req.url === '/analyze') res.end(JSON.stringify({ url: siteUrl, checks: [{ id: 'overflow', group: 'mobile', label: 'Horizontal overflow', status: 'error', detail: 'iPhone 16: +120 px' }] }));
       else if (req.url === '/activity') res.end('{"ok":true}');
+      else if (req.url === '/approve') return;
       else if (req.url === '/deployments')
         res.end(JSON.stringify({ project: { name: 'maison-sable', productionUrl: 'https://maisonsable.fr' }, deployments: [{ id: 'd1', url: 'https://maison-sable-git-feat-hero.vercel.app', state: 'READY', production: false, createdAt: Date.now() - 120_000, branch: 'feat/hero', commitMessage: 'hero: nouveau titre', author: 'claude' }] }));
       else res.end(JSON.stringify(status));
@@ -128,6 +131,15 @@ describe('MCP server, app open', () => {
     // One activity report per call, after the work.
     expect(calls.filter((c) => c.startsWith('activity'))).toEqual(['activity status', 'activity screenshot', 'activity run_checks', 'activity list_deployments', 'activity get_page_meta']);
     expect(calls).toEqual(expect.arrayContaining(['POST /screenshot', 'POST /analyze']));
+    await client.close();
+  });
+
+  it('answers Claude Code’s permission prompts with what the user chose in the app', async () => {
+    const client = await connect();
+    const ok = JSON.parse(textOf(await call(client, 'approve', { tool_name: 'Bash', input: { command: 'npm install zod' } })));
+    expect(ok).toEqual({ behavior: 'allow', updatedInput: { command: 'npm install zod' } });
+    const no = JSON.parse(textOf(await call(client, 'approve', { tool_name: 'Bash', input: { command: 'rm -rf /' } })));
+    expect(no).toEqual({ behavior: 'deny', message: 'no' });
     await client.close();
   });
 });

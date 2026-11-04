@@ -371,6 +371,7 @@ async function createWindow() {
     logs: () => ({ url: devices.currentUrl, throttle: devices.throttling, logs: devices.allLogs() }),
     onClaudeEvent: (payload) => onClaudeEvent(payload as HookPayload),
     onListen: (port, token) => claudeHooks.publish(port, token),
+    approve: (req) => chat.approve(req.chat, req.tool, req.input),
     onActivity: (a) => {
       activity.unshift(a);
       activity.length = Math.min(activity.length, 100);
@@ -390,9 +391,9 @@ async function createWindow() {
         emit({ type: 'settings', settings: settings.value });
       }
     },
-    () => {
+    (projectId) => {
       const { exe, args } = mcpLaunch();
-      return { command: exe, args: [...args, ...(process.getuid?.() === 0 ? ['--no-sandbox'] : [])], env: { PARAKEET_CONFIG_DIR: app.getPath('userData') } };
+      return { command: exe, args: [...args, ...(process.getuid?.() === 0 ? ['--no-sandbox'] : [])], env: { PARAKEET_CONFIG_DIR: app.getPath('userData'), PARAKEET_CHAT_PROJECT: projectId } };
     },
   );
   const chatContext = () => {
@@ -413,6 +414,7 @@ async function createWindow() {
     chat.send({ projectId, folder: project.folder, sessionId: project.claudeSession ?? null, text, attachments, allowCommands: settings.value.claudeAllowCommands, context: chatContext() });
   });
   ipcMain.on('chat:stop', (_e, projectId: string) => chat.stop(projectId));
+  ipcMain.on('chat:approve', (_e, projectId: string, id: string, allow: boolean, all: boolean) => chat.answer(projectId, id, allow, all));
   ipcMain.on('chat:clear', (_e, projectId: string) => {
     chat.clear(projectId);
     settings.update(patchProject(settings.value, projectId, { claudeSession: null }));
