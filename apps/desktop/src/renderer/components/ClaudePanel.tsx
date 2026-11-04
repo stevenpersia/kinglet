@@ -190,7 +190,7 @@ export function ClaudePanel() {
 
   const ready = !!project?.folder && cli?.found !== false;
   return (
-    <aside aria-label="Claude" className="flex w-[400px] shrink-0 flex-col border-l border-line-soft bg-chrome">
+    <aside aria-label="Claude" className="flex w-[400px] shrink-0 flex-col border-r border-line-soft bg-chrome">
       <div className="flex h-11 shrink-0 items-center gap-2 border-b border-line-soft pr-2 pl-4">
         <span aria-hidden="true" className={`size-2 shrink-0 rounded-full bg-[#d97757] ${chat?.running ? 'claude-dot' : ''}`} />
         <span className="font-medium">Claude</span>
