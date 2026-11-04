@@ -16,6 +16,17 @@ const api: ParakeetApi = {
   sharePreviews: (url) => ipcRenderer.invoke('share:previews', url),
   copy: (text) => ipcRenderer.send('clipboard:write', text),
   mcpInfo: () => ipcRenderer.invoke('mcp:info'),
+  vercel: {
+    state: () => ipcRenderer.invoke('vercel:state'),
+    connect: (token) => ipcRenderer.invoke('vercel:connect', token),
+    selectTeam: (teamId) => ipcRenderer.invoke('vercel:team', teamId),
+    link: (projectId) => ipcRenderer.invoke('vercel:link', projectId),
+    refresh: () => ipcRenderer.invoke('vercel:refresh'),
+    generateBypass: () => ipcRenderer.invoke('vercel:bypass'),
+    disconnect: () => ipcRenderer.invoke('vercel:disconnect'),
+  },
+  compare: (targets) => ipcRenderer.invoke('compare:run', targets),
+  openExternal: (url) => ipcRenderer.send('shell:open', url),
   windowControl: (action) => ipcRenderer.send('window:control', action),
   onEvent: (cb) => {
     const listener = (_e: unknown, ev: PreviewEvent) => cb(ev);

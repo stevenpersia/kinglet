@@ -2,9 +2,10 @@ import { join } from 'node:path';
 import { app, BrowserWindow, clipboard, ipcMain, Menu, shell } from 'electron';
 import { buildShareFix, checkShare, crawl, probeImage, readPageMeta, readSharePreviews, readSiteFiles, runChecks, score, type CrawledPage, type SiteFiles } from '@parakeet/core';
 import { startStdio } from '@parakeet/mcp';
-import type { AnalyzeReport, DeviceSlot, InitState, McpActivity, McpInfo, PreviewEvent, Settings, ShareStudio } from '../shared/types';
+import type { AnalyzeReport, CompareColumn, DeviceSlot, EnvId, InitState, McpActivity, McpInfo, PreviewEvent, Settings, ShareStudio } from '../shared/types';
 import { startControlServer } from './control';
 import { mcpLaunch } from './mcp-launch';
+import { VercelService } from './vercel';
 import { detectLocalServer } from './detect';
 import { DeviceManager, shortcutFor } from './devices';
 import { PRESETS } from './presets';
@@ -25,8 +26,12 @@ if (process.env.PARAKEET_SELFTEST) app.setPath('userData', join(process.env.PARA
 if (MCP_MODE) app.disableHardwareAcceleration();
 else app.commandLine.appendSwitch('ozone-platform-hint', 'auto');
 
-/** Vercel Deployment Protection bypass ("Protection Bypass for Automation" secret). */
-const BYPASS_SECRET = process.env.PARAKEET_VERCEL_BYPASS ?? '';
+/**
+ * Vercel Deployment Protection bypass ("Protection Bypass for Automation" secret):
+ * from PARAKEET_VERCEL_BYPASS, else from the linked Vercel project.
+ */
+let projectBypass: () => string | null = () => null;
+const bypassSecret = () => process.env.PARAKEET_VERCEL_BYPASS || projectBypass() || '';
 const BYPASS_HOSTS = (process.env.PARAKEET_BYPASS_HOSTS ?? '*.vercel.app').split(',').map((h) => h.trim()).filter(Boolean);
 
 const hostMatches = (url: string) => {
@@ -37,8 +42,11 @@ const hostMatches = (url: string) => {
     return false;
   }
 };
-const bypassHeaders = (url: string): Record<string, string> =>
-  BYPASS_SECRET && hostMatches(url) ? { 'x-vercel-protection-bypass': BYPASS_SECRET, 'x-vercel-set-bypass-cookie': 'true' } : {};
+const bypassHeaders = (url: string): Record<string, string> => {
+  const secret = bypassSecret();
+  return secret && hostMatches(url) ? { 'x-vercel-protection-bypass': secret, 'x-vercel-set-bypass-cookie': 'true' } : {};
+};
+const isLocalUrl = (u: string) => /^https?:\/\/(localhost|127\.|\[::1\]|0\.0\.0\.0)/.test(u);
 
 async function createWindow() {
   const settings = new SettingsStore();
@@ -69,6 +77,11 @@ async function createWindow() {
   devices.setScrollSync(settings.value.scrollSync);
   devices.setLandscape(settings.value.landscape);
 
+  const vercel = new VercelService(app.getPath('userData'), (state) => emit({ type: 'vercel', state }));
+  projectBypass = () => vercel.bypassSecret;
+  void vercel.restore();
+  app.on('will-quit', () => vercel.stop());
+
   devices.session.webRequest.onBeforeSendHeaders((details, cb) => {
     cb({ requestHeaders: { ...details.requestHeaders, ...bypassHeaders(details.url) } });
   });
@@ -85,10 +98,7 @@ async function createWindow() {
       detectedFrom = 'dernière session';
     }
     devices.setActive(settings.value.active);
-    if (url) {
-      settings.update({ url });
-      void devices.navigate(url);
-    }
+    if (url) void navigate(url);
     return {
       presets: PRESETS,
       settings: settings.value,
@@ -103,10 +113,15 @@ async function createWindow() {
       },
     };
   });
-  ipcMain.handle('preview:navigate', (_e, url: string) => {
-    settings.update({ url });
+  /**
+   * Navigate every device. The local dev server found at startup is remembered here; afterwards
+   * the UI (which knows the Vercel deployments) decides what is local.
+   */
+  const navigate = (url: string) => {
+    settings.update({ url, ...(isLocalUrl(url) && !settings.value.localOrigin ? { localOrigin: new URL(url).origin } : {}) });
     return devices.navigate(url);
-  });
+  };
+  ipcMain.handle('preview:navigate', (_e, url: string) => navigate(url));
   ipcMain.handle('preview:reload', () => devices.reload());
   ipcMain.handle('settings:update', (_e, patch: Partial<Settings>) => {
     const next = settings.update(patch);
@@ -166,8 +181,7 @@ async function createWindow() {
     userData: app.getPath('userData'),
     analyze: (url) => analyzePage(url),
     navigate: async (url) => {
-      settings.update({ url });
-      await devices.navigate(url);
+      await navigate(url);
       await new Promise((r) => setTimeout(r, 500)); // late scripts, console errors
     },
     setActive: (ids) => {
@@ -177,6 +191,7 @@ async function createWindow() {
       devices.setActive(next.active);
       emit({ type: 'settings', settings: next });
     },
+    deployments: () => ({ project: vercel.state.project, deployments: vercel.state.deployments }),
     onActivity: (a) => {
       activity.unshift(a);
       activity.length = Math.min(activity.length, 100);
@@ -190,6 +205,52 @@ async function createWindow() {
     const launch = [exe, ...args].map((a) => (/\s/.test(a) ? `"${a}"` : a)).join(' ');
     return { command: `claude mcp add --scope user parakeet -- ${launch}`, launch, activity };
   });
+
+  // Vercel
+  const vercelCall = (fn: () => Promise<unknown> | void) => async () => {
+    await fn();
+    return vercel.state;
+  };
+  ipcMain.handle('vercel:state', () => vercel.state);
+  ipcMain.handle('vercel:connect', (_e, token: string) => vercelCall(() => vercel.connect(token))());
+  ipcMain.handle('vercel:team', (_e, teamId: string | null) => vercelCall(() => vercel.selectTeam(teamId))());
+  ipcMain.handle('vercel:link', (_e, projectId: string | null) => vercelCall(() => vercel.link(projectId))());
+  ipcMain.handle('vercel:refresh', vercelCall(() => vercel.refresh()));
+  ipcMain.handle('vercel:bypass', vercelCall(() => vercel.generateBypass()));
+  ipcMain.handle('vercel:disconnect', vercelCall(() => vercel.disconnect()));
+  ipcMain.on('shell:open', (_e, url: string) => {
+    if (/^https:\/\//.test(url)) void shell.openExternal(url);
+  });
+
+  // Compare: the same page on each environment, read like a bot (fast, no devices needed).
+  const COMPARED: [string, (m: Awaited<ReturnType<typeof readPageMeta>>) => string | null][] = [
+    ['title', (m) => m.title],
+    ['description', (m) => m.description],
+    ['og:title', (m) => m.og['title'] ?? null],
+    ['og:description', (m) => m.og['description'] ?? null],
+    ['og:site_name', (m) => m.og['site_name'] ?? null],
+    ['og:image', (m) => m.ogImageUrl],
+    ['twitter:card', (m) => m.twitter['card'] ?? null],
+    ['canonical', (m) => m.canonical],
+    ['robots', (m) => m.robotsMeta ?? m.robotsHeader],
+    ['theme-color', (m) => m.themeColor],
+    ['lang', (m) => m.lang],
+  ];
+  ipcMain.handle('compare:run', (_e, targets: { env: EnvId; label: string; url: string }[]): Promise<CompareColumn[]> =>
+    Promise.all(
+      targets.map(async (t) => {
+        try {
+          const headers = bypassHeaders(t.url);
+          const meta = await readPageMeta(t.url, { headers });
+          const image = meta.ogImageUrl ? await probeImage(meta.ogImageUrl, { headers: bypassHeaders(meta.ogImageUrl) }) : null;
+          const values = Object.fromEntries(COMPARED.map(([k, f]) => [k, f(meta)]));
+          return { ...t, status: meta.status, error: null, values, score: score(runChecks({ meta, image, site: null })) };
+        } catch (e) {
+          return { ...t, status: null, error: (e as Error).message, values: {}, score: null };
+        }
+      }),
+    ),
+  );
 
   ipcMain.on('window:control', (_e, action: string) => {
     if (action === 'minimize') win.minimize();

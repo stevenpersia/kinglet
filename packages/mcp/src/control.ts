@@ -39,6 +39,17 @@ export interface AppShot {
 
 export const CONTROL_FILE = 'mcp.json';
 
+export interface Deployment {
+  id: string;
+  url: string;
+  state: string;
+  production: boolean;
+  createdAt: number;
+  branch: string | null;
+  commitMessage: string | null;
+  author: string | null;
+}
+
 /** One MCP tool or prompt call, reported to the app. */
 export interface Activity {
   tool: string;
@@ -113,6 +124,9 @@ export class AppControl {
   }
   screenshot(device: string | null) {
     return this.call<{ shots: AppShot[] }>('POST', '/screenshot', { device });
+  }
+  deployments() {
+    return this.call<{ project: { name: string; productionUrl: string | null } | null; deployments: Deployment[] }>('GET', '/deployments');
   }
   /** Tell the app what Claude just did (shown in its MCP activity). */
   report(activity: Activity) {

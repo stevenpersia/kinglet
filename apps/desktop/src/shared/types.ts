@@ -1,4 +1,4 @@
-import type { CheckResult, CrawledPage, ImageProbe, Issue, PageMeta, ShareFix, SharePreviews, SiteFiles } from '@parakeet/core';
+import type { CheckResult, CrawledPage, ImageProbe, Issue, PageMeta, ShareFix, SharePreviews, SiteFiles, VercelDeployment, VercelProject, VercelTeam, VercelUser } from '@parakeet/core';
 
 export interface DevicePreset {
   id: string;
@@ -27,6 +27,8 @@ export interface DeviceSlot {
 
 export interface Settings {
   url: string | null;
+  /** Origin of the local dev server, to come back to it from preview or prod. */
+  localOrigin: string | null;
   recentUrls: string[];
   active: string[];
   scrollSync: boolean;
@@ -56,7 +58,33 @@ export interface AnalyzeReport {
   score: { passed: number; total: number };
 }
 
-export type { CheckResult, CrawledPage, ShareFix, SharePreviews };
+export type { CheckResult, CrawledPage, ShareFix, SharePreviews, VercelDeployment, VercelProject };
+
+export interface VercelState {
+  connected: boolean;
+  user: VercelUser | null;
+  teams: VercelTeam[];
+  teamId: string | null;
+  projects: VercelProject[];
+  project: VercelProject | null;
+  deployments: VercelDeployment[];
+  error: string | null;
+  /** keyring: encrypted by the system keyring; basic: weak fixed key; none: clear text. */
+  storage: 'keyring' | 'basic' | 'none';
+  syncedAt: number | null;
+}
+
+export type EnvId = 'local' | 'preview' | 'prod';
+
+export interface CompareColumn {
+  env: EnvId;
+  label: string;
+  url: string;
+  status: number | null;
+  error: string | null;
+  values: Record<string, string | null>;
+  score: { passed: number; total: number } | null;
+}
 
 export interface ShareStudio {
   previews: SharePreviews;
@@ -90,7 +118,8 @@ export type PreviewEvent =
   | { type: 'shortcut'; action: ShortcutAction }
   | { type: 'window'; maximized: boolean }
   | { type: 'settings'; settings: Settings }
-  | { type: 'mcp'; activity: McpActivity };
+  | { type: 'mcp'; activity: McpActivity }
+  | { type: 'vercel'; state: VercelState };
 
 export interface ParakeetApi {
   init(): Promise<InitState>;
@@ -115,6 +144,18 @@ export interface ParakeetApi {
   sharePreviews(url: string): Promise<ShareStudio>;
   copy(text: string): void;
   mcpInfo(): Promise<McpInfo>;
+  vercel: {
+    state(): Promise<VercelState>;
+    connect(token: string): Promise<VercelState>;
+    selectTeam(teamId: string | null): Promise<VercelState>;
+    link(projectId: string | null): Promise<VercelState>;
+    refresh(): Promise<VercelState>;
+    generateBypass(): Promise<VercelState>;
+    disconnect(): Promise<VercelState>;
+  };
+  /** The same path on each environment: tags side by side and checks score. */
+  compare(targets: { env: EnvId; label: string; url: string }[]): Promise<CompareColumn[]>;
+  openExternal(url: string): void;
   windowControl(action: 'minimize' | 'maximize' | 'close'): void;
   onEvent(cb: (e: PreviewEvent) => void): () => void;
 }

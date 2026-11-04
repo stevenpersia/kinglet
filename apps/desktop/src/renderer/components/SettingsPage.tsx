@@ -1,6 +1,7 @@
 import { useStore } from '../store';
 import { Icon } from './Icons';
 import { ActivityList, CopyButton, SLASH } from './Mcp';
+import { VercelSettings } from './VercelSettings';
 
 const TOOLS: [string, string][] = [
   ['status', 'Page ouverte et appareils émulés'],
@@ -11,6 +12,7 @@ const TOOLS: [string, string][] = [
   ['get_share_preview', 'Aperçus sur 7 plateformes + correctif'],
   ['run_checks', 'Les 24 checks, mesures dans les appareils incluses'],
   ['list_pages', 'Pages du site'],
+  ['list_deployments', 'Déploiements Vercel du projet lié'],
 ];
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -91,10 +93,8 @@ export function SettingsPage() {
           </div>
         </Section>
 
-        <Section title="Previews Vercel protégées">
-          <p className="m-0 text-muted">
-            Lance Parakeet avec <code className="font-mono text-xs text-fg">PARAKEET_VERCEL_BYPASS=&lt;secret&gt;</code> (« Protection Bypass for Automation » dans les réglages du projet Vercel). La connexion à ton compte Vercel arrive en phase 5.
-          </p>
+        <Section title="Vercel">
+          <VercelSettings />
         </Section>
       </div>
     </main>

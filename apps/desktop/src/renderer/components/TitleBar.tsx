@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { api, useStore } from '../store';
+import { ENV_DOT, envOf } from '../lib/env';
+import { EnvSwitch } from './EnvSwitch';
 import { Dot, Icon, Kbd, Mark } from './Icons';
 
 const STATUS_LABEL = { idle: '', loading: 'chargement…', loaded: 'chargé', failed: 'injoignable' } as const;
@@ -68,7 +70,8 @@ function RecentMenu() {
 }
 
 export function TitleBar() {
-  const { url, status, detectedFrom, navigate, maximized, urlFocusTick } = useStore();
+  const { url, status, detectedFrom, navigate, maximized, urlFocusTick, vercel } = useStore();
+  const env = envOf(url, vercel);
   const [draft, setDraft] = useState(url ?? '');
   const input = useRef<HTMLInputElement>(null);
 
@@ -91,21 +94,10 @@ export function TitleBar() {
       <span className="text-[#4a4a52]">/</span>
       <RecentMenu />
 
-      <div role="group" aria-label="Environnement" className="no-drag flex gap-0.5 rounded-lg border border-line bg-bg p-0.5">
-        <button aria-pressed="true" className="flex h-6 items-center gap-1.5 rounded-md bg-raised px-2.5 text-xs font-medium text-fg shadow-[inset_0_0_0_1px_#2e2e33]">
-          <Dot className="bg-local" />
-          Local
-        </button>
-        {(['Preview', 'Prod'] as const).map((env) => (
-          <button key={env} disabled title="Arrive avec la connexion Vercel (phase 5)" className="flex h-6 cursor-default items-center gap-1.5 rounded-md px-2.5 text-xs font-medium text-faint">
-            <Dot className={env === 'Preview' ? 'bg-preview' : 'bg-prod'} />
-            {env}
-          </button>
-        ))}
-      </div>
+      <EnvSwitch />
 
       <form onSubmit={submit} className="no-drag flex h-7 min-w-0 flex-1 items-center gap-2 rounded-ui border border-line bg-bg px-2.5 focus-within:border-line-strong">
-        <Dot className="bg-local" />
+        <Dot className={env ? ENV_DOT[env] : 'bg-ghost'} />
         <label htmlFor="url" className="sr-only">
           Adresse
         </label>

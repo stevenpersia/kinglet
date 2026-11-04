@@ -4,7 +4,7 @@ import { app } from 'electron';
 import type { Settings } from '../shared/types';
 import { DEFAULT_ACTIVE, PRESETS } from './presets';
 
-const DEFAULTS: Settings = { url: null, recentUrls: [], active: DEFAULT_ACTIVE, scrollSync: true, landscape: false };
+const DEFAULTS: Settings = { url: null, localOrigin: null, recentUrls: [], active: DEFAULT_ACTIVE, scrollSync: true, landscape: false };
 
 /** Small JSON file in the user data folder (~/.config/Parakeet on Linux). */
 export class SettingsStore {

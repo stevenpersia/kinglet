@@ -55,7 +55,7 @@ describe('MCP server, app closed (headless)', () => {
   it('lists the tools and the prompts', async () => {
     const client = await connect();
     const tools = (await client.listTools()).tools.map((t) => t.name).sort();
-    expect(tools).toEqual(['get_page_meta', 'get_share_preview', 'list_pages', 'open_url', 'run_checks', 'screenshot', 'set_devices', 'status']);
+    expect(tools).toEqual(['get_page_meta', 'get_share_preview', 'list_deployments', 'list_pages', 'open_url', 'run_checks', 'screenshot', 'set_devices', 'status']);
     const prompts = (await client.listPrompts()).prompts.map((p) => p.name).sort();
     expect(prompts).toEqual(['fix_checks', 'fix_share']);
     await client.close();
@@ -102,6 +102,8 @@ describe('MCP server, app open', () => {
       if (req.url === '/screenshot') res.end(JSON.stringify({ shots: [{ id: 'iphone-16', label: 'iPhone 16', width: 393, height: 852, mime: 'image/jpeg', data: 'aGVsbG8=' }] }));
       else if (req.url === '/analyze') res.end(JSON.stringify({ url: siteUrl, checks: [{ id: 'overflow', group: 'mobile', label: 'Débordement horizontal', status: 'error', detail: 'iPhone 16 : +120 px' }] }));
       else if (req.url === '/activity') res.end('{"ok":true}');
+      else if (req.url === '/deployments')
+        res.end(JSON.stringify({ project: { name: 'maison-sable', productionUrl: 'https://maisonsable.fr' }, deployments: [{ id: 'd1', url: 'https://maison-sable-git-feat-hero.vercel.app', state: 'READY', production: false, createdAt: Date.now() - 120_000, branch: 'feat/hero', commitMessage: 'hero: nouveau titre', author: 'claude' }] }));
       else res.end(JSON.stringify(status));
     });
     await new Promise<void>((r) => control.listen(0, '127.0.0.1', r));
@@ -120,10 +122,11 @@ describe('MCP server, app open', () => {
     const shot = await call(client, 'screenshot');
     expect(shot.content.find((c) => c.type === 'image')).toMatchObject({ data: 'aGVsbG8=', mimeType: 'image/jpeg' });
     expect(textOf(await call(client, 'run_checks'))).toMatch(/✗ \[mobile\] Débordement horizontal : iPhone 16 : \+120 px/);
+    expect(textOf(await call(client, 'list_deployments'))).toMatch(/READY\s+preview feat\/hero · hero: nouveau titre · claude · il y a 2 min\n\s+https:\/\/maison-sable-git-feat-hero\.vercel\.app/);
     const meta = JSON.parse(textOf(await call(client, 'get_page_meta')));
     expect(meta.url).toBe(siteUrl);
     // One activity report per call, after the work.
-    expect(calls.filter((c) => c.startsWith('activity'))).toEqual(['activity status', 'activity screenshot', 'activity run_checks', 'activity get_page_meta']);
+    expect(calls.filter((c) => c.startsWith('activity'))).toEqual(['activity status', 'activity screenshot', 'activity run_checks', 'activity list_deployments', 'activity get_page_meta']);
     expect(calls).toEqual(expect.arrayContaining(['POST /screenshot', 'POST /analyze']));
     await client.close();
   });

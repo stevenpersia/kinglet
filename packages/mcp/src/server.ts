@@ -165,6 +165,32 @@ export function createParakeetServer(opts: Options = {}) {
   );
 
   server.registerTool(
+    'list_deployments',
+    {
+      title: 'Déploiements Vercel',
+      description: 'Liste les déploiements Vercel du projet lié dans Parakeet (production et previews), avec leur état, branche, commit et URL. Utile pour ouvrir une preview avec open_url ou vérifier qu’un build est passé.',
+      inputSchema: {},
+    },
+    async () => {
+      const control = await app();
+      if (!control) return fail(APP_CLOSED);
+      const { project, deployments } = await control.deployments();
+      if (!project) return fail('Aucun projet Vercel lié : connecte Vercel dans les réglages de Parakeet.');
+      const ago = (t: number) => {
+        const m = Math.round((Date.now() - t) / 60_000);
+        return m < 60 ? `il y a ${m} min` : m < 1440 ? `il y a ${Math.round(m / 60)} h` : `il y a ${Math.round(m / 1440)} j`;
+      };
+      return text(
+        [
+          `Projet ${project.name}${project.productionUrl ? ` · production : ${project.productionUrl}` : ''}`,
+          '',
+          ...deployments.map((d) => `${d.state.padEnd(8)} ${d.production ? 'PROD   ' : 'preview'} ${d.branch ?? '—'} · ${d.commitMessage ?? ''} · ${d.author ?? ''} · ${ago(d.createdAt)}\n         ${d.url}`),
+        ].join('\n'),
+      );
+    },
+  );
+
+  server.registerTool(
     'get_page_meta',
     { title: 'Balises de la page', description: 'Lit la page comme un robot de partage (HTML brut, sans JavaScript) : title, description, Open Graph, Twitter, viewport, lang, canonical, icônes.', inputSchema: { url: urlArg } },
     async ({ url }) => {

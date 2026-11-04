@@ -1,7 +1,8 @@
 import { useEffect } from 'react';
 import { Inspector } from './components/Inspector';
 import { Palette } from './components/Palette';
-import { ChecksPage, SoonPage } from './components/Sections';
+import { ChecksPage } from './components/Sections';
+import { ComparePage, DeploymentsPage } from './components/VercelPages';
 import { SettingsPage } from './components/SettingsPage';
 import { SharePage } from './components/SharePage';
 import { Sidebar } from './components/Sidebar';
@@ -46,6 +47,9 @@ export function App() {
         case 'mcp':
           s.pushMcpActivity(e.activity);
           break;
+        case 'vercel':
+          useStore.setState({ vercel: e.state });
+          break;
         case 'shortcut':
           if (e.action === 'reload') void api().reload();
           else if (e.action === 'focus-url') useStore.setState({ urlFocusTick: s.urlFocusTick + 1 });
@@ -56,7 +60,10 @@ export function App() {
           break;
       }
     });
-    void store.init().then(() => store.loadMcp());
+    void store.init().then(async () => {
+      await store.loadMcp();
+      useStore.setState({ vercel: await api().vercel.state() });
+    });
     return off;
   }, []);
 
@@ -78,8 +85,10 @@ export function App() {
           <ChecksPage />
         ) : section === 'reglages' ? (
           <SettingsPage />
+        ) : section === 'deploiements' ? (
+          <DeploymentsPage />
         ) : (
-          <SoonPage section={section} />
+          <ComparePage />
         )}
       </div>
       <StatusBar />

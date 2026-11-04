@@ -2,7 +2,7 @@
 
 Voir son site sur tous les écrans (iPhone, Android, iPad, desktop), en local, en preview et en prod, et vérifier l'aperçu de ses liens (WhatsApp, LinkedIn, Slack…) avant de les partager. Pensé pour les sites construits avec Claude.
 
-> Nom provisoire. État actuel : **phase 4**. Aperçu multi-appareils, aperçus de partage sur 7 plateformes avec correctif, 24 checks, exploration des pages et serveur MCP pour Claude Code. Packaging Linux et intégration continue en place.
+> Nom provisoire. État actuel : **phase 5**. Aperçu multi-appareils, local / preview / prod via Vercel, aperçus de partage sur 7 plateformes avec correctif, 24 checks, exploration des pages et serveur MCP pour Claude Code. Packaging Linux et intégration continue en place.
 
 ## Ce que fait Parakeet
 
@@ -18,6 +18,9 @@ Voir son site sur tous les écrans (iPhone, Android, iPad, desktop), en local, e
   - **Technique** : statut HTTP, favicon, textes alternatifs, erreurs JavaScript, poids des images.
 
   Le débordement, les erreurs JavaScript et le poids des images sont mesurés dans les appareils, sur la page rendue. Le `noindex` est considéré comme normal en local et sur les previews.
+- **Local, preview, prod (Vercel)** : un clic affiche la même page sur ton serveur local, sur une preview (au choix par branche) ou en production.
+  - **Déploiements** liste les builds, rafraîchis toutes les 30 s.
+  - **Comparer** met côte à côte les balises et le score des checks de la page sur chaque environnement, avec les différences surlignées.
 - **Claude Code (MCP)** : Claude voit ce que Parakeet voit. Il peut capturer les appareils, lire les balises, lancer les checks et vérifier lui-même ses corrections (détails plus bas).
 - **Pages** : la barre latérale liste les pages du site, trouvées via les liens du HTML, le sitemap et les liens de la page rendue (utile pour les SPA).
 
@@ -54,13 +57,14 @@ Sur Wayland, Parakeet démarre en Wayland natif. La session détectée s'affiche
 
 Les raccourcis marchent aussi quand le focus est dans un appareil. Le bouton `‹›` sous chaque appareil ouvre ses DevTools.
 
-### Previews Vercel protégées
+### Vercel
 
-```bash
-PARAKEET_VERCEL_BYPASS=<secret "Protection Bypass for Automation"> pnpm dev
-```
+Dans **Réglages → Vercel** :
 
-Le secret est envoyé dans l'en-tête `x-vercel-protection-bypass` aux domaines `*.vercel.app`, à la fois dans les aperçus et lors de la lecture des balises.
+1. Colle un jeton personnel créé sur [vercel.com/account/tokens](https://vercel.com/account/tokens). Il est chiffré par le trousseau du système (KWallet, GNOME Keyring) ; sans trousseau, il est stocké en clair dans un fichier lisible par toi seul, et Parakeet te le signale.
+2. Choisis le compte ou l'équipe, puis le projet du site. Parakeet récupère le domaine de production et les déploiements.
+
+**Previews protégées.** Si le projet a un secret « Protection Bypass for Automation », Parakeet l'utilise pour ouvrir et lire les previews. Sinon, un bouton propose d'en créer un : c'est une modification du projet Vercel, faite uniquement sur ta demande. La variable `PARAKEET_VERCEL_BYPASS=<secret>` reste prioritaire si tu préfères ne pas connecter ton compte. Le secret est envoyé dans l'en-tête `x-vercel-protection-bypass` aux domaines `*.vercel.app`.
 
 ## Brancher Claude Code (MCP)
 
@@ -76,7 +80,7 @@ En développement, depuis le dépôt, Node suffit :
 claude mcp add --scope user parakeet -- node /chemin/vers/parakeet/packages/mcp/src/cli.ts
 ```
 
-Outils exposés : `status`, `open_url`, `set_devices`, `screenshot`, `get_page_meta`, `get_share_preview`, `run_checks`, `list_pages`. Deux commandes sont aussi disponibles dans Claude Code :
+Outils exposés : `status`, `open_url`, `set_devices`, `screenshot`, `get_page_meta`, `get_share_preview`, `run_checks`, `list_pages`, `list_deployments`. Deux commandes sont aussi disponibles dans Claude Code :
 
 - `/mcp__parakeet__fix_share` corrige les aperçus de partage de la page ouverte, puis vérifie ;
 - `/mcp__parakeet__fix_checks` corrige les problèmes trouvés par les checks, puis les relance.
@@ -117,7 +121,8 @@ L'autotest lance le site de démo et Parakeet, puis vérifie :
 - les 24 checks sur une page aux défauts connus (débordement, erreur JavaScript) ;
 - l'exploration des pages ;
 - les 7 aperçus de partage et le correctif pour le framework détecté ;
-- le serveur MCP lancé comme le ferait Claude Code (`parakeet --mcp`), avec capture et checks via l'app.
+- le serveur MCP lancé comme le ferait Claude Code (`parakeet --mcp`), avec capture et checks via l'app ;
+- Vercel contre une fausse API : connexion, projet, bascule local → prod → preview → local sur le même chemin, secret de contournement du projet, comparaison des trois environnements.
 
 Sans écran, il utilise Xvfb et prend des captures avec ImageMagick dans `apps/desktop/selftest-output/`. Pour tester l'app packagée : `PARAKEET_BIN=dist/linux-unpacked/parakeet node scripts/selftest.mjs` depuis `apps/desktop`.
 
@@ -131,6 +136,7 @@ apps/desktop        app Electron (electron-vite)
 packages/mcp        serveur MCP (stdio) pour Claude Code, client du serveur de contrôle de l'app
 packages/core       lecture des balises comme les robots, aperçus des 7 plateformes, correctifs, fichiers du site, exploration, 24 checks
 fixtures/demo-site  site de test (Vite)
+fixtures/vercel-mock  fausse API Vercel pour les tests
 ```
 
 Les appareils sont des `WebContentsView` émulées via le protocole DevTools de Chromium (`Emulation.setDeviceMetricsOverride`, émulation tactile, user agent), placées au-dessus des cadres dessinés par l'interface. Comme ces vues natives passent toujours au-dessus du HTML, un menu ou la palette « gèle » les aperçus : ils sont capturés en image et masqués le temps de l'affichage.

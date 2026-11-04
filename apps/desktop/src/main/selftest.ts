@@ -1,6 +1,6 @@
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { app, type BrowserWindow } from 'electron';
+import { app, safeStorage, type BrowserWindow } from 'electron';
 import { checkShare, probeImage, readPageMeta } from '@parakeet/core';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
@@ -241,7 +241,7 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
       if (img) writeFileSync(join(outDir, 'mcp-screenshot-iphone.jpg'), Buffer.from(img, 'base64'));
       criteria.push({
         id: 'mcp',
-        ok: tools === 8 && statusText.includes('iPhone 16') && img.startsWith('/9j/') && /Checks pour .* \d+\/\d+/.test(checksText) && !checksText.includes('sans mesures'),
+        ok: tools === 9 && statusText.includes('iPhone 16') && img.startsWith('/9j/') && /Checks pour .* \d+\/\d+/.test(checksText) && !checksText.includes('sans mesures'),
         detail: `${tools} outils · status « ${statusText.split('\n')[1] ?? ''} » · capture ${Math.round((img.length * 3) / 4 / 1024)} Ko · ${checksText.split('\n')[0]}`,
       });
     } catch (e) {
@@ -261,6 +261,70 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     await sleep(800);
     await shot('12-reglages-mcp');
     await win.webContents.executeJavaScript(`[...document.querySelectorAll('nav button')].find((b) => b.textContent.includes('Aperçu'))?.click()`);
+    await sleep(600);
+
+    // ---- Phase 5 ----
+    // 15. Vercel: connect with a token, link the project, deployments loaded (fake API)
+    const js = <T,>(code: string) => win.webContents.executeJavaScript(code) as Promise<T>;
+    const clickText = (selector: string, text: string) => js(`[...document.querySelectorAll(${JSON.stringify(selector)})].find((b) => b.textContent.includes(${JSON.stringify(text)}))?.click()`);
+    await js(`window.parakeet.vercel.connect(${JSON.stringify(process.env.PARAKEET_VERCEL_TEST_TOKEN ?? '')})`);
+    const linked = (await js(`window.parakeet.vercel.link('prj_maisonsable')`)) as { project: { productionUrl: string } | null; deployments: unknown[] };
+    await sleep(800);
+    criteria.push({
+      id: 'vercel-link',
+      ok: linked.project?.productionUrl === 'http://127.0.0.1:5175' && linked.deployments.length === 5,
+      detail: `prod ${linked.project?.productionUrl}, ${linked.deployments.length} déploiements`,
+    });
+    // Encrypted when a keyring exists; otherwise clear text, but readable by the user only.
+    const vercelFile = join(app.getPath('userData'), 'vercel.json');
+    const stored = JSON.parse(readFileSync(vercelFile, 'utf8')) as { encrypted: boolean; token: string };
+    const mode = statSync(vercelFile).mode & 0o777;
+    const tokenOk = stored.encrypted ? stored.token !== process.env.PARAKEET_VERCEL_TEST_TOKEN : !safeStorage.isEncryptionAvailable() && mode === 0o600;
+    criteria.push({ id: 'vercel-token-stored', ok: tokenOk, detail: stored.encrypted ? 'jeton chiffré (trousseau)' : `pas de trousseau ici : jeton en clair, fichier ${mode.toString(8)}` });
+
+    // 16. Environment switch keeps the page: local /atelier.html → prod /atelier.html → preview
+    await devices.navigate('http://localhost:5173/atelier.html');
+    await sleep(1500);
+    await clickText('[aria-label=Environnement] button', 'Prod');
+    const onProd = await waitFor(() => devices.entries().every((d) => d.view.webContents.getURL() === 'http://127.0.0.1:5175/atelier.html'), 6000);
+    await sleep(800);
+    await shot('13-env-prod');
+    await clickText('[aria-label=Environnement] button', 'Preview');
+    const onPreview = await waitFor(() => devices.entries().every((d) => d.view.webContents.getURL() === 'http://127.0.0.1:5176/atelier.html'), 6000);
+    await clickText('[aria-label=Environnement] button', 'Local');
+    const backLocal = await waitFor(() => devices.entries().every((d) => d.view.webContents.getURL() === 'http://localhost:5173/atelier.html'), 6000);
+    criteria.push({ id: 'env-switch', ok: onProd && onPreview && backLocal, detail: `prod ${onProd}, preview ${onPreview}, retour local ${backLocal} (même chemin /atelier.html)` });
+
+    // 17. Bypass secret taken from the Vercel project (once the env variable is gone)
+    process.env.PARAKEET_VERCEL_BYPASS = '';
+    await js(`window.parakeet.vercel.generateBypass()`);
+    const echoed = (await (await devices.session.fetch(process.env.PARAKEET_ECHO_URL ?? '')).json()) as Record<string, string>;
+    criteria.push({ id: 'vercel-bypass-project', ok: echoed['x-vercel-protection-bypass'] === 'mock-bypass-secret', detail: `en-tête : ${echoed['x-vercel-protection-bypass'] ?? 'absent'}` });
+
+    // 18. Compare: same path on the three environments, differences found
+    type Col = { env: string; values: Record<string, string | null>; score: { passed: number } | null };
+    const cols = (await js(
+      `window.parakeet.compare([{env:'local',label:'Local',url:'http://localhost:5173/'},{env:'preview',label:'Preview',url:'http://127.0.0.1:5176/'},{env:'prod',label:'Prod',url:'http://127.0.0.1:5175/'}])`,
+    )) as Col[];
+    const titles = cols.map((c) => c.values['title']);
+    criteria.push({
+      id: 'compare',
+      ok: cols.length === 3 && new Set(titles).size === 2 && cols[2]!.values['robots'] === 'noindex' && cols.every((c) => c.score),
+      detail: cols.map((c) => `${c.env}: « ${c.values['title']} » ${c.score?.passed ?? '?'} ok`).join(' · '),
+    });
+
+    await clickText('nav button', 'Déploiements');
+    await sleep(900);
+    await shot('14-deploiements');
+    await clickText('nav button', 'Comparer');
+    await sleep(2500);
+    await shot('15-comparer');
+    await clickText('nav button', 'Réglages');
+    await sleep(800);
+    await js(`document.querySelector('main')?.scrollTo(0, 99999)`);
+    await sleep(400);
+    await shot('16-reglages-vercel');
+    await clickText('nav button', 'Aperçu');
     await sleep(600);
 
     // 10. Partage section

@@ -77,6 +77,8 @@ importers:
         specifier: ^8.3.5
         version: 8.3.5(@types/node@26.6.6)(jiti@2.7.0)
 
+  fixtures/vercel-mock: {}
+
   packages/core:
     dependencies:
       image-size:

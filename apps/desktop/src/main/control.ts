@@ -14,6 +14,7 @@ interface Deps {
   setActive(ids: string[]): void;
   navigate(url: string): Promise<void>;
   onActivity(a: McpActivity): void;
+  deployments(): { project: unknown; deployments: unknown[] };
 }
 
 /** Device pixels are big (iPhone: 1179×2556). Half of that is plenty for Claude to look at. */
@@ -62,6 +63,8 @@ export function startControlServer(deps: Deps) {
       switch (`${req.method} ${req.url}`) {
         case 'GET /status':
           return send(res, 200, status());
+        case 'GET /deployments':
+          return send(res, 200, deps.deployments());
         case 'POST /activity': {
           // Reported by the MCP server once per tool or prompt call.
           deps.onActivity({ at: Date.now(), tool: String(body.tool ?? '?'), ok: body.ok !== false, detail: String(body.detail ?? ''), ms: Number(body.ms ?? 0) });

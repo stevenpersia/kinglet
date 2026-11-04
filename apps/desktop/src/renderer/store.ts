@@ -1,5 +1,6 @@
 import { create } from 'zustand';
-import type { AnalyzeReport, CrawledPage, DevicePreset, InitState, McpActivity, McpInfo, ParakeetApi, Settings, ShareReport } from '../shared/types';
+import type { AnalyzeReport, CrawledPage, DevicePreset, EnvId, InitState, McpActivity, McpInfo, ParakeetApi, Settings, ShareReport, VercelState } from '../shared/types';
+import { envOf, envTargets, urlOnEnv } from './lib/env';
 
 declare global {
   interface Window {
@@ -37,6 +38,9 @@ interface State {
   paletteOpen: boolean;
   urlFocusTick: number;
   mcp: McpInfo | null;
+  vercel: VercelState | null;
+  /** Preview deployment chosen in the environment switch (null: latest). */
+  previewId: string | null;
 
   init(): Promise<void>;
   navigate(url: string): Promise<void>;
@@ -44,6 +48,8 @@ interface State {
   analyze(url: string, opts?: { refreshSite?: boolean }): Promise<void>;
   crawlSite(force?: boolean): Promise<void>;
   loadMcp(): Promise<void>;
+  /** Show the current page on another environment. */
+  switchEnv(env: EnvId, previewId?: string): Promise<void>;
   pushMcpActivity(a: McpActivity): void;
   setSection(s: Section): void;
   setInspectorTab(t: InspectorTab): void;
@@ -59,7 +65,7 @@ let overlays = 0;
 export const useStore = create<State>((set, get) => ({
   ready: false,
   presets: [],
-  settings: { url: null, recentUrls: [], active: [], scrollSync: true, landscape: false },
+  settings: { url: null, localOrigin: null, recentUrls: [], active: [], scrollSync: true, landscape: false },
   platform: null,
   url: null,
   detectedFrom: null,
@@ -79,6 +85,8 @@ export const useStore = create<State>((set, get) => ({
   paletteOpen: false,
   urlFocusTick: 0,
   mcp: null,
+  vercel: null,
+  previewId: null,
 
   async init() {
     if (initStarted) return; // React StrictMode runs effects twice in dev
@@ -89,6 +97,8 @@ export const useStore = create<State>((set, get) => ({
 
   async navigate(url) {
     set({ url, status: 'loading', error: null, detectedFrom: null });
+    // Remember the local dev server, to come back to it from preview or prod.
+    if (envOf(url, get().vercel) === 'local') await get().updateSettings({ localOrigin: new URL(url).origin });
     await api().navigate(url);
     const settings = await api().updateSettings({});
     set({ settings });
@@ -134,6 +144,13 @@ export const useStore = create<State>((set, get) => ({
 
   async loadMcp() {
     set({ mcp: await api().mcpInfo() });
+  },
+
+  async switchEnv(env, previewId) {
+    if (previewId !== undefined) set({ previewId });
+    const { url, settings, vercel } = get();
+    const target = urlOnEnv(url, env, envTargets(settings.localOrigin, vercel, get().previewId));
+    if (target) await get().navigate(target);
   },
 
   pushMcpActivity(a) {

@@ -11,7 +11,7 @@ interface Command {
 
 /** Ctrl+K command palette. Native previews are frozen as images while it is open. */
 export function Palette() {
-  const { paletteOpen, presets, settings, updateSettings, setSection, openOverlay, closeOverlay } = useStore();
+  const { paletteOpen, presets, settings, updateSettings, setSection, openOverlay, closeOverlay, vercel, switchEnv } = useStore();
   const [query, setQuery] = useState('');
   const [index, setIndex] = useState(0);
   const input = useRef<HTMLInputElement>(null);
@@ -46,12 +46,21 @@ export function Palette() {
           },
         };
       }),
+      ...(vercel?.project
+        ? [
+            { id: 'env-local', label: 'Voir cette page en local', run: () => void switchEnv('local') },
+            { id: 'env-preview', label: 'Voir cette page sur la dernière preview', run: () => void switchEnv('preview') },
+            { id: 'env-prod', label: 'Voir cette page en production', run: () => void switchEnv('prod') },
+          ]
+        : []),
       go('apercu', 'l’aperçu'),
+      go('deploiements', 'Déploiements'),
+      go('comparer', 'Comparer'),
       go('partage', 'Partage'),
       go('reglages', 'Réglages'),
       ...settings.recentUrls.map((u) => ({ id: `open-${u}`, label: `Ouvrir ${u}`, run: () => void useStore.getState().navigate(u) })),
     ];
-  }, [presets, settings, updateSettings, setSection]);
+  }, [presets, settings, updateSettings, setSection, vercel, switchEnv]);
 
   const q = query.trim().toLowerCase();
   const results = q ? commands.filter((c) => c.label.toLowerCase().includes(q)) : commands;

@@ -1,0 +1,212 @@
+import { samePageOn, type VercelDeployment } from '@parakeet/core';
+import { useEffect, useState } from 'react';
+import type { CompareColumn, EnvId } from '../../shared/types';
+import { ENV_DOT, envTargets, timeAgo, urlOnEnv } from '../lib/env';
+import { api, useStore } from '../store';
+import { Dot, Icon } from './Icons';
+
+const STATE: Record<string, { dot: string; label: string }> = {
+  READY: { dot: 'bg-ok', label: 'Prêt' },
+  BUILDING: { dot: 'bg-warn', label: 'Build' },
+  QUEUED: { dot: 'bg-ghost', label: 'En attente' },
+  INITIALIZING: { dot: 'bg-ghost', label: 'Démarrage' },
+  ERROR: { dot: 'bg-err', label: 'Erreur' },
+  CANCELED: { dot: 'bg-ghost', label: 'Annulé' },
+};
+
+function NotLinked({ what }: { what: string }) {
+  const setSection = useStore((s) => s.setSection);
+  return (
+    <main className="stage-bg flex flex-1 items-center justify-center p-6">
+      <div className="flex max-w-md flex-col items-center gap-3 text-center">
+        <h1 className="m-0 text-xl font-semibold tracking-[-0.02em]">{what}</h1>
+        <p className="m-0 leading-relaxed text-muted">Connecte ton compte Vercel et choisis le projet de ce site pour voir ses déploiements et comparer local, preview et prod.</p>
+        <button onClick={() => setSection('reglages')} className="mt-1 h-8 rounded-ui bg-fg px-3 font-semibold text-bg">
+          Connecter Vercel
+        </button>
+      </div>
+    </main>
+  );
+}
+
+const btn = 'flex h-7 items-center gap-1.5 rounded-ui border border-[#2a2a2f] bg-active px-2.5 text-xs font-medium text-fg hover:border-line-strong';
+
+export function DeploymentsPage() {
+  const { vercel, url, navigate } = useStore();
+  const [filter, setFilter] = useState<'all' | 'prod' | 'preview'>('all');
+  const [refreshing, setRefreshing] = useState(false);
+  if (!vercel?.project) return <NotLinked what="Déploiements" />;
+
+  const list = vercel.deployments.filter((d) => filter === 'all' || (filter === 'prod' ? d.production : !d.production));
+  // Open exactly this deployment (even an older one of a branch), on the same page.
+  const open = (d: VercelDeployment) => {
+    if (!d.production) useStore.setState({ previewId: d.id });
+    void navigate(samePageOn(url, d.url));
+    useStore.getState().setSection('apercu');
+  };
+  const refresh = async () => {
+    setRefreshing(true);
+    useStore.setState({ vercel: await api().vercel.refresh() });
+    setRefreshing(false);
+  };
+
+  return (
+    <main className="flex min-w-0 flex-1 flex-col gap-4 overflow-y-auto p-6">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="m-0 text-xl font-semibold tracking-[-0.02em]">Déploiements</h1>
+          <p className="m-0 mt-1 text-muted">
+            {vercel.project.name}
+            {vercel.project.repo ? ` · ${vercel.project.repo}` : ''} · synchronisé {vercel.syncedAt ? timeAgo(vercel.syncedAt) : '—'}
+          </p>
+        </div>
+        <div className="flex items-center gap-1.5">
+          {(['all', 'prod', 'preview'] as const).map((f) => (
+            <button key={f} aria-pressed={filter === f} onClick={() => setFilter(f)} className={`inline-flex h-[26px] items-center rounded-md border px-2.5 text-xs ${filter === f ? 'border-line-strong bg-active font-medium text-fg' : 'border-line text-muted hover:border-line-strong'}`}>
+              {f === 'all' ? 'Tout' : f === 'prod' ? 'Production' : 'Previews'}
+            </button>
+          ))}
+          <button onClick={() => void refresh()} className={btn} aria-label="Rafraîchir">
+            <Icon name="reload" size={12} className={refreshing ? 'animate-spin' : ''} />
+          </button>
+        </div>
+      </div>
+      {vercel.error && <p className="m-0 text-err">{vercel.error}</p>}
+      <div className="overflow-hidden rounded-[10px] border border-line bg-card">
+        {list.length === 0 && <p className="m-0 p-4 text-faint">Aucun déploiement.</p>}
+        {list.map((d) => {
+          const st = STATE[d.state] ?? STATE.QUEUED!;
+          const showing = url ? new URL(url).origin === new URL(d.url).origin : false;
+          return (
+            <div key={d.id} className={`flex items-center gap-4 border-t border-line-soft px-4 py-3 first:border-t-0 ${showing ? 'bg-active' : ''}`}>
+              <span className="flex w-24 shrink-0 items-center gap-2 text-xs text-muted">
+                <Dot className={st.dot} />
+                {st.label}
+              </span>
+              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <span className="flex items-center gap-2">
+                  <span className="truncate font-mono text-[12.5px] text-fg">{d.branch ?? d.id}</span>
+                  {d.production && <span className="rounded border border-prod/40 px-1.5 text-[10.5px] font-medium text-prod">PROD</span>}
+                  {showing && <span className="text-[11px] text-faint">affiché</span>}
+                </span>
+                <span className="truncate text-xs text-muted">{d.commitMessage ?? d.url}</span>
+              </div>
+              <span className="hidden w-40 shrink-0 text-right text-xs text-faint md:block">
+                {d.author ?? ''}
+                {d.commitSha ? <span className="font-mono"> · {d.commitSha.slice(0, 7)}</span> : null}
+                <br />
+                {timeAgo(d.createdAt)}
+              </span>
+              <span className="flex shrink-0 gap-1.5">
+                <button onClick={() => open(d)} disabled={d.state !== 'READY'} className={`${btn} disabled:opacity-40`}>
+                  <Icon name="eye" size={12} />
+                  Ouvrir
+                </button>
+                {d.inspectorUrl && (
+                  <button onClick={() => api().openExternal(d.inspectorUrl!)} className={btn} aria-label="Ouvrir dans Vercel" title="Ouvrir dans Vercel">
+                    <svg width="11" height="11" viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M12 3 L22 20 H2 Z" fill="currentColor" />
+                    </svg>
+                  </button>
+                )}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </main>
+  );
+}
+
+const ROW_LABEL: Record<string, string> = { title: '<title>', description: 'description' };
+
+export function ComparePage() {
+  const { vercel, url, settings, previewId } = useStore();
+  const [columns, setColumns] = useState<CompareColumn[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  const t = envTargets(settings.localOrigin, vercel, previewId);
+  const path = url ? new URL(url).pathname : '/';
+
+  const targets = (['local', 'preview', 'prod'] as EnvId[])
+    .map((env) => ({ env, url: urlOnEnv(url, env, t) }))
+    .filter((x): x is { env: EnvId; url: string } => !!x.url)
+    .map((x) => ({ ...x, label: x.env === 'local' ? 'Local' : x.env === 'preview' ? `Preview · ${t.preview?.branch ?? ''}` : 'Prod' }));
+  const key = targets.map((x) => x.url).join('|');
+
+  const run = async () => {
+    if (!targets.length) return;
+    setLoading(true);
+    setColumns(await api().compare(targets));
+    setLoading(false);
+  };
+  useEffect(() => {
+    void run();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+
+  if (!vercel?.project) return <NotLinked what="Comparer" />;
+  const rows = columns ? [...new Set(columns.flatMap((c) => Object.keys(c.values)))] : [];
+
+  return (
+    <main className="flex min-w-0 flex-1 flex-col gap-4 overflow-y-auto p-6">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="m-0 text-xl font-semibold tracking-[-0.02em]">Comparer</h1>
+          <p className="m-0 mt-1 text-muted">
+            <span className="font-mono text-xs">{path}</span> sur chaque environnement, lue comme un robot. Les différences sont surlignées.
+          </p>
+        </div>
+        <button onClick={() => void run()} disabled={loading} className={btn}>
+          <Icon name="reload" size={12} className={loading ? 'animate-spin' : ''} />
+          {loading ? 'Lecture…' : 'Relire'}
+        </button>
+      </div>
+      {targets.length < 2 && <p className="m-0 text-faint">Il faut au moins deux environnements : ouvre ton serveur local, ou attends une preview prête.</p>}
+      {columns && (
+        <div className="overflow-x-auto rounded-[10px] border border-line bg-card">
+          <table className="w-full border-collapse text-xs">
+            <thead>
+              <tr>
+                <th className="w-36 border-b border-line-soft px-3 py-2.5 text-left font-normal text-faint" />
+                {columns.map((c) => (
+                  <th key={c.env} className="border-b border-l border-line-soft px-3 py-2.5 text-left align-top font-normal">
+                    <span className="flex items-center gap-2 text-[13px] font-semibold text-fg">
+                      <Dot className={ENV_DOT[c.env]} />
+                      {c.label}
+                      {c.score && (
+                        <span className="ml-auto font-mono text-xs font-normal text-muted">
+                          {c.score.passed}/{c.score.total}
+                        </span>
+                      )}
+                    </span>
+                    <span className="mt-0.5 block truncate font-mono text-[11px] text-faint">{c.url}</span>
+                    {c.error ? <span className="text-err">{c.error}</span> : c.status !== 200 && <span className="text-err">HTTP {c.status}</span>}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => {
+                const vals = columns.map((c) => c.values[r] ?? null);
+                const differ = new Set(vals.map((v) => v ?? '∅')).size > 1;
+                return (
+                  <tr key={r} className={differ ? 'bg-warn/[0.06]' : ''}>
+                    <td className="border-t border-line-soft px-3 py-2 align-top font-mono text-[11.5px] text-faint">
+                      {differ && <span className="mr-1.5 text-warn">≠</span>}
+                      {ROW_LABEL[r] ?? r}
+                    </td>
+                    {vals.map((v, i) => (
+                      <td key={columns[i]!.env} className={`border-t border-l border-line-soft px-3 py-2 align-top break-words ${v ? 'text-fg' : 'text-ghost'}`}>
+                        {v ?? 'absent'}
+                      </td>
+                    ))}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </main>
+  );
+}

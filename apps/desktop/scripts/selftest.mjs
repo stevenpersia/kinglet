@@ -47,6 +47,20 @@ const echo = createServer((req, res) => {
 });
 await new Promise((r) => echo.listen(5199, '127.0.0.1', r));
 
+// 2b. Phase 5: a fake Vercel API, and two servers playing the preview and production deployments
+const { startVercelMock, TOKEN: VERCEL_TOKEN } = await import(join(root, 'fixtures/vercel-mock/index.mjs'));
+const envPage = (env, extra) => (req, res) => {
+  res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+  res.end(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${env === 'prod' ? 'Maison Sable' : 'Maison Sable — Céramiques faites main'}</title>${extra}</head>
+<body style="font-family:system-ui;background:${env === 'prod' ? '#EEF2EE' : '#F6F2EC'};margin:0;padding:24px"><p style="font:600 12px system-ui;letter-spacing:.1em;color:#2F5D50">${env.toUpperCase()}</p><h1 id="headline">Maison Sable (${env})</h1><p id="path">${req.url}</p><p id="bypass">${req.headers['x-vercel-protection-bypass'] ?? ''}</p></body></html>`);
+};
+const preview = createServer(envPage('preview', '<meta property="og:title" content="Maison Sable"><meta property="og:site_name" content="Maison Sable"><meta name="twitter:card" content="summary_large_image">'));
+const prod = createServer(envPage('prod', '<meta property="og:title" content="Maison Sable"><meta name="robots" content="noindex">'));
+await new Promise((r) => preview.listen(5176, '127.0.0.1', r));
+await new Promise((r) => prod.listen(5175, '127.0.0.1', r));
+const vercelMock = await startVercelMock({ previewUrl: 'http://127.0.0.1:5176', previewUrl2: 'http://127.0.0.1:5176', prodUrl: 'http://127.0.0.1:5175' });
+
 // 3. Display
 let display = process.env.DISPLAY;
 if (!display && !process.env.WAYLAND_DISPLAY) {
@@ -72,6 +86,8 @@ const app = spawn(packaged ?? electronBin, args, {
     PARAKEET_VERCEL_BYPASS: 'secret-de-test',
     PARAKEET_BYPASS_HOSTS: '127.0.0.1',
     PARAKEET_ECHO_URL: 'http://127.0.0.1:5199/',
+    PARAKEET_VERCEL_API: vercelMock.url,
+    PARAKEET_VERCEL_TEST_TOKEN: VERCEL_TOKEN,
   },
   stdio: ['ignore', 'pipe', 'inherit'],
 });
@@ -101,5 +117,8 @@ console.log('\nCritères phase 0');
 for (const c of report.criteria) console.log(`  ${c.ok === true ? '✔' : c.ok === false ? '✘' : '…'} ${c.id.padEnd(22)} ${c.detail}`);
 if (report.error) console.log(`\nErreur : ${report.error}`);
 echo.close();
+preview.close();
+prod.close();
+await vercelMock.close();
 cleanup();
 process.exit(report.criteria.some((c) => c.ok === false) || report.error ? 1 : 0);
