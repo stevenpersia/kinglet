@@ -25,9 +25,12 @@ Voir son site sur tous les écrans (iPhone, Android, iPad, desktop), en local, e
   - **Déploiements** liste les builds, rafraîchis toutes les 30 s.
   - **Comparer** met côte à côte les balises et le score des checks de la page sur chaque environnement, avec les différences surlignées.
 - **Claude Code (MCP)** : Claude voit ce que Parakeet voit. Il peut capturer les appareils, lire les balises, lancer les checks et vérifier lui-même ses corrections (détails plus bas).
-- **Projets en onglets** : chaque projet (Vercel ou simple adresse locale) a son onglet en haut, avec ce qui s'y passe : Claude travaille, attend ta réponse, a terminé (« à voir »), build en cours ou en erreur. `Ctrl P` ouvre n'importe quel projet Vercel de tes équipes, ou une adresse. Un seul jeu d'appareils est affiché à la fois, celui de l'onglet actif ; chaque projet garde sa dernière page et son serveur local.
+- **Projets en onglets** : chaque projet (Vercel ou simple adresse locale) a son onglet en haut, avec le favicon du site, avec ce qui s'y passe : Claude travaille, attend ta réponse, a terminé (« à voir »), build en cours ou en erreur. `Ctrl P` ouvre n'importe quel projet Vercel de tes équipes, ou une adresse. Un seul jeu d'appareils est affiché à la fois, celui de l'onglet actif ; chaque projet garde sa dernière page et son serveur local.
 - **Tous les projets** : une carte par projet ouvert (dernière capture, statut de Claude, dernier déploiement) et le fil d'activité de Claude sur tous les projets.
 - **Suivi de Claude Code** (à activer dans les réglages) : des hooks de Claude Code préviennent Parakeet de chaque demande, fichier modifié et fin de tâche, avec une notification système quand Claude termine ou qu'un build échoue (détails plus bas).
+- **Réseau et CPU ralentis** : 4G ou 3G lente, CPU d'un téléphone moyen (×4) ou d'entrée de gamme (×6), sur les téléphones et tablettes (les écrans restent à pleine vitesse). Le temps de chargement et le poids de la page s'affichent sous chaque appareil.
+- **Console** : messages de console et erreurs réseau (requêtes échouées, HTTP 4xx/5xx) en direct, par appareil, avec une pastille d'erreurs sous chaque appareil. « Send to Claude » copie les erreurs et quoi faire, prêt à coller dans Claude Code ; Claude peut aussi les lire lui-même (outil MCP `get_console`, commande `/mcp__parakeet__fix_console`).
+- **Langue** : anglais par défaut, français dans **Settings → Language**. Le serveur MCP parle la langue choisie.
 - **Pages** : le menu « Pages » de la barre d'adresse liste les pages du site, trouvées via les liens du HTML, le sitemap et les liens de la page rendue (utile pour les SPA).
 
 ## Lancer en local (Linux)
@@ -97,10 +100,11 @@ En développement, depuis le dépôt, Node suffit :
 claude mcp add --scope user parakeet -- node /chemin/vers/parakeet/packages/mcp/src/cli.ts
 ```
 
-Outils exposés : `status`, `open_url`, `set_devices`, `screenshot`, `get_page_meta`, `get_share_preview`, `run_checks`, `list_pages`, `list_deployments`. Deux commandes sont aussi disponibles dans Claude Code :
+Outils exposés : `status`, `open_url`, `set_devices`, `screenshot`, `get_page_meta`, `get_share_preview`, `run_checks`, `list_pages`, `list_deployments`, `get_console`. Trois commandes sont aussi disponibles dans Claude Code :
 
 - `/mcp__parakeet__fix_share` corrige les aperçus de partage de la page ouverte, puis vérifie ;
-- `/mcp__parakeet__fix_checks` corrige les problèmes trouvés par les checks, puis les relance.
+- `/mcp__parakeet__fix_checks` corrige les problèmes trouvés par les checks, puis les relance ;
+- `/mcp__parakeet__fix_console` corrige les erreurs JavaScript et réseau vues dans les appareils, puis revérifie la console.
 
 Le serveur MCP marche app fermée, sur une URL donnée. Avec l'app ouverte, il utilise la page affichée et les appareils émulés : captures, débordement horizontal, erreurs JavaScript. Il parle à l'app par un serveur local (`127.0.0.1`, jeton aléatoire dans `~/.config/Parakeet/mcp.json`), et chaque appel de Claude apparaît dans l'onglet MCP de l'inspecteur.
 
@@ -187,6 +191,10 @@ L'autotest lance le site de démo et Parakeet, puis vérifie :
 - le serveur MCP lancé comme le ferait Claude Code (`parakeet --mcp`), avec capture et checks via l'app ;
 - Vercel contre une fausse API : connexion, projet relié depuis les réglages, bascule local → prod → preview → local sur le même chemin, secret de contournement du projet, comparaison des trois environnements, preview protégée (appareils et robots) ;
 - la barre du haut à 1600, 1280 et 960 px de large ;
+- le favicon du site dans l'onglet du projet ;
+- la console : erreur JavaScript vue par chaque appareil, avertissement et requête échouée, listés dans l'onglet Console ;
+- le ralentissement : une requête et un calcul chronométrés dans le téléphone avant et après 3G lente + CPU ×4 ;
+- la langue : bascule en français et retour ;
 - les projets : un 2e onglet ouvert depuis `Ctrl P`, retour au 1er avec `Ctrl 1` ;
 - le suivi de Claude Code (dans un `CLAUDE_CONFIG_DIR` temporaire) : hooks installés, demande puis édition jouées par le vrai script, onglet « en cours », fin de tâche, puis désinstallation propre ;
 - les mises à jour : sur l'app packagée, une 9.9.9 trouvée sur un faux flux, téléchargée et vérifiée (sans installation) ;
