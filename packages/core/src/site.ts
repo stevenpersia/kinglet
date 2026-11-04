@@ -1,3 +1,4 @@
+import { fetchExplained } from './net.ts';
 import { BOTS } from './bots.ts';
 
 export interface SiteFiles {
@@ -23,7 +24,7 @@ interface Got {
 
 async function get(url: string, opts: Opts): Promise<Got> {
   try {
-    const res = await (opts.fetchImpl ?? fetch)(url, {
+    const res = await fetchExplained(opts.fetchImpl ?? fetch, url, {
       redirect: 'follow',
       headers: { 'user-agent': BOTS.google, ...opts.headers },
       signal: AbortSignal.timeout(opts.timeoutMs ?? 8000),

@@ -291,6 +291,15 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     await shot('13-env-prod');
     await clickText('[aria-label=Environnement] button', 'Preview');
     const onPreview = await waitFor(() => devices.entries().every((d) => d.view.webContents.getURL() === 'http://127.0.0.1:5176/atelier.html'), 6000);
+    // Protected preview: devices pass (cookie), and the 7 bots read it too (no cookie header for them).
+    const previewTitle = (await devices.entries()[0]!.view.webContents.executeJavaScript('document.title')) as string;
+    const protectedShare = (await js(`window.parakeet.sharePreviews('http://127.0.0.1:5176/atelier.html')`)) as { previews: { cards: { httpStatus: number | null }[] } };
+    const statuses = protectedShare.previews.cards.map((c) => c.httpStatus);
+    criteria.push({
+      id: 'protected-preview',
+      ok: !previewTitle.includes('Authentication') && statuses.length === 7 && statuses.every((x) => x === 200),
+      detail: `appareils : « ${previewTitle} » · robots : ${statuses.join(', ')}`,
+    });
     await clickText('[aria-label=Environnement] button', 'Local');
     const backLocal = await waitFor(() => devices.entries().every((d) => d.view.webContents.getURL() === 'http://localhost:5173/atelier.html'), 6000);
     criteria.push({ id: 'env-switch', ok: onProd && onPreview && backLocal, detail: `prod ${onProd}, preview ${onPreview}, retour local ${backLocal} (même chemin /atelier.html)` });

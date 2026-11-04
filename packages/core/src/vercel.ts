@@ -184,3 +184,21 @@ export function samePageOn(currentUrl: string | null, targetOrigin: string): str
     return target.toString();
   }
 }
+
+/**
+ * Headers for Vercel Deployment Protection ("Protection Bypass for Automation").
+ * `x-vercel-set-bypass-cookie` asks Vercel to answer with a redirect that sets a cookie: right for a
+ * browser (the devices), but a redirect loop for a client without cookies (the bots Parakeet imitates).
+ */
+export function vercelBypassHeaders(url: string, opts: { secret: string | null | undefined; hosts?: string[]; browser?: boolean }): Record<string, string> {
+  if (!opts.secret) return {};
+  const hosts = opts.hosts ?? ['*.vercel.app'];
+  let host: string;
+  try {
+    host = new URL(url).hostname;
+  } catch {
+    return {};
+  }
+  if (!hosts.some((p) => (p.startsWith('*.') ? host.endsWith(p.slice(1)) : host === p))) return {};
+  return opts.browser ? { 'x-vercel-protection-bypass': opts.secret, 'x-vercel-set-bypass-cookie': 'true' } : { 'x-vercel-protection-bypass': opts.secret };
+}

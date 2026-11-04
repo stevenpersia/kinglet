@@ -55,7 +55,20 @@ const envPage = (env, extra) => (req, res) => {
 <title>${env === 'prod' ? 'Maison Sable' : 'Maison Sable — Céramiques faites main'}</title>${extra}</head>
 <body style="font-family:system-ui;background:${env === 'prod' ? '#EEF2EE' : '#F6F2EC'};margin:0;padding:24px"><p style="font:600 12px system-ui;letter-spacing:.1em;color:#2F5D50">${env.toUpperCase()}</p><h1 id="headline">Maison Sable (${env})</h1><p id="path">${req.url}</p><p id="bypass">${req.headers['x-vercel-protection-bypass'] ?? ''}</p></body></html>`);
 };
-const preview = createServer(envPage('preview', '<meta property="og:title" content="Maison Sable"><meta property="og:site_name" content="Maison Sable"><meta name="twitter:card" content="summary_large_image">'));
+// The preview behaves like a protected Vercel deployment: 401 without the bypass secret; with
+// x-vercel-set-bypass-cookie, a redirect to itself that sets a cookie (browsers keep it, bots must not ask).
+const previewPage = envPage('preview', '<meta property="og:title" content="Maison Sable"><meta property="og:site_name" content="Maison Sable"><meta name="twitter:card" content="summary_large_image">');
+const preview = createServer((req, res) => {
+  if (!['secret-de-test', 'mock-bypass-secret'].includes(req.headers['x-vercel-protection-bypass'])) {
+    res.writeHead(401, { 'content-type': 'text/html' });
+    return res.end('<html><head><title>Authentication Required</title></head><body>Vercel</body></html>');
+  }
+  if (req.headers['x-vercel-set-bypass-cookie'] && !String(req.headers.cookie ?? '').includes('_vercel_jwt')) {
+    res.writeHead(307, { location: req.url, 'set-cookie': '_vercel_jwt=ok; Path=/; HttpOnly; SameSite=Lax' });
+    return res.end();
+  }
+  previewPage(req, res);
+});
 const prod = createServer(envPage('prod', '<meta property="og:title" content="Maison Sable"><meta name="robots" content="noindex">'));
 await new Promise((r) => preview.listen(5176, '127.0.0.1', r));
 await new Promise((r) => prod.listen(5175, '127.0.0.1', r));
@@ -84,7 +97,7 @@ const app = spawn(packaged ?? electronBin, args, {
     PARAKEET_URL: 'http://localhost:5173/',
     PARAKEET_HMR_FILE: join(demoDir, 'content.js'),
     PARAKEET_VERCEL_BYPASS: 'secret-de-test',
-    PARAKEET_BYPASS_HOSTS: '127.0.0.1',
+    PARAKEET_BYPASS_HOSTS: '127.0.0.1',  // the fake deployments and the echo server
     PARAKEET_ECHO_URL: 'http://127.0.0.1:5199/',
     PARAKEET_VERCEL_API: vercelMock.url,
     PARAKEET_VERCEL_TEST_TOKEN: VERCEL_TOKEN,

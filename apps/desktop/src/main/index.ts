@@ -1,6 +1,6 @@
 import { join } from 'node:path';
 import { app, BrowserWindow, clipboard, ipcMain, Menu, shell } from 'electron';
-import { buildShareFix, checkShare, crawl, probeImage, readPageMeta, readSharePreviews, readSiteFiles, runChecks, score, type CrawledPage, type SiteFiles } from '@parakeet/core';
+import { buildShareFix, checkShare, crawl, probeImage, readPageMeta, readSharePreviews, readSiteFiles, runChecks, score, vercelBypassHeaders, type CrawledPage, type SiteFiles } from '@parakeet/core';
 import { startStdio } from '@parakeet/mcp';
 import type { AnalyzeReport, CompareColumn, DeviceSlot, EnvId, InitState, McpActivity, McpInfo, PreviewEvent, Settings, ShareStudio } from '../shared/types';
 import { startControlServer } from './control';
@@ -34,18 +34,8 @@ let projectBypass: () => string | null = () => null;
 const bypassSecret = () => process.env.PARAKEET_VERCEL_BYPASS || projectBypass() || '';
 const BYPASS_HOSTS = (process.env.PARAKEET_BYPASS_HOSTS ?? '*.vercel.app').split(',').map((h) => h.trim()).filter(Boolean);
 
-const hostMatches = (url: string) => {
-  try {
-    const host = new URL(url).hostname;
-    return BYPASS_HOSTS.some((p) => (p.startsWith('*.') ? host.endsWith(p.slice(1)) : host === p));
-  } catch {
-    return false;
-  }
-};
-const bypassHeaders = (url: string): Record<string, string> => {
-  const secret = bypassSecret();
-  return secret && hostMatches(url) ? { 'x-vercel-protection-bypass': secret, 'x-vercel-set-bypass-cookie': 'true' } : {};
-};
+/** Bots (tag reading, checks, compare): the secret only. Devices (real browsers) also get the cookie header. */
+const bypassHeaders = (url: string, browser = false) => vercelBypassHeaders(url, { secret: bypassSecret(), hosts: BYPASS_HOSTS, browser });
 const isLocalUrl = (u: string) => /^https?:\/\/(localhost|127\.|\[::1\]|0\.0\.0\.0)/.test(u);
 
 async function createWindow() {
@@ -83,7 +73,7 @@ async function createWindow() {
   app.on('will-quit', () => vercel.stop());
 
   devices.session.webRequest.onBeforeSendHeaders((details, cb) => {
-    cb({ requestHeaders: { ...details.requestHeaders, ...bypassHeaders(details.url) } });
+    cb({ requestHeaders: { ...details.requestHeaders, ...bypassHeaders(details.url, true) } });
   });
 
   ipcMain.handle('app:init', async (): Promise<InitState> => {

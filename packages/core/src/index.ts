@@ -29,9 +29,11 @@ export {
   parseDeployment,
   previewsByBranch,
   samePageOn,
+  vercelBypassHeaders,
   type VercelUser,
   type VercelTeam,
   type VercelProject,
   type VercelDeployment,
   type DeploymentState,
 } from './vercel.ts';
+export { fetchExplained } from './net.ts';

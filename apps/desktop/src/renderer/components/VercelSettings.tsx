@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { VercelState } from '../../shared/types';
-import { api, useStore } from '../store';
+import { api, cleanError, useStore } from '../store';
 import { Dot } from './Icons';
 
 const TOKENS_URL = 'https://vercel.com/account/tokens';
@@ -23,7 +23,7 @@ export function VercelSettings() {
     try {
       useStore.setState({ vercel: await fn() });
     } catch (e) {
-      setError((e as Error).message.replace(/^Error invoking remote method '[^']+': (Error: )?/, ''));
+      setError(cleanError(e));
     } finally {
       setBusy(null);
     }

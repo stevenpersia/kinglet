@@ -1,3 +1,4 @@
+import { fetchExplained } from './net.ts';
 import { imageSize } from 'image-size';
 import { BOTS, type BotId } from './bots.ts';
 
@@ -18,7 +19,7 @@ export async function probeImage(
 ): Promise<ImageProbe> {
   const f = opts.fetchImpl ?? fetch;
   try {
-    const res = await f(url, {
+    const res = await fetchExplained(f, url, {
       redirect: 'follow',
       headers: { 'user-agent': BOTS[opts.bot ?? 'whatsapp'], ...opts.headers },
       signal: AbortSignal.timeout(opts.timeoutMs ?? 10_000),

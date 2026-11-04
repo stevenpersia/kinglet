@@ -1,7 +1,7 @@
 import type { PlatformFamily, ShareCard } from '@parakeet/core';
 import { useEffect, useState } from 'react';
 import type { ShareStudio } from '../../shared/types';
-import { api, useStore } from '../store';
+import { api, cleanError, useStore } from '../store';
 import { Dot, Icon } from './Icons';
 import { CopyButton, SLASH } from './Mcp';
 
@@ -258,7 +258,7 @@ export function SharePage() {
       cache.set(url, s);
       if (useStore.getState().url === url) setStudio(s);
     } catch (e) {
-      setError((e as Error).message);
+      setError(cleanError(e));
     } finally {
       setLoading(false);
     }

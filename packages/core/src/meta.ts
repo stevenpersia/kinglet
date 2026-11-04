@@ -1,3 +1,4 @@
+import { fetchExplained } from './net.ts';
 import { parse } from 'node-html-parser';
 import { BOTS, type BotId } from './bots.ts';
 
@@ -155,7 +156,7 @@ export async function readPageMeta(url: string, opts: FetchOptions = {}): Promis
   const bot = opts.bot ?? 'whatsapp';
   const f = opts.fetchImpl ?? fetch;
   const started = Date.now();
-  const res = await f(url, {
+  const res = await fetchExplained(f, url, {
     redirect: 'follow',
     headers: { 'user-agent': BOTS[bot], accept: 'text/html,*/*;q=0.8', ...opts.headers },
     signal: AbortSignal.timeout(opts.timeoutMs ?? 10_000),

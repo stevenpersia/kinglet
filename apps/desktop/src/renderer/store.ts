@@ -9,6 +9,9 @@ declare global {
 }
 export const api = (): ParakeetApi => window.parakeet;
 
+/** "Error invoking remote method 'x': Error: why" → "why". */
+export const cleanError = (e: unknown) => String((e as Error)?.message ?? e).replace(/^Error invoking remote method '[^']+': (?:\w*Error: )?/, '');
+
 export type Section = 'apercu' | 'partage' | 'comparer' | 'deploiements' | 'checks' | 'reglages';
 export type InspectorTab = 'page' | 'partage' | 'checks' | 'mcp';
 export type LoadStatus = 'idle' | 'loading' | 'loaded' | 'failed';
@@ -117,7 +120,8 @@ export const useStore = create<State>((set, get) => ({
       const report = await api().analyze(url, opts);
       if (seq === shareSeq) set({ report, share: report.share, shareError: null, analyzing: false });
     } catch (e) {
-      if (seq === shareSeq) set({ shareError: (e as Error).message, analyzing: false });
+      // Do not leave the previous page's report (and score) on screen.
+      if (seq === shareSeq) set({ shareError: cleanError(e), report: null, share: null, analyzing: false });
     }
   },
 
