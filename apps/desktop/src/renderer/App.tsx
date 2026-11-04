@@ -132,8 +132,9 @@ export function App() {
           <main className="stage-bg flex-1" />
         ) : section === 'apercu' ? (
           <>
-            <Stage />
+            {/* Opened from the left bar: right next to it, like the settings navigation. */}
             <SidePanel />
+            <Stage />
           </>
         ) : section === 'projets' ? (
           <ProjectsPage />

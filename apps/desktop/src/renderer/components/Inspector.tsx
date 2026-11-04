@@ -178,7 +178,7 @@ export function SidePanel() {
   else body = panel === 'page' ? <PageBody /> : <ChecksBody />;
 
   return (
-    <aside aria-label={panel === 'page' ? 'Page' : 'Checks'} className="flex w-[340px] shrink-0 flex-col border-l border-line-soft bg-chrome">
+    <aside aria-label={panel === 'page' ? 'Page' : 'Checks'} className="flex w-[340px] shrink-0 flex-col border-r border-line-soft bg-chrome">
       <div className="flex h-11 shrink-0 items-center justify-between border-b border-line-soft pr-2 pl-4">
         <span className="label">{panel === 'page' ? 'Page' : 'Checks'}</span>
         <span className="flex items-center gap-2">
