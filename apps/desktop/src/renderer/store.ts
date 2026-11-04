@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { DevicePreset, InitState, ParakeetApi, Settings, ShareReport } from '../shared/types';
+import type { AnalyzeReport, CrawledPage, DevicePreset, InitState, ParakeetApi, Settings, ShareReport } from '../shared/types';
 
 declare global {
   interface Window {
@@ -9,7 +9,7 @@ declare global {
 export const api = (): ParakeetApi => window.parakeet;
 
 export type Section = 'apercu' | 'partage' | 'comparer' | 'deploiements' | 'checks' | 'reglages';
-export type InspectorTab = 'page' | 'partage';
+export type InspectorTab = 'page' | 'partage' | 'checks';
 export type LoadStatus = 'idle' | 'loading' | 'loaded' | 'failed';
 
 interface State {
@@ -21,8 +21,14 @@ interface State {
   detectedFrom: string | null;
   status: LoadStatus;
   error: string | null;
+  /** Last analysis of the current page (share tags + 24 checks). */
+  report: AnalyzeReport | null;
   share: ShareReport | null;
   shareError: string | null;
+  analyzing: boolean;
+  pages: CrawledPage[];
+  crawling: boolean;
+  crawledOrigin: string | null;
   section: Section;
   inspectorTab: InspectorTab;
   maximized: boolean;
@@ -34,7 +40,8 @@ interface State {
   init(): Promise<void>;
   navigate(url: string): Promise<void>;
   updateSettings(patch: Partial<Settings>): Promise<void>;
-  refreshShare(url: string): Promise<void>;
+  analyze(url: string, opts?: { refreshSite?: boolean }): Promise<void>;
+  crawlSite(force?: boolean): Promise<void>;
   setSection(s: Section): void;
   setInspectorTab(t: InspectorTab): void;
   /** Freeze native views as images while a menu or dialog covers the stage. */
@@ -55,8 +62,13 @@ export const useStore = create<State>((set, get) => ({
   detectedFrom: null,
   status: 'idle',
   error: null,
+  report: null,
   share: null,
   shareError: null,
+  analyzing: false,
+  pages: [],
+  crawling: false,
+  crawledOrigin: null,
   section: 'apercu',
   inspectorTab: 'page',
   maximized: false,
@@ -84,13 +96,35 @@ export const useStore = create<State>((set, get) => ({
     set({ settings });
   },
 
-  async refreshShare(url) {
+  async analyze(url, opts) {
     const seq = ++shareSeq;
+    set({ analyzing: true });
     try {
-      const share = await api().readShare(url);
-      if (seq === shareSeq) set({ share, shareError: null });
+      const report = await api().analyze(url, opts);
+      if (seq === shareSeq) set({ report, share: report.share, shareError: null, analyzing: false });
     } catch (e) {
-      if (seq === shareSeq) set({ shareError: (e as Error).message });
+      if (seq === shareSeq) set({ shareError: (e as Error).message, analyzing: false });
+    }
+  },
+
+  async crawlSite(force) {
+    const { url, crawling, crawledOrigin } = get();
+    if (!url || crawling) return;
+    let originNow: string;
+    try {
+      originNow = new URL(url).origin;
+    } catch {
+      return;
+    }
+    if (!force && crawledOrigin === originNow) return;
+    set({ crawling: true, crawledOrigin: originNow, ...(crawledOrigin !== originNow ? { pages: [] } : {}) });
+    try {
+      const pages = await api().crawl(url, { force });
+      if (get().crawledOrigin === originNow) set({ pages });
+    } catch {
+      /* keep the previous list */
+    } finally {
+      set({ crawling: false });
     }
   },
 

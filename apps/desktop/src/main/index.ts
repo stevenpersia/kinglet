@@ -1,7 +1,7 @@
 import { join } from 'node:path';
 import { app, BrowserWindow, ipcMain, Menu, shell } from 'electron';
-import { checkShare, probeImage, readPageMeta } from '@parakeet/core';
-import type { DeviceSlot, InitState, PreviewEvent, Settings, ShareReport } from '../shared/types';
+import { checkShare, crawl, probeImage, readPageMeta, readSiteFiles, runChecks, score, type CrawledPage, type SiteFiles } from '@parakeet/core';
+import type { AnalyzeReport, DeviceSlot, InitState, PreviewEvent, Settings } from '../shared/types';
 import { detectLocalServer } from './detect';
 import { DeviceManager, shortcutFor } from './devices';
 import { PRESETS } from './presets';
@@ -110,11 +110,35 @@ async function createWindow() {
   ipcMain.handle('preview:freeze', () => devices.freeze());
   ipcMain.on('preview:unfreeze', () => devices.unfreeze());
   ipcMain.on('preview:devtools', (_e, id: string) => devices.openDevtools(id));
-  ipcMain.handle('share:read', async (_e, url: string): Promise<ShareReport> => {
+  // Site-wide files and crawl results are cached per origin (they rarely change while you work on a page).
+  const siteCache = new Map<string, Promise<SiteFiles>>();
+  const crawlCache = new Map<string, Promise<CrawledPage[]>>();
+  const origin = (u: string) => new URL(u).origin;
+
+  ipcMain.handle('page:analyze', async (_e, url: string, opts: { refreshSite?: boolean }): Promise<AnalyzeReport> => {
     const headers = bypassHeaders(url);
-    const meta = await readPageMeta(url, { headers });
+    const [meta, rendered] = await Promise.all([readPageMeta(url, { headers }), devices.measure()]);
     const image = meta.ogImageUrl ? await probeImage(meta.ogImageUrl, { headers: bypassHeaders(meta.ogImageUrl) }) : null;
-    return { meta, image, issues: checkShare(meta, image) };
+    const key = origin(meta.finalUrl);
+    if (opts.refreshSite || !siteCache.has(key)) siteCache.set(key, readSiteFiles(meta.finalUrl, { manifest: meta.manifest, favicon: meta.icons[0] ?? null }, { headers }));
+    const site = await siteCache.get(key)!.catch(() => null);
+    const checks = runChecks({ meta, image, site, rendered: rendered.devices });
+    return { url, share: { meta, image, issues: checkShare(meta, image) }, site, checks, score: score(checks) };
+  });
+
+  ipcMain.handle('site:crawl', async (_e, url: string, opts: { force?: boolean }) => {
+    const key = origin(url);
+    if (opts.force || !crawlCache.has(key)) {
+      const job = (async () => {
+        const headers = bypassHeaders(url);
+        const site = await (siteCache.get(key) ?? Promise.resolve(null)).catch(() => null);
+        const { links } = await devices.measure();
+        return crawl(`${key}/`, { headers, seeds: [url, ...(site?.sitemap?.urls ?? []), ...links], limit: 60 });
+      })();
+      crawlCache.set(key, job);
+      job.catch(() => crawlCache.delete(key));
+    }
+    return crawlCache.get(key);
   });
   ipcMain.on('window:control', (_e, action: string) => {
     if (action === 'minimize') win.minimize();

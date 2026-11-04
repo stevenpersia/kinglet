@@ -1,7 +1,7 @@
 import { createServer, type IncomingHttpHeaders, type Server } from 'node:http';
 import { deflateSync } from 'node:zlib';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { BOTS, checkShare, parseMeta, probeImage, readPageMeta } from './index.ts';
+import { BOTS, checkShare, crawl, parseMeta, parseRobots, parseSitemap, probeImage, readPageMeta, readSiteFiles, runChecks, score } from './index.ts';
 
 /** Minimal valid PNG of the given size (grey pixels). */
 function png(width: number, height: number): Buffer {
@@ -47,7 +47,12 @@ const PAGE = `<!doctype html><html lang="fr"><head>
 <meta property="og:image" content="/og.png">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="/favicon.ico">
-</head><body><script>document.title = 'changé par JS'</script></body></html>`;
+<link rel="manifest" href="/manifest.webmanifest">
+</head><body><h1>Maison Sable</h1><img src="/a.jpg"><img src="/b.jpg" alt="Bol">
+<a href="/atelier">Atelier</a> <a href="/collection#top">Collection</a> <a href="https://ailleurs.dev/">Ailleurs</a> <a href="/logo.png">Logo</a>
+<script>document.title = 'changé par JS'</script></body></html>`;
+
+const SUB = (title: string, links = '') => `<!doctype html><html><head><title>${title}</title></head><body>${links}</body></html>`;
 
 let server: Server;
 let base = '';
@@ -59,6 +64,24 @@ beforeAll(async () => {
     if (req.url === '/og.png') {
       res.writeHead(200, { 'content-type': 'image/png' });
       res.end(png(800, 420));
+    } else if (req.url === '/robots.txt') {
+      res.writeHead(200, { 'content-type': 'text/plain' });
+      res.end('User-agent: Googlebot\nDisallow: /private\n\nUser-agent: *\nAllow: /\n\nSitemap: ' + base + '/sitemap.xml\n');
+    } else if (req.url === '/sitemap.xml') {
+      res.writeHead(200, { 'content-type': 'application/xml' });
+      res.end(`<urlset><url><loc>${base}/</loc></url><url><loc>${base}/journal</loc></url></urlset>`);
+    } else if (req.url === '/manifest.webmanifest') {
+      res.writeHead(200, { 'content-type': 'application/manifest+json' });
+      res.end(JSON.stringify({ name: 'Maison Sable', icons: [{ src: '/icon.png' }] }));
+    } else if (req.url === '/favicon.ico') {
+      res.writeHead(200, { 'content-type': 'image/x-icon' });
+      res.end('ico');
+    } else if (req.url === '/atelier') {
+      res.writeHead(200, { 'content-type': 'text/html' });
+      res.end(SUB('Atelier', '<a href="/atelier/tour">Visite</a>'));
+    } else if (req.url === '/atelier/tour' || req.url === '/collection' || req.url === '/journal') {
+      res.writeHead(200, { 'content-type': 'text/html' });
+      res.end(SUB(req.url.slice(1)));
     } else if (req.url === '/redirect') {
       res.writeHead(302, { location: '/' });
       res.end();
@@ -113,8 +136,81 @@ describe('probeImage + checkShare', () => {
   });
 
   it('reports a page without tags', () => {
-    const meta = { ...parseMeta('<html><head></head></html>', 'https://x.dev/'), requestedUrl: '', finalUrl: '', status: 200, contentType: null, fetchedAs: 'whatsapp' as const, durationMs: 0 };
+    const meta = { ...parseMeta('<html><head></head></html>', 'https://x.dev/'), requestedUrl: '', finalUrl: '', status: 200, contentType: null, fetchedAs: 'whatsapp' as const, durationMs: 0, robotsHeader: null };
     const ids = checkShare(meta, null).map((i) => i.id);
     expect(ids).toEqual(expect.arrayContaining(['title-missing', 'og-image-missing', 'viewport-missing', 'lang-missing']));
+  });
+});
+
+describe('site files', () => {
+  it('parses robots.txt groups and sitemaps', () => {
+    expect(parseRobots('User-agent: *\nDisallow: /\nSitemap: https://x.dev/s.xml')).toEqual({ disallowAll: true, sitemaps: ['https://x.dev/s.xml'] });
+    expect(parseRobots('User-agent: Googlebot\nDisallow: /\n\nUser-agent: *\nAllow: /').disallowAll).toBe(false);
+  });
+
+  it('reads <loc> entries', () => {
+    expect(parseSitemap('<urlset><url><loc> https://x.dev/a?b=1&amp;c=2 </loc></url></urlset>')).toEqual(['https://x.dev/a?b=1&c=2']);
+  });
+
+  it('fetches robots, sitemap, manifest and favicon', async () => {
+    const meta = await readPageMeta(`${base}/`);
+    const site = await readSiteFiles(meta.finalUrl, { manifest: meta.manifest, favicon: meta.icons[0] ?? null });
+    expect(site.robots).toMatchObject({ status: 200, disallowAll: false });
+    expect(site.sitemap?.urls).toHaveLength(2);
+    expect(site.manifest).toMatchObject({ status: 200, name: 'Maison Sable', icons: 1, error: null });
+    expect(site.favicon?.status).toBe(200);
+  });
+});
+
+describe('dev-server fallback pages', () => {
+  it('treats an HTML answer to /robots.txt or the favicon as missing', async () => {
+    const spa = createServer((_req, res) => {
+      res.writeHead(200, { 'content-type': 'text/html' });
+      res.end('<!doctype html><html><head><title>SPA</title></head><body></body></html>');
+    });
+    await new Promise<void>((r) => spa.listen(0, '127.0.0.1', r));
+    const port = (spa.address() as { port: number }).port;
+    const site = await readSiteFiles(`http://127.0.0.1:${port}/`, { manifest: null, favicon: null });
+    spa.close();
+    expect(site.robots?.status).toBe(404);
+    expect(site.sitemap?.urls).toEqual([]);
+    expect(site.favicon?.status).toBe(404);
+  });
+});
+
+describe('crawl', () => {
+  it('explores same-origin pages, skips assets, fragments and other sites, adds seeds', async () => {
+    const pages = await crawl(`${base}/`, { seeds: [`${base}/journal`] });
+    expect(pages.map((p) => p.path)).toEqual(['/', '/atelier', '/atelier/tour', '/collection', '/journal']);
+    expect(pages.find((p) => p.path === '/atelier')?.title).toBe('Atelier');
+  });
+
+  it('stops at the limit', async () => {
+    expect(await crawl(`${base}/`, { limit: 2 })).toHaveLength(2);
+  });
+});
+
+describe('runChecks', () => {
+  it('produces the 24 checks and scores what can be measured', async () => {
+    const meta = await readPageMeta(`${base}/`);
+    const image = await probeImage(meta.ogImageUrl!);
+    const site = await readSiteFiles(meta.finalUrl, { manifest: meta.manifest, favicon: meta.icons[0] ?? null });
+    const rendered = [{ id: 'iphone', label: 'iPhone', overflowPx: 24, consoleErrors: ['TypeError: x is undefined'], heavyImages: [] }];
+    const results = runChecks({ meta, image, site, rendered });
+    expect(results).toHaveLength(24);
+    const by = Object.fromEntries(results.map((r) => [r.id, r.status]));
+    expect(by).toMatchObject({ h1: 'ok', robots: 'ok', sitemap: 'ok', manifest: 'ok', 'og-site-name': 'error', overflow: 'error', console: 'error', 'img-alt': 'warning', 'heavy-images': 'ok' });
+    expect(score(results).total).toBe(24);
+    expect(runChecks({ meta, image, site: null }).filter((r) => r.status === 'skip').map((r) => r.id)).toEqual(
+      expect.arrayContaining(['robots', 'sitemap', 'overflow', 'console', 'heavy-images', 'favicon']),
+    );
+  });
+
+  it('accepts noindex outside production only', () => {
+    const base = { ...parseMeta('<html><head><meta name="robots" content="noindex"></head></html>', 'https://x.dev/'), requestedUrl: '', status: 200, contentType: null, fetchedAs: 'google' as const, durationMs: 0, robotsHeader: null };
+    const idx = (url: string) => runChecks({ meta: { ...base, finalUrl: url }, image: null, site: null }).find((r) => r.id === 'indexing')!.status;
+    expect(idx('https://maisonsable.fr/')).toBe('error');
+    expect(idx('https://maison-sable-git-feat.vercel.app/')).toBe('info');
+    expect(idx('http://localhost:3000/')).toBe('info');
   });
 });

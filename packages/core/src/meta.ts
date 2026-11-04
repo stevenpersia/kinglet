@@ -15,6 +15,17 @@ export interface PageMeta {
   canonical: string | null;
   themeColor: string | null;
   icons: string[];
+  appleTouchIcon: string | null;
+  manifest: string | null;
+  /** <meta name="robots"> content. */
+  robotsMeta: string | null;
+  /** X-Robots-Tag response header (Vercel sets it on preview deployments). */
+  robotsHeader: string | null;
+  h1Count: number;
+  imgCount: number;
+  imgMissingAlt: number;
+  /** Same-origin links found in the raw HTML. */
+  links: string[];
   /** og:* properties, keys without the "og:" prefix. */
   og: Record<string, string>;
   /** twitter:* properties, keys without the "twitter:" prefix. */
@@ -39,7 +50,7 @@ const clean = (v: string | undefined | null): string | null => {
   return t.length ? t : null;
 };
 
-export function parseMeta(html: string, baseUrl: string): Omit<PageMeta, 'requestedUrl' | 'finalUrl' | 'status' | 'contentType' | 'fetchedAs' | 'durationMs'> {
+export function parseMeta(html: string, baseUrl: string): Omit<PageMeta, 'requestedUrl' | 'finalUrl' | 'status' | 'contentType' | 'fetchedAs' | 'durationMs' | 'robotsHeader'> {
   const root = parse(html, { lowerCaseTagName: true });
   const head = root.querySelector('head') ?? root;
 
@@ -48,6 +59,7 @@ export function parseMeta(html: string, baseUrl: string): Omit<PageMeta, 'reques
   let description: string | null = null;
   let viewport: string | null = null;
   let themeColor: string | null = null;
+  let robotsMeta: string | null = null;
 
   for (const m of head.querySelectorAll('meta')) {
     const key = (m.getAttribute('property') ?? m.getAttribute('name') ?? '').trim().toLowerCase();
@@ -62,6 +74,7 @@ export function parseMeta(html: string, baseUrl: string): Omit<PageMeta, 'reques
     } else if (key === 'description' && description == null) description = content;
     else if (key === 'viewport' && viewport == null) viewport = content;
     else if (key === 'theme-color' && themeColor == null) themeColor = content;
+    else if (key === 'robots' && robotsMeta == null) robotsMeta = content;
   }
 
   const resolve = (href: string | null): string | null => {
@@ -79,7 +92,25 @@ export function parseMeta(html: string, baseUrl: string): Omit<PageMeta, 'reques
     .map((l) => resolve(l.getAttribute('href') ?? null))
     .filter((u): u is string => !!u);
 
-  const canonicalEl = head.querySelectorAll('link').find((l) => (l.getAttribute('rel') ?? '').toLowerCase() === 'canonical');
+  const linkByRel = (rel: string) => head.querySelectorAll('link').find((l) => (l.getAttribute('rel') ?? '').toLowerCase().split(/\s+/).includes(rel));
+  const canonicalEl = linkByRel('canonical');
+  const imgs = root.querySelectorAll('img');
+  const origin = (() => {
+    try {
+      return new URL(baseUrl).origin;
+    } catch {
+      return null;
+    }
+  })();
+  const links = [
+    ...new Set(
+      root
+        .querySelectorAll('a[href]')
+        .map((a) => resolve(a.getAttribute('href') ?? null))
+        .filter((u): u is string => !!u && !!origin && u.startsWith(origin))
+        .map((u) => u.split('#')[0]!),
+    ),
+  ];
   const rawImage = og['image'] ?? og['image:url'] ?? og['image:secure_url'] ?? null;
 
   return {
@@ -90,6 +121,13 @@ export function parseMeta(html: string, baseUrl: string): Omit<PageMeta, 'reques
     canonical: resolve(canonicalEl?.getAttribute('href') ?? null),
     themeColor,
     icons,
+    appleTouchIcon: resolve(linkByRel('apple-touch-icon')?.getAttribute('href') ?? null),
+    manifest: resolve(linkByRel('manifest')?.getAttribute('href') ?? null),
+    robotsMeta,
+    h1Count: root.querySelectorAll('h1').length,
+    imgCount: imgs.length,
+    imgMissingAlt: imgs.filter((i) => i.getAttribute('alt') == null).length,
+    links,
     og,
     twitter,
     ogImageUrl: resolve(rawImage),
@@ -116,6 +154,7 @@ export async function readPageMeta(url: string, opts: FetchOptions = {}): Promis
     contentType: res.headers.get('content-type'),
     fetchedAs: bot,
     durationMs: Date.now() - started,
+    robotsHeader: res.headers.get('x-robots-tag'),
     ...parseMeta(html, finalUrl),
   };
 }

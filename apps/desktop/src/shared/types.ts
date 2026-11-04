@@ -1,4 +1,4 @@
-import type { ImageProbe, Issue, PageMeta } from '@parakeet/core';
+import type { CheckResult, CrawledPage, ImageProbe, Issue, PageMeta, SiteFiles } from '@parakeet/core';
 
 export interface DevicePreset {
   id: string;
@@ -47,6 +47,17 @@ export interface ShareReport {
   issues: Issue[];
 }
 
+/** Everything known about the current page: share tags, site files, the 24 checks. */
+export interface AnalyzeReport {
+  url: string;
+  share: ShareReport;
+  site: SiteFiles | null;
+  checks: CheckResult[];
+  score: { passed: number; total: number };
+}
+
+export type { CheckResult, CrawledPage };
+
 export type ShortcutAction = 'reload' | 'focus-url' | 'palette' | 'toggle-scroll-sync' | 'toggle-landscape' | 'settings';
 
 export type PreviewEvent =
@@ -72,7 +83,10 @@ export interface ParakeetApi {
   freeze(): Promise<Record<string, string>>;
   unfreeze(): void;
   openDevtools(deviceId: string): void;
-  readShare(url: string): Promise<ShareReport>;
+  /** Read the page like the bots do, measure it in the devices, run the checks. */
+  analyze(url: string, opts?: { refreshSite?: boolean }): Promise<AnalyzeReport>;
+  /** Pages of the site (crawl + sitemap + links of the rendered page). Cached per origin. */
+  crawl(url: string, opts?: { force?: boolean }): Promise<CrawledPage[]>;
   windowControl(action: 'minimize' | 'maximize' | 'close'): void;
   onEvent(cb: (e: PreviewEvent) => void): () => void;
 }

@@ -2,7 +2,20 @@
 
 Voir son site sur tous les écrans (iPhone, Android, iPad, desktop), en local, en preview et en prod, et vérifier l'aperçu de ses liens (WhatsApp, LinkedIn, Slack…) avant de les partager. Pensé pour les sites construits avec Claude.
 
-> Nom provisoire. État actuel : **phase 1**, les fondations : interface complète de l'aperçu, packaging Linux et intégration continue.
+> Nom provisoire. État actuel : **phase 2**. Aperçu multi-appareils, balises de partage, 24 checks et exploration des pages. Packaging Linux et intégration continue en place.
+
+## Ce que fait Parakeet
+
+- **Aperçu** : ton site sur 10 appareils émulés (largeur, densité, tactile, user agent), en portrait ou paysage. Le scroll et la navigation sont synchronisés entre appareils, et chacun a ses DevTools.
+- **Partage** : tes balises lues comme les lit le robot de WhatsApp (HTML brut, sans JavaScript), avec un aperçu du lien et les problèmes trouvés.
+- **Checks** : 24 vérifications en 4 familles.
+  - **SEO** : titre, description, lang, canonical, h1, indexation, robots.txt, sitemap.
+  - **Partage** : og:title, og:description, og:site_name, image, format de l'image, twitter:card.
+  - **Mobile** : viewport, débordement horizontal, theme-color, apple-touch-icon, manifest.
+  - **Technique** : statut HTTP, favicon, textes alternatifs, erreurs JavaScript, poids des images.
+
+  Le débordement, les erreurs JavaScript et le poids des images sont mesurés dans les appareils, sur la page rendue. Le `noindex` est considéré comme normal en local et sur les previews.
+- **Pages** : la barre latérale liste les pages du site, trouvées via les liens du HTML, le sitemap et les liens de la page rendue (utile pour les SPA).
 
 ## Lancer en local (Linux)
 
@@ -60,7 +73,7 @@ sudo pacman -U apps/desktop/dist/Parakeet-*.pacman
 ## Tests
 
 ```bash
-pnpm test        # tests unitaires (core, calcul de disposition)
+pnpm test        # tests unitaires (lecture des balises, fichiers du site, exploration, checks, disposition)
 ```
 
 ```bash
@@ -75,7 +88,9 @@ L'autotest lance le site de démo et Parakeet, puis vérifie :
 - l'en-tête de contournement Vercel ;
 - le mode paysage et l'enregistrement des réglages ;
 - le gel des aperçus sous la palette ;
-- la synchro de navigation.
+- la synchro de navigation ;
+- les 24 checks sur une page aux défauts connus (débordement, erreur JavaScript) ;
+- l'exploration des pages.
 
 Sans écran, il utilise Xvfb et prend des captures avec ImageMagick dans `apps/desktop/selftest-output/`. Pour tester l'app packagée : `PARAKEET_BIN=dist/linux-unpacked/parakeet node scripts/selftest.mjs` depuis `apps/desktop`.
 
@@ -86,7 +101,7 @@ apps/desktop        app Electron (electron-vite)
   src/main          fenêtre, appareils émulés, réglages, raccourcis
   src/preload       ponts sécurisés vers l'interface et les pages émulées
   src/renderer      interface React + Tailwind (design « Graphite »)
-packages/core       lecture des balises comme les robots de partage, analyse de l'image, checks
+packages/core       lecture des balises comme les robots, fichiers du site, exploration, 24 checks
 fixtures/demo-site  site de test (Vite)
 ```
 

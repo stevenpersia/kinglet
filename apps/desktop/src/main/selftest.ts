@@ -174,6 +174,35 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
       criteria.push({ id: 'navigation-sync', ok: followed, detail: devices.entries().map((d) => `${d.preset.id} → ${new URL(d.view.webContents.getURL()).pathname}`).join(', ') });
     }
 
+    // ---- Phase 2 ----
+    type Report = { checks: { id: string; status: string; detail: string }[]; score: { passed: number; total: number } };
+    const analyze = (url: string) => win.webContents.executeJavaScript(`window.parakeet.analyze(${JSON.stringify(url)})`) as Promise<Report>;
+
+    // 11. Checks on a page with known defects (atelier.html, where devices are now)
+    await sleep(1000);
+    const atelier = await analyze('http://localhost:5173/atelier.html');
+    const st = Object.fromEntries(atelier.checks.map((c) => [c.id, c.status]));
+    criteria.push({
+      id: 'checks-24',
+      ok: atelier.checks.length === 24 && st['overflow'] === 'error' && st['console'] === 'error' && st['og-site-name'] === 'error' && st['robots'] === 'warning',
+      detail: `${atelier.checks.length} checks, ${atelier.score.passed}/${atelier.score.total} · débordement ${st['overflow']}, erreurs JS ${st['console']}, robots.txt ${st['robots']} (le serveur Vite renvoie sa page HTML)`,
+    });
+    report['checks-atelier'] = atelier.checks;
+
+    // 12. Crawl: pages found from the links
+    const pages = (await win.webContents.executeJavaScript(`window.parakeet.crawl('http://localhost:5173/', { force: true })`)) as { path: string }[];
+    const paths = pages.map((p) => p.path);
+    criteria.push({ id: 'crawl', ok: paths.includes('/') && paths.includes('/atelier.html'), detail: paths.join(', ') });
+
+    // Back to the home page, then the Checks section
+    ui({ type: 'shortcut', action: 'focus-url' });
+    await devices.navigate('http://localhost:5173/');
+    await sleep(2500);
+    await shot('09-checks-inspecteur');
+    await win.webContents.executeJavaScript(`[...document.querySelectorAll('nav button')].find((b) => b.textContent.includes('Checks'))?.click()`);
+    await sleep(1200);
+    await shot('10-section-checks');
+
     // 10. Partage section
     ui({ type: 'shortcut', action: 'focus-url' });
     await win.webContents.executeJavaScript(`[...document.querySelectorAll('nav button')].find((b) => b.textContent.includes('Partage'))?.click()`);

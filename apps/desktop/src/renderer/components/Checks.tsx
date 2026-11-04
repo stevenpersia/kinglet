@@ -1,0 +1,49 @@
+import { CHECK_GROUPS, score, type CheckResult, type CheckStatus } from '@parakeet/core';
+import { Dot } from './Icons';
+
+export const STATUS_DOT: Record<CheckStatus, string> = {
+  ok: 'bg-ok',
+  info: 'bg-local',
+  warning: 'bg-warn',
+  error: 'bg-err',
+  skip: 'bg-ghost',
+};
+const STATUS_LABEL: Record<CheckStatus, string> = { ok: 'OK', info: 'Normal ici', warning: 'À améliorer', error: 'Problème', skip: 'Non mesuré' };
+const ORDER: Record<CheckStatus, number> = { error: 0, warning: 1, info: 2, ok: 3, skip: 4 };
+
+/** Checks grouped by family (SEO, Partage, Mobile, Technique), problems first. */
+export function CheckGroups({ checks, compact = false }: { checks: CheckResult[]; compact?: boolean }) {
+  return (
+    <div className={compact ? 'flex flex-col gap-3' : 'grid grid-cols-[repeat(auto-fit,minmax(380px,1fr))] gap-4'}>
+      {CHECK_GROUPS.map((g) => {
+        const items = checks.filter((c) => c.group === g.id).sort((a, b) => ORDER[a.status] - ORDER[b.status]);
+        if (!items.length) return null;
+        const s = score(items);
+        return (
+          <section key={g.id} aria-label={g.label} className="h-fit overflow-hidden rounded-[10px] border border-line bg-card">
+            <div className="flex items-center justify-between px-3 py-2.5">
+              <span className="font-semibold">{g.label}</span>
+              <span className={`font-mono text-xs ${s.passed === s.total ? 'text-ok' : 'text-muted'}`}>
+                {s.passed}/{s.total}
+              </span>
+            </div>
+            <ul className="border-t border-line-soft">
+              {items.map((c) => (
+                <li key={c.id} className="flex gap-2.5 border-t border-line-soft px-3 py-2.5 first:border-t-0">
+                  <Dot className={`mt-1.5 ${STATUS_DOT[c.status]}`} />
+                  <div className="flex min-w-0 flex-col gap-0.5">
+                    <span className={c.status === 'skip' ? 'text-faint' : 'text-fg'}>
+                      {c.label}
+                      <span className="sr-only"> : {STATUS_LABEL[c.status]}</span>
+                    </span>
+                    {(!compact || c.status !== 'ok') && <span className="text-xs leading-snug break-words text-muted">{c.detail}</span>}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </section>
+        );
+      })}
+    </div>
+  );
+}

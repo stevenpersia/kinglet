@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { Inspector } from './components/Inspector';
 import { Palette } from './components/Palette';
-import { SharePage, SoonPage } from './components/Sections';
+import { ChecksPage, SharePage, SoonPage } from './components/Sections';
 import { Sidebar } from './components/Sidebar';
 import { Stage } from './components/Stage';
 import { StatusBar } from './components/StatusBar';
@@ -21,13 +21,19 @@ export function App() {
           break;
         case 'loaded':
           useStore.setState({ status: 'loaded', url: e.url, error: null });
-          void s.refreshShare(e.url);
+          // Let late scripts run (and log their errors) before measuring the rendered page.
+          setTimeout(() => {
+            if (useStore.getState().url === e.url) void useStore.getState().analyze(e.url);
+            void useStore.getState().crawlSite();
+          }, 700);
           break;
         case 'failed':
-          useStore.setState({ status: 'failed', error: e.error, share: null });
+          useStore.setState({ status: 'failed', error: e.error, share: null, report: null });
           break;
         case 'navigated':
           useStore.setState({ url: e.url });
+          // Client-side route change (SPA): no new load event, analyse the new route.
+          if (s.status === 'loaded' && e.url !== s.url) setTimeout(() => void useStore.getState().analyze(e.url), 700);
           break;
         case 'window':
           useStore.setState({ maximized: e.maximized });
@@ -60,6 +66,8 @@ export function App() {
           </>
         ) : section === 'partage' ? (
           <SharePage />
+        ) : section === 'checks' ? (
+          <ChecksPage />
         ) : (
           <SoonPage section={section} />
         )}

@@ -1,5 +1,6 @@
 import type { Issue } from '@parakeet/core';
 import { useStore, type InspectorTab } from '../store';
+import { CheckGroups } from './Checks';
 import { Dot } from './Icons';
 
 const formatBytes = (b: number) => (b < 1024 ? `${b} o` : `${Math.round(b / 1024)} Ko`);
@@ -121,17 +122,24 @@ function ShareTab() {
 const TABS: { id: InspectorTab; label: string }[] = [
   { id: 'page', label: 'Page' },
   { id: 'partage', label: 'Partage' },
+  { id: 'checks', label: 'Checks' },
 ];
 
+function ChecksTab() {
+  const report = useStore((s) => s.report);
+  if (!report) return null;
+  return <CheckGroups checks={report.checks} compact />;
+}
+
 export function Inspector() {
-  const { inspectorTab, setInspectorTab, share, shareError, status, error, url } = useStore();
+  const { inspectorTab, setInspectorTab, share, shareError, status, error, url, report } = useStore();
   const errors = share?.issues.filter((i) => i.severity === 'error').length ?? 0;
   let body;
   if (!url) body = <p className="text-faint">Saisis l’adresse de ton serveur de dev en haut, ou juste son port (ex. 3000).</p>;
   else if (status === 'failed') body = <p className="text-faint">{error}</p>;
   else if (shareError) body = <p className="text-faint">Lecture des balises impossible : {shareError}</p>;
   else if (!share) body = <p className="text-faint">Lecture des balises…</p>;
-  else body = inspectorTab === 'page' ? <PageTab /> : <ShareTab />;
+  else body = inspectorTab === 'page' ? <PageTab /> : inspectorTab === 'partage' ? <ShareTab /> : <ChecksTab />;
 
   return (
     <aside aria-label="Inspecteur" className="flex w-[340px] shrink-0 flex-col border-l border-line-soft bg-chrome">
@@ -146,9 +154,9 @@ export function Inspector() {
           >
             {t.label}
             {t.id === 'partage' && errors > 0 && <span className="font-mono text-err">{errors}</span>}
+            {t.id === 'checks' && report && <span className="font-mono text-ghost">{report.score.passed}/{report.score.total}</span>}
           </button>
         ))}
-        <span title="Arrive en phase 2" className="inline-flex h-[26px] cursor-default items-center px-2.5 text-xs text-ghost">Checks</span>
         <span title="Arrive en phase 4" className="inline-flex h-[26px] cursor-default items-center px-2.5 text-xs text-ghost">MCP</span>
       </div>
       <div className="flex-1 overflow-y-auto p-4">{body}</div>

@@ -1,5 +1,6 @@
 import { join } from 'node:path';
 import { BaseWindow, WebContentsView, ipcMain, session, type Input, type Session } from 'electron';
+import { HEAVY_IMAGE_BYTES, type RenderedDevice } from '@parakeet/core';
 import type { DevicePreset, DeviceSlot, PreviewEvent, ShortcutAction } from '../shared/types';
 
 export const PREVIEW_PARTITION = 'persist:parakeet-preview';
@@ -11,7 +12,23 @@ interface DeviceEntry {
   attached: boolean;
   /** Until when navigation events from this device are ignored (it is following another one). */
   followingUntil: number;
+  /** console.error and uncaught errors since the last page load. */
+  consoleErrors: string[];
 }
+
+/** Runs inside a device page: what only the rendered page (after JavaScript) can tell. */
+const MEASURE = `(() => {
+  const heavy = performance.getEntriesByType('resource')
+    .filter((e) => e.initiatorType === 'img' || /\\.(png|jpe?g|webp|gif|avif)(\\?|$)/i.test(e.name))
+    .map((e) => ({ url: e.name, bytes: e.transferSize || e.encodedBodySize || 0 }))
+    .filter((i) => i.bytes > ${HEAVY_IMAGE_BYTES});
+  return {
+    // Mobile browsers zoom out to fit a too-wide page (innerWidth grows with it): compare with the screen.
+    overflowPx: Math.max(0, Math.max(document.documentElement.scrollWidth, document.body ? document.body.scrollWidth : 0) - screen.width),
+    heavyImages: heavy,
+    links: [...document.querySelectorAll('a[href]')].map((a) => a.href),
+  };
+})()`;
 
 const errorPage = (url: string, error: string) =>
   'data:text/html;charset=utf-8,' +
@@ -115,7 +132,7 @@ export class DeviceManager {
     });
     view.setBackgroundColor('#111113');
     view.setVisible(this.visible && !this.frozen);
-    const entry: DeviceEntry = { preset, view, scale: 0.5, attached: false, followingUntil: 0 };
+    const entry: DeviceEntry = { preset, view, scale: 0.5, attached: false, followingUntil: 0, consoleErrors: [] };
 
     const wc = view.webContents;
     if (preset.userAgent) wc.setUserAgent(preset.userAgent);
@@ -132,6 +149,13 @@ export class DeviceManager {
         event.preventDefault();
         this.emit({ type: 'shortcut', action });
       }
+    });
+    wc.on('did-start-navigation', (details) => {
+      if (details.isMainFrame && !details.isSameDocument) entry.consoleErrors = [];
+    });
+    wc.on('console-message', (e) => {
+      const { level, message } = e as unknown as { level: string; message: string };
+      if (level === 'error' && entry.consoleErrors.length < 50) entry.consoleErrors.push(message);
     });
     wc.on('did-start-loading', () => {
       if (this.isPrimary(preset.id) && this.url) this.emit({ type: 'loading', url: this.url });
@@ -266,6 +290,24 @@ export class DeviceManager {
   unfreeze() {
     this.frozen = false;
     for (const d of this.devices.values()) d.view.setVisible(this.visible);
+  }
+
+  /** Rendered-page measures of every device, plus the links found in the first one. */
+  async measure(): Promise<{ devices: RenderedDevice[]; links: string[] }> {
+    const results = await Promise.all(
+      this.entries().map(async (d) => {
+        const url = d.view.webContents.getURL();
+        if (!/^https?:/.test(url)) return null;
+        try {
+          const m = (await d.view.webContents.executeJavaScript(MEASURE)) as { overflowPx: number; heavyImages: { url: string; bytes: number }[]; links: string[] };
+          return { device: { id: d.preset.id, label: d.preset.label, overflowPx: m.overflowPx, heavyImages: m.heavyImages, consoleErrors: [...d.consoleErrors] }, links: m.links };
+        } catch {
+          return null;
+        }
+      }),
+    );
+    const ok = results.filter((r): r is NonNullable<typeof r> => !!r);
+    return { devices: ok.map((r) => r.device), links: ok[0]?.links ?? [] };
   }
 
   openDevtools(id: string) {
