@@ -50,7 +50,7 @@ describe('VercelClient', () => {
 
   it('explains a refused token', async () => {
     await expect(client('wrong').user()).rejects.toThrowError(VercelError);
-    await expect(client('wrong').user()).rejects.toThrow(/Jeton Vercel refusé/);
+    await expect(client('wrong').user()).rejects.toThrow(/Vercel token rejected/);
   });
 });
 

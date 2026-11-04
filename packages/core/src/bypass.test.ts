@@ -39,7 +39,7 @@ describe('Vercel protection bypass for bots', () => {
 
   it('the browser header sends a cookie-less client into a redirect loop, with an explicit error', async () => {
     const headers = vercelBypassHeaders(base, { secret: 'secret', hosts, browser: true });
-    await expect(readPageMeta(base, { headers })).rejects.toThrow(/fetch failed : .*redirect/i);
+    await expect(readPageMeta(base, { headers })).rejects.toThrow(/fetch failed: .*redirect/i);
   });
 
   it('bot headers read the protected page, for every platform', async () => {

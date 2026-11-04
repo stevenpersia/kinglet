@@ -1,5 +1,6 @@
 import type { ImageProbe } from './image.ts';
 import type { Framework, PageMeta } from './meta.ts';
+import { t } from './i18n.ts';
 
 export interface ShareFix {
   framework: Framework;
@@ -24,7 +25,11 @@ const LABEL: Record<Framework, string> = {
   html: 'HTML',
 };
 
-const ADDED = '← ajouté';
+/** Marks the generated lines that add something (shown highlighted in the app). */
+const added = () => t('← added', '← ajouté');
+
+/** Does this line of `ShareFix.code` add something? (Either language.) */
+export const isAddedLine = (line: string) => line.includes('← added') || line.includes('← ajouté');
 const isLocal = (u: string) => /^https?:\/\/(localhost|127\.|\[::1\])/.test(u);
 
 const squash = (s: string) =>
@@ -54,7 +59,7 @@ export function guessSiteName(meta: PageMeta): string {
   }
   if (parts.length > 1) return url?.pathname === '/' ? parts[0]! : parts[parts.length - 1]!;
   if (label) return label.replace(/^./, (c) => c.toUpperCase());
-  return parts[0] ?? '[NOM DU SITE]';
+  return parts[0] ?? t('[SITE NAME]', '[NOM DU SITE]');
 }
 
 const q = (s: string) => `'${s.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
@@ -62,11 +67,11 @@ const attr = (s: string) => s.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
 
 export function buildShareFix(meta: PageMeta, image: ImageProbe | null): ShareFix {
   const framework = meta.framework;
-  const title = meta.og['title'] ?? meta.title ?? '[TITRE]';
-  const description = meta.og['description'] ?? meta.description ?? '[DESCRIPTION, 150 CARACTÈRES MAX]';
+  const title = meta.og['title'] ?? meta.title ?? t('[TITLE]', '[TITRE]');
+  const description = meta.og['description'] ?? meta.description ?? t('[DESCRIPTION, 150 CHARACTERS MAX]', '[DESCRIPTION, 150 CARACTÈRES MAX]');
   const siteName = guessSiteName(meta);
   // Production origin: the canonical URL if it is absolute and public, else a placeholder.
-  let prodOrigin = 'https://[TON-DOMAINE]';
+  let prodOrigin = t('https://[YOUR-DOMAIN]', 'https://[TON-DOMAINE]');
   if (meta.canonical && !isLocal(meta.canonical)) prodOrigin = new URL(meta.canonical).origin;
   else if (!isLocal(meta.finalUrl) && !/\.vercel\.app$/.test(new URL(meta.finalUrl).hostname)) prodOrigin = new URL(meta.finalUrl).origin;
 
@@ -74,17 +79,17 @@ export function buildShareFix(meta: PageMeta, image: ImageProbe | null): ShareFi
   const needImage = !meta.ogImageUrl || !image?.ok || (image.width ?? 0) < 1200 || (image.height ?? 0) < 630;
 
   const changes: string[] = [];
-  if (!meta.og['title']) changes.push('ajouter og:title');
-  if (!meta.og['description']) changes.push('ajouter og:description');
-  if (!meta.og['site_name']) changes.push(`ajouter og:site_name (« ${siteName} »)`);
-  if (!meta.ogImageUrl) changes.push('ajouter une image de partage 1200×630');
-  else if (meta.ogImageIsRelative) changes.push('rendre l’URL de l’image absolue');
-  if (meta.ogImageUrl && needImage && image?.ok) changes.push(`remplacer l’image ${image.width}×${image.height} par une image 1200×630`);
-  if (!meta.twitter['card']) changes.push('ajouter twitter:card = summary_large_image');
-  if (!meta.description) changes.push('ajouter une meta description');
+  if (!meta.og['title']) changes.push(t('add og:title', 'ajouter og:title'));
+  if (!meta.og['description']) changes.push(t('add og:description', 'ajouter og:description'));
+  if (!meta.og['site_name']) changes.push(t(`add og:site_name (“${siteName}”)`, `ajouter og:site_name (« ${siteName} »)`));
+  if (!meta.ogImageUrl) changes.push(t('add a 1200×630 share image', 'ajouter une image de partage 1200×630'));
+  else if (meta.ogImageIsRelative) changes.push(t('make the image URL absolute', 'rendre l’URL de l’image absolue'));
+  if (meta.ogImageUrl && needImage && image?.ok) changes.push(t(`replace the ${image.width}×${image.height} image with a 1200×630 one`, `remplacer l’image ${image.width}×${image.height} par une image 1200×630`));
+  if (!meta.twitter['card']) changes.push(t('add twitter:card = summary_large_image', 'ajouter twitter:card = summary_large_image'));
+  if (!meta.description) changes.push(t('add a meta description', 'ajouter une meta description'));
 
-  const mark = (missing: boolean) => (missing ? `  // ${ADDED}` : '');
-  const markHtml = (missing: boolean) => (missing ? ` <!-- ${ADDED} -->` : '');
+  const mark = (missing: boolean) => (missing ? `  // ${added()}` : '');
+  const markHtml = (missing: boolean) => (missing ? ` <!-- ${added()} -->` : '');
   const absImage = `${prodOrigin}${imagePath}`;
 
   let file: string;
@@ -93,7 +98,7 @@ export function buildShareFix(meta: PageMeta, image: ImageProbe | null): ShareFi
 
   switch (framework) {
     case 'next':
-      file = 'app/layout.tsx (ou la page concernée)';
+      file = t('app/layout.tsx (or the page concerned)', 'app/layout.tsx (ou la page concernée)');
       language = 'tsx';
       code = [
         `import type { Metadata } from 'next';`,
@@ -114,7 +119,7 @@ export function buildShareFix(meta: PageMeta, image: ImageProbe | null): ShareFi
       ].join('\n');
       break;
     case 'nuxt':
-      file = 'app.vue (ou la page concernée)';
+      file = t('app.vue (or the page concerned)', 'app.vue (ou la page concernée)');
       language = 'vue';
       code = [
         `<script setup lang="ts">`,
@@ -131,17 +136,17 @@ export function buildShareFix(meta: PageMeta, image: ImageProbe | null): ShareFi
       ].join('\n');
       break;
     case 'sveltekit':
-      file = 'src/routes/+layout.svelte (ou la page concernée)';
+      file = t('src/routes/+layout.svelte (or the page concerned)', 'src/routes/+layout.svelte (ou la page concernée)');
       language = 'svelte';
       code = htmlTags('<svelte:head>', '</svelte:head>');
       break;
     case 'astro':
-      file = 'src/layouts/Layout.astro, dans <head>';
+      file = t('src/layouts/Layout.astro, in <head>', 'src/layouts/Layout.astro, dans <head>');
       language = 'astro';
       code = htmlTags('', '');
       break;
     default:
-      file = framework === 'vite' || framework === 'html' ? 'index.html, dans <head>' : 'le <head> de la page';
+      file = framework === 'vite' || framework === 'html' ? t('index.html, in <head>', 'index.html, dans <head>') : t('the page’s <head>', 'le <head> de la page');
       language = 'html';
       code = htmlTags('', '');
   }
@@ -162,24 +167,33 @@ export function buildShareFix(meta: PageMeta, image: ImageProbe | null): ShareFi
   }
 
   const path = new URL(meta.finalUrl).pathname;
+  const domainNote = prodOrigin.includes('[')
+    ? t(' (ask me for the production domain if you cannot find it in the project)', ' (demande-moi le domaine de production si tu ne le trouves pas dans le projet)')
+    : t(` (domain: ${prodOrigin})`, ` (domaine : ${prodOrigin})`);
+  const nextOg = framework === 'next' ? t(' (or generate it with next/og in app/opengraph-image.tsx)', ' (ou génère-la avec next/og dans app/opengraph-image.tsx)') : '';
   const prompt = changes.length
     ? [
-        `Sur mon site (${LABEL[framework]}), les aperçus de lien de la page ${path} sont incomplets quand on la partage (WhatsApp, Slack, LinkedIn…).`,
+        t(
+          `On my site (${LABEL[framework]}), the link previews of the page ${path} are incomplete when it is shared (WhatsApp, Slack, LinkedIn…).`,
+          `Sur mon site (${LABEL[framework]}), les aperçus de lien de la page ${path} sont incomplets quand on la partage (WhatsApp, Slack, LinkedIn…).`,
+        ),
         ``,
-        `À corriger :`,
+        t(`To fix:`, `À corriger :`),
         ...changes.map((c) => `- ${c}`),
         ``,
-        `Code de référence pour ${file} :`,
+        t(`Reference code for ${file}:`, `Code de référence pour ${file} :`),
         '```' + language,
         code,
         '```',
         ``,
-        `Contraintes :`,
-        `- ne change ni le design ni le contenu visible ;`,
-        `- garde les titres et descriptions existants s’ils sont bons ;`,
-        `- les URL d’image doivent être absolues${prodOrigin.includes('[') ? ' (demande-moi le domaine de production si tu ne le trouves pas dans le projet)' : ` (domaine : ${prodOrigin})`} ;`,
-        ...(needImage ? [`- crée l’image de partage en 1200×630, moins de 300 Ko${framework === 'next' ? ' (ou génère-la avec next/og dans app/opengraph-image.tsx)' : ''}, à partir du visuel principal de la page ;`] : []),
-        `- dis-moi quels fichiers tu as modifiés.`,
+        t(`Constraints:`, `Contraintes :`),
+        t(`- do not change the design or the visible content;`, `- ne change ni le design ni le contenu visible ;`),
+        t(`- keep the existing titles and descriptions if they are good;`, `- garde les titres et descriptions existants s’ils sont bons ;`),
+        t(`- image URLs must be absolute${domainNote};`, `- les URL d’image doivent être absolues${domainNote} ;`),
+        ...(needImage
+          ? [t(`- create the share image at 1200×630, under 300 KB${nextOg}, from the page’s main visual;`, `- crée l’image de partage en 1200×630, moins de 300 Ko${nextOg}, à partir du visuel principal de la page ;`)]
+          : []),
+        t(`- tell me which files you changed.`, `- dis-moi quels fichiers tu as modifiés.`),
       ].join('\n')
     : '';
 

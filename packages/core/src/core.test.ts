@@ -1,7 +1,7 @@
 import { createServer, type IncomingHttpHeaders, type Server } from 'node:http';
 import { deflateSync } from 'node:zlib';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { BOTS, checkShare, crawl, parseMeta, parseRobots, parseSitemap, probeImage, readPageMeta, readSiteFiles, runChecks, score } from './index.ts';
+import { BOTS, CHECK_GROUPS, checkShare, crawl, parseMeta, parseRobots, parseSitemap, probeImage, readPageMeta, readSiteFiles, runChecks, score, setLanguage } from './index.ts';
 
 /** Minimal valid PNG of the given size (grey pixels). */
 function png(width: number, height: number): Buffer {
@@ -212,5 +212,26 @@ describe('runChecks', () => {
     expect(idx('https://maisonsable.fr/')).toBe('error');
     expect(idx('https://maison-sable-git-feat.vercel.app/')).toBe('info');
     expect(idx('http://localhost:3000/')).toBe('info');
+  });
+
+  it('speaks English by default and French after setLanguage(\'fr\'), switching at runtime', () => {
+    const meta = { ...parseMeta('<html><head></head><body><img src="a.png"><img src="b.png"></body></html>', 'https://x.dev/'), finalUrl: 'https://x.dev/', requestedUrl: 'https://x.dev/', status: 200, contentType: null, fetchedAs: 'google' as const, durationMs: 0, robotsHeader: null };
+    const rendered = [{ id: 'iphone', label: 'iPhone', overflowPx: 24, consoleErrors: [], heavyImages: [] }];
+    const get = (id: string) => runChecks({ meta, image: null, site: null, rendered }).find((r) => r.id === id)!;
+    expect(get('title')).toMatchObject({ label: 'Page title', detail: 'No <title>.' });
+    expect(get('img-alt').detail).toBe('2 of 2 images without alt.');
+    expect(get('overflow').detail).toBe('iPhone: +24 px');
+    expect(CHECK_GROUPS.map((g) => g.label)).toEqual(['SEO', 'Share', 'Mobile', 'Technical']);
+    setLanguage('fr');
+    try {
+      expect(get('title')).toMatchObject({ label: 'Titre de la page', detail: 'Pas de <title>.' });
+      expect(get('img-alt').detail).toBe('2 images sur 2 sans alt.');
+      expect(get('overflow').detail).toBe('iPhone : +24 px');
+      expect(CHECK_GROUPS.map((g) => g.label)).toEqual(['SEO', 'Partage', 'Mobile', 'Technique']);
+      expect(checkShare(meta).find((i) => i.id === 'og-image-missing')!.message).toBe('Pas d’image de partage : l’aperçu sera du texte seul.');
+    } finally {
+      setLanguage('en');
+    }
+    expect(checkShare(meta).find((i) => i.id === 'og-image-missing')!.message).toBe('No share image: the preview will be text only.');
   });
 });

@@ -1,6 +1,6 @@
 import { createServer, type Server } from 'node:http';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { buildShareFix, detectFramework, guessSiteName, parseMeta, readSharePreviews, type PageMeta } from './index.ts';
+import { buildShareFix, detectFramework, guessSiteName, isAddedLine, parseMeta, readSharePreviews, setLanguage, type PageMeta } from './index.ts';
 
 let server: Server;
 let base = '';
@@ -97,19 +97,33 @@ describe('buildShareFix', () => {
     const meta = metaFrom('<title>Atelier — Maison Sable</title><meta name="description" content="Desc"><meta property="og:image" content="/hero.jpg"><link rel="canonical" href="https://maisonsable.fr/atelier"><script id="__NEXT_DATA__"></script>', 'http://localhost:3000/atelier');
     const fix = buildShareFix(meta, { url: '', ok: true, status: 200, bytes: 1000, width: 800, height: 420, type: 'jpg', error: null });
     expect(fix.framework).toBe('next');
-    expect(fix.code).toContain(`metadataBase: new URL('https://maisonsable.fr'),  // ← ajouté`);
-    expect(fix.code).toContain(`siteName: 'Maison Sable',  // ← ajouté`);
-    expect(fix.code).toContain(`images: [{ url: '/hero.jpg', width: 1200, height: 630 }],  // ← ajouté`);
-    expect(fix.changes).toEqual(expect.arrayContaining(['ajouter og:site_name (« Maison Sable »)', 'rendre l’URL de l’image absolue', 'remplacer l’image 800×420 par une image 1200×630']));
-    expect(fix.prompt).toContain('domaine : https://maisonsable.fr');
+    expect(fix.code).toContain(`metadataBase: new URL('https://maisonsable.fr'),  // ← added`);
+    expect(fix.code).toContain(`siteName: 'Maison Sable',  // ← added`);
+    expect(fix.code).toContain(`images: [{ url: '/hero.jpg', width: 1200, height: 630 }],  // ← added`);
+    expect(fix.changes).toEqual(expect.arrayContaining(['add og:site_name (“Maison Sable”)', 'make the image URL absolute', 'replace the 800×420 image with a 1200×630 one']));
+    expect(fix.prompt).toContain('domain: https://maisonsable.fr');
     expect(fix.prompt).toContain('next/og');
   });
 
   it('writes HTML tags for a Vite site and asks for the domain when unknown', () => {
     const fix = buildShareFix(metaFrom('<title>Maison Sable</title><script type="module" src="/@vite/client"></script>'), null);
-    expect(fix).toMatchObject({ framework: 'vite', language: 'html', file: 'index.html, dans <head>' });
-    expect(fix.code).toContain('<meta property="og:image" content="https://[TON-DOMAINE]/og.png"> <!-- ← ajouté -->');
-    expect(fix.prompt).toContain('demande-moi le domaine de production');
+    expect(fix).toMatchObject({ framework: 'vite', language: 'html', file: 'index.html, in <head>' });
+    expect(fix.code).toContain('<meta property="og:image" content="https://[YOUR-DOMAIN]/og.png"> <!-- ← added -->');
+    expect(fix.prompt).toContain('ask me for the production domain');
+  });
+
+  it('writes the fix in French after setLanguage(\'fr\')', () => {
+    setLanguage('fr');
+    try {
+      const fix = buildShareFix(metaFrom('<title>Maison Sable</title><script type="module" src="/@vite/client"></script>'), null);
+      expect(fix.file).toBe('index.html, dans <head>');
+      expect(fix.code).toContain('<meta property="og:image" content="https://[TON-DOMAINE]/og.png"> <!-- ← ajouté -->');
+      expect(fix.changes).toContain('ajouter une image de partage 1200×630');
+      expect(fix.prompt).toContain('demande-moi le domaine de production');
+      expect(fix.code.split('\n').filter(isAddedLine).length).toBeGreaterThan(0);
+    } finally {
+      setLanguage('en');
+    }
   });
 
   it('has nothing to say when everything is there', () => {

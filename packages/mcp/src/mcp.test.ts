@@ -63,11 +63,11 @@ describe('MCP server, app closed (headless)', () => {
 
   it('works on a given URL without the app', async () => {
     const client = await connect();
-    expect(textOf(await call(client, 'status'))).toMatch(/n’est pas ouverte/);
+    expect(textOf(await call(client, 'status'))).toMatch(/is not open/);
     const meta = JSON.parse(textOf(await call(client, 'get_page_meta', { url: siteUrl })));
     expect(meta).toMatchObject({ title: 'Accueil — Maison Sable', framework: 'vite' });
     const checks = textOf(await call(client, 'run_checks', { url: siteUrl }));
-    expect(checks).toMatch(/Checks pour .* : \d+\/\d+ \(sans mesures dans les appareils/);
+    expect(checks).toMatch(/Checks for .*: \d+\/\d+ \(without measures in the devices/);
     const share = textOf(await call(client, 'get_share_preview', { url: siteUrl, platform: 'slack' }));
     expect(share).toMatch(/Slack/);
     expect(share).toMatch(/og:site_name/);
@@ -100,7 +100,7 @@ describe('MCP server, app open', () => {
       });
       res.writeHead(200, { 'content-type': 'application/json' });
       if (req.url === '/screenshot') res.end(JSON.stringify({ shots: [{ id: 'iphone-16', label: 'iPhone 16', width: 393, height: 852, mime: 'image/jpeg', data: 'aGVsbG8=' }] }));
-      else if (req.url === '/analyze') res.end(JSON.stringify({ url: siteUrl, checks: [{ id: 'overflow', group: 'mobile', label: 'Débordement horizontal', status: 'error', detail: 'iPhone 16 : +120 px' }] }));
+      else if (req.url === '/analyze') res.end(JSON.stringify({ url: siteUrl, checks: [{ id: 'overflow', group: 'mobile', label: 'Horizontal overflow', status: 'error', detail: 'iPhone 16: +120 px' }] }));
       else if (req.url === '/activity') res.end('{"ok":true}');
       else if (req.url === '/deployments')
         res.end(JSON.stringify({ project: { name: 'maison-sable', productionUrl: 'https://maisonsable.fr' }, deployments: [{ id: 'd1', url: 'https://maison-sable-git-feat-hero.vercel.app', state: 'READY', production: false, createdAt: Date.now() - 120_000, branch: 'feat/hero', commitMessage: 'hero: nouveau titre', author: 'claude' }] }));
@@ -121,8 +121,8 @@ describe('MCP server, app open', () => {
     expect(textOf(await call(client, 'status'))).toMatch(/iPhone 16 \(iphone-16, 393×852\)/);
     const shot = await call(client, 'screenshot');
     expect(shot.content.find((c) => c.type === 'image')).toMatchObject({ data: 'aGVsbG8=', mimeType: 'image/jpeg' });
-    expect(textOf(await call(client, 'run_checks'))).toMatch(/✗ \[mobile\] Débordement horizontal : iPhone 16 : \+120 px/);
-    expect(textOf(await call(client, 'list_deployments'))).toMatch(/READY\s+preview feat\/hero · hero: nouveau titre · claude · il y a 2 min\n\s+https:\/\/maison-sable-git-feat-hero\.vercel\.app/);
+    expect(textOf(await call(client, 'run_checks'))).toMatch(/✗ \[mobile\] Horizontal overflow: iPhone 16: \+120 px/);
+    expect(textOf(await call(client, 'list_deployments'))).toMatch(/READY\s+preview feat\/hero · hero: nouveau titre · claude · 2 min ago\n\s+https:\/\/maison-sable-git-feat-hero\.vercel\.app/);
     const meta = JSON.parse(textOf(await call(client, 'get_page_meta')));
     expect(meta.url).toBe(siteUrl);
     // One activity report per call, after the work.

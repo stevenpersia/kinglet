@@ -197,7 +197,7 @@ export function ProjectsPage() {
         <span className="label">{t('Claude activity, all projects', 'Activité de Claude, tous projets')}</span>
         {feed.map((e, i) => (
           <div key={`${e.at}-${i}`} className="flex gap-2.5">
-            <span className="w-11 shrink-0 font-mono text-[11px] text-ghost">{new Date(e.at).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' })}</span>
+            <span className="w-14 shrink-0 font-mono text-[11px] whitespace-nowrap text-ghost">{new Date(e.at).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' })}</span>
             <span className="mt-[5px] size-1.5 shrink-0 rounded-full" style={{ background: FEED_COLOR[e.kind] }} />
             <span className="flex min-w-0 flex-col gap-px">
               <span className="text-[11.5px] text-faint">{name(e.projectId)}</span>

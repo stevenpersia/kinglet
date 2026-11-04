@@ -1,5 +1,6 @@
 import { fetchExplained } from './net.ts';
 import { BOTS } from './bots.ts';
+import { t } from './i18n.ts';
 
 export interface SiteFiles {
   robots: { status: number | null; disallowAll: boolean; sitemaps: string[] } | null;
@@ -86,7 +87,7 @@ export async function readSiteFiles(pageUrl: string, refs: { manifest: string | 
   if (sitemapRes.status === 200) {
     const urls = parseSitemap(sitemapRes.body);
     // A dev server often answers every path with index.html: that is not a sitemap.
-    sitemap = urls.length ? { ...sitemap, urls } : { ...sitemap, error: sitemapRes.html ? 'absent' : 'aucune URL' };
+    sitemap = urls.length ? { ...sitemap, urls } : { ...sitemap, error: sitemapRes.html ? t('missing', 'absent') : t('no URLs', 'aucune URL') };
   }
 
   let manifest: SiteFiles['manifest'] = null;
@@ -97,7 +98,7 @@ export async function readSiteFiles(pageUrl: string, refs: { manifest: string | 
         const m = JSON.parse(manifestRes.body) as { name?: string; short_name?: string; icons?: unknown[] };
         manifest = { ...manifest, name: m.name ?? m.short_name ?? null, icons: Array.isArray(m.icons) ? m.icons.length : 0 };
       } catch {
-        manifest = { ...manifest, error: 'JSON invalide' };
+        manifest = { ...manifest, error: t('invalid JSON', 'JSON invalide') };
       }
     }
   }

@@ -1,6 +1,7 @@
 import type { BotId } from './bots.ts';
 import { probeImage, type ImageProbe } from './image.ts';
 import { readPageMeta, type Framework, type PageMeta } from './meta.ts';
+import { t } from './i18n.ts';
 
 export type Platform = 'whatsapp' | 'imessage' | 'linkedin' | 'x' | 'slack' | 'discord' | 'google';
 export type PlatformFamily = 'messagerie' | 'reseau' | 'recherche';
@@ -91,7 +92,11 @@ export function buildCard(platform: Platform, meta: PageMeta | null, image: Imag
       description: null,
       descriptionCut: false,
       image: null,
-      problems: [meta ? `Le robot reçoit une erreur HTTP ${meta.status} : pas d’aperçu.` : `Le robot n’atteint pas la page (${error ?? 'erreur réseau'}).`],
+      problems: [
+        meta
+          ? t(`The bot gets an HTTP ${meta.status} error: no preview.`, `Le robot reçoit une erreur HTTP ${meta.status} : pas d’aperçu.`)
+          : t(`The bot cannot reach the page (${error ?? 'network error'}).`, `Le robot n’atteint pas la page (${error ?? 'erreur réseau'}).`),
+      ],
       status: 'error',
     };
   }
@@ -101,19 +106,19 @@ export function buildCard(platform: Platform, meta: PageMeta | null, image: Imag
   const rawDesc = meta.og['description'] ?? meta.twitter['description'] ?? meta.description;
   const title = cut(platform === 'google' ? (meta.title ?? rawTitle) : rawTitle, rules.title);
   const description = cut(platform === 'google' ? (meta.description ?? rawDesc) : rawDesc, rules.description);
-  if (!rawTitle) problems.push('Aucun titre : seule l’URL sera affichée.');
-  if (title.cut) problems.push(`Titre coupé vers ${rules.title} caractères.`);
-  if (description.cut) problems.push(`Description coupée vers ${rules.description} caractères.`);
-  if (rules.description != null && !rawDesc) problems.push('Aucune description.');
+  if (!rawTitle) problems.push(t('No title: only the URL will be shown.', 'Aucun titre : seule l’URL sera affichée.'));
+  if (title.cut) problems.push(t(`Title cut around ${rules.title} characters.`, `Titre coupé vers ${rules.title} caractères.`));
+  if (description.cut) problems.push(t(`Description cut around ${rules.description} characters.`, `Description coupée vers ${rules.description} caractères.`));
+  if (rules.description != null && !rawDesc) problems.push(t('No description.', 'Aucune description.'));
   const siteName = meta.og['site_name'] ?? domain;
-  if (rules.showsSiteName && !meta.og['site_name']) problems.push(`Pas d’og:site_name : affiche « ${domain} ».`);
+  if (rules.showsSiteName && !meta.og['site_name']) problems.push(t(`No og:site_name: shows “${domain}”.`, `Pas d’og:site_name : affiche « ${domain} ».`));
 
   // Image
   const imgUrl = platform === 'x' ? (meta.twitter['image'] ? new URL(meta.twitter['image'], url).toString() : meta.ogImageUrl) : meta.ogImageUrl;
   const usable = !!imgUrl && !!image?.ok;
-  if (!imgUrl) problems.push('Pas d’image de partage.');
-  else if (!image?.ok) problems.push(`Image inaccessible (${image?.error ?? 'erreur'}).`);
-  else if (meta.ogImageIsRelative && imgUrl === meta.ogImageUrl) problems.push('URL d’image relative : ce robot risque de l’ignorer.');
+  if (!imgUrl) problems.push(t('No share image.', 'Pas d’image de partage.'));
+  else if (!image?.ok) problems.push(t(`Image unreachable (${image?.error ?? 'error'}).`, `Image inaccessible (${image?.error ?? 'erreur'}).`));
+  else if (meta.ogImageIsRelative && imgUrl === meta.ogImageUrl) problems.push(t('Relative image URL: this bot may ignore it.', 'URL d’image relative : ce robot risque de l’ignorer.'));
   const ratio = image?.width && image.height ? image.width / image.height : null;
   const big = usable && (image!.width ?? 0) >= 300;
 
@@ -121,14 +126,14 @@ export function buildCard(platform: Platform, meta: PageMeta | null, image: Imag
   if (platform === 'google') layout = 'serp';
   if (platform === 'x') {
     const card = meta.twitter['card'];
-    if (!card) problems.push('Pas de twitter:card : X affiche une petite carte.');
+    if (!card) problems.push(t('No twitter:card: X shows a small card.', 'Pas de twitter:card : X affiche une petite carte.'));
     layout = usable ? (card === 'summary_large_image' ? 'large' : 'small') : 'text';
   }
   if ((platform === 'linkedin' || (platform === 'x' && layout === 'large')) && ratio && Math.abs(ratio - 1.91) / 1.91 > 0.1) {
-    problems.push(`Image recadrée en 1,91:1 (elle fait ${ratio.toFixed(2)}:1).`);
+    problems.push(t(`Image cropped to 1.91:1 (it is ${ratio.toFixed(2)}:1).`, `Image recadrée en 1,91:1 (elle fait ${ratio.toFixed(2)}:1).`));
   }
-  if (platform === 'whatsapp' && image?.ok && (image.bytes ?? 0) > 300 * 1024) problems.push('Image lourde : WhatsApp peut l’ignorer (moins de 300 Ko conseillé).');
-  if (platform === 'discord' && !meta.themeColor) problems.push('Pas de theme-color : bordure grise par défaut.');
+  if (platform === 'whatsapp' && image?.ok && (image.bytes ?? 0) > 300 * 1024) problems.push(t('Heavy image: WhatsApp may ignore it (under 300 KB recommended).', 'Image lourde : WhatsApp peut l’ignorer (moins de 300 Ko conseillé).'));
+  if (platform === 'discord' && !meta.themeColor) problems.push(t('No theme-color: grey border by default.', 'Pas de theme-color : bordure grise par défaut.'));
 
   const icon = platform === 'google' || platform === 'imessage' ? (meta.appleTouchIcon ?? meta.icons[0] ?? null) : null;
   const severe = !rawTitle || (!imgUrl && platform !== 'google') || (!!imgUrl && !image?.ok);
@@ -161,7 +166,7 @@ export async function readSharePreviews(url: string, opts: { headers?: Record<st
     }),
   );
   const ref = results.find((r) => r.p.id === 'whatsapp')?.meta ?? results.find((r) => r.meta)?.meta;
-  if (!ref) throw new Error(results[0]?.error ?? 'page injoignable');
+  if (!ref) throw new Error(results[0]?.error ?? t('page unreachable', 'page injoignable'));
 
   // Probe each distinct image once.
   const imageUrls = [...new Set(results.flatMap((r) => [r.meta?.ogImageUrl, r.meta?.twitter['image'] && r.meta ? new URL(r.meta.twitter['image'], r.meta.finalUrl).toString() : null]).filter((u): u is string => !!u))];

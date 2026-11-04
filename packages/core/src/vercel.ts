@@ -3,6 +3,8 @@
  * Parsing is tolerant: fields Vercel may omit are optional, unknown ones are ignored.
  */
 
+import { t } from './i18n.ts';
+
 export const VERCEL_API = 'https://api.vercel.com';
 
 export type DeploymentState = 'READY' | 'BUILDING' | 'QUEUED' | 'INITIALIZING' | 'ERROR' | 'CANCELED';
@@ -121,7 +123,7 @@ export class VercelClient {
     const json = (await res.json().catch(() => ({}))) as Json;
     if (!res.ok) {
       const err = (json.error ?? {}) as Json;
-      const message = res.status === 401 || res.status === 403 ? 'Jeton Vercel refusé (invalide, expiré ou sans accès à cette équipe).' : String(err.message ?? `HTTP ${res.status}`);
+      const message = res.status === 401 || res.status === 403 ? t('Vercel token rejected (invalid, expired or without access to this team).', 'Jeton Vercel refusé (invalide, expiré ou sans accès à cette équipe).') : String(err.message ?? `HTTP ${res.status}`);
       throw new VercelError(res.status, message);
     }
     return json as T;
@@ -134,7 +136,7 @@ export class VercelClient {
 
   async teams(): Promise<VercelTeam[]> {
     const { teams } = await this.req<{ teams: Json[] }>('GET', '/v2/teams', { limit: 50 });
-    return (teams ?? []).map((t) => ({ id: String(t.id), slug: String(t.slug), name: String(t.name ?? t.slug) }));
+    return (teams ?? []).map((team) => ({ id: String(team.id), slug: String(team.slug), name: String(team.name ?? team.slug) }));
   }
 
   async projects(): Promise<VercelProject[]> {

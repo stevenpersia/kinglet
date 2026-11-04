@@ -242,7 +242,7 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
       if (img) writeFileSync(join(outDir, 'mcp-screenshot-iphone.jpg'), Buffer.from(img, 'base64'));
       criteria.push({
         id: 'mcp',
-        ok: tools === 10 && statusText.includes('iPhone 16') && img.startsWith('/9j/') && /Checks pour .* \d+\/\d+/.test(checksText) && !checksText.includes('sans mesures'),
+        ok: tools === 10 && statusText.includes('iPhone 16') && img.startsWith('/9j/') && /Checks for .* \d+\/\d+/.test(checksText) && !checksText.includes('without measures'),
         detail: `${tools} outils · status « ${statusText.split('\n')[1] ?? ''} » · capture ${Math.round((img.length * 3) / 4 / 1024)} Ko · ${checksText.split('\n')[0]}`,
       });
     } catch (e) {
@@ -252,16 +252,16 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     }
     await sleep(500);
     const statusBar = (await win.webContents.executeJavaScript(`document.querySelector('footer')?.textContent ?? ''`)) as string;
-    criteria.push({ id: 'mcp-activity', ok: /MCP · \d+ appels/.test(statusBar), detail: statusBar.match(/MCP · \d+ appels?/)?.[0] ?? statusBar });
-    await win.webContents.executeJavaScript(`[...document.querySelectorAll('nav button')].find((b) => (b.getAttribute('aria-label') || b.textContent).includes('Aperçu'))?.click()`);
+    criteria.push({ id: 'mcp-activity', ok: /MCP · \d+ calls/.test(statusBar), detail: statusBar.match(/MCP · \d+ calls?/)?.[0] ?? statusBar });
+    await win.webContents.executeJavaScript(`[...document.querySelectorAll('nav button')].find((b) => (b.getAttribute('aria-label') || b.textContent).includes('Devices'))?.click()`);
     await sleep(600);
     await win.webContents.executeJavaScript(`[...document.querySelectorAll('[role=tab]')].find((b) => (b.getAttribute('aria-label') || b.textContent).includes('MCP'))?.click()`);
     await sleep(600);
     await shot('11-inspecteur-mcp');
-    await win.webContents.executeJavaScript(`[...document.querySelectorAll('nav button')].find((b) => (b.getAttribute('aria-label') || b.textContent).includes('Réglages'))?.click()`);
+    await win.webContents.executeJavaScript(`[...document.querySelectorAll('nav button')].find((b) => (b.getAttribute('aria-label') || b.textContent).includes('Settings'))?.click()`);
     await sleep(800);
     await shot('12-reglages-mcp');
-    await win.webContents.executeJavaScript(`[...document.querySelectorAll('nav button')].find((b) => (b.getAttribute('aria-label') || b.textContent).includes('Aperçu'))?.click()`);
+    await win.webContents.executeJavaScript(`[...document.querySelectorAll('nav button')].find((b) => (b.getAttribute('aria-label') || b.textContent).includes('Devices'))?.click()`);
     await sleep(600);
 
     // ---- Phase 5 ----
@@ -271,10 +271,10 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     await js(`window.parakeet.vercel.connect(${JSON.stringify(process.env.PARAKEET_VERCEL_TEST_TOKEN ?? '')})`);
     // Link the active project to its Vercel project, from the settings page.
     type V = { projects: { id: string; productionUrl: string | null }[]; deployments: Record<string, unknown[]> };
-    await clickText('nav button', 'Réglages');
-    await waitFor(() => js<boolean>(`!!document.querySelector('select[aria-label="Projet Vercel"] option[value=prj_maisonsable]')`), 5000);
+    await clickText('nav button', 'Settings');
+    await waitFor(() => js<boolean>(`!!document.querySelector('select[aria-label="Vercel project"] option[value=prj_maisonsable]')`), 5000);
     await js(`(() => {
-      const el = document.querySelector('select[aria-label="Projet Vercel"]');
+      const el = document.querySelector('select[aria-label="Vercel project"]');
       Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(el, 'prj_maisonsable');
       el.dispatchEvent(new Event('change', { bubbles: true }));
     })()`);
@@ -288,7 +288,7 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
       detail: `prod ${linkedProject?.productionUrl}, ${linkedCount} déploiements suivis pour le projet actif`,
     });
     await shot('13-reglages-projet');
-    await clickText('nav button', 'Aperçu');
+    await clickText('nav button', 'Devices');
     await sleep(500);
     // Encrypted when a keyring exists; otherwise clear text, but readable by the user only.
     const vercelFile = join(app.getPath('userData'), 'vercel.json');
@@ -300,11 +300,11 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     // 16. Environment switch keeps the page: local /atelier.html → prod /atelier.html → preview
     await devices.navigate('http://localhost:5173/atelier.html');
     await sleep(1500);
-    await clickText('[aria-label=Environnement] button', 'Prod');
+    await clickText('[aria-label=Environment] button', 'Prod');
     const onProd = await waitFor(() => devices.entries().every((d) => d.view.webContents.getURL() === 'http://127.0.0.1:5175/atelier.html'), 6000);
     await sleep(800);
     await shot('13-env-prod');
-    await clickText('[aria-label=Environnement] button', 'Preview');
+    await clickText('[aria-label=Environment] button', 'Preview');
     const onPreview = await waitFor(() => devices.entries().every((d) => d.view.webContents.getURL() === 'http://127.0.0.1:5176/atelier.html'), 6000);
     // Protected preview: devices pass (cookie), and the 7 bots read it too (no cookie header for them).
     const previewTitle = (await devices.entries()[0]!.view.webContents.executeJavaScript('document.title')) as string;
@@ -315,7 +315,7 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
       ok: !previewTitle.includes('Authentication') && statuses.length === 7 && statuses.every((x) => x === 200),
       detail: `appareils : « ${previewTitle} » · robots : ${statuses.join(', ')}`,
     });
-    await clickText('[aria-label=Environnement] button', 'Local');
+    await clickText('[aria-label=Environment] button', 'Local');
     const backLocal = await waitFor(() => devices.entries().every((d) => d.view.webContents.getURL() === 'http://localhost:5173/atelier.html'), 6000);
     criteria.push({ id: 'env-switch', ok: onProd && onPreview && backLocal, detail: `prod ${onProd}, preview ${onPreview}, retour local ${backLocal} (même chemin /atelier.html)` });
 
@@ -337,18 +337,18 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
       detail: cols.map((c) => `${c.env}: « ${c.values['title']} » ${c.score?.passed ?? '?'} ok`).join(' · '),
     });
 
-    await clickText('nav button', 'Déploiements');
+    await clickText('nav button', 'Deployments');
     await sleep(900);
     await shot('14-deploiements');
-    await clickText('nav button', 'Comparer');
+    await clickText('nav button', 'Compare');
     await sleep(2500);
     await shot('15-comparer');
-    await clickText('nav button', 'Réglages');
+    await clickText('nav button', 'Settings');
     await sleep(800);
     await js(`document.querySelector('main')?.scrollTo(0, 99999)`);
     await sleep(400);
     await shot('16-reglages-vercel');
-    await clickText('nav button', 'Aperçu');
+    await clickText('nav button', 'Devices');
     await sleep(600);
 
     // ---- Phase 6 ----
@@ -406,17 +406,17 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     }
     await devices.navigate('http://localhost:5173/');
     await sleep(1200);
-    await clickText('header button', 'Sur mon téléphone');
+    await clickText('header button', 'On my phone');
     await sleep(1500);
     await shot('17-telephone');
     await js(`window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))`);
-    const closed = await waitFor(async () => !(await js<boolean>(`!!document.querySelector('[aria-label="Sur mon téléphone"][role=dialog]')`)) && devices.entries().every((d) => d.view.getVisible()), 3000);
+    const closed = await waitFor(async () => !(await js<boolean>(`!!document.querySelector('[aria-label="On my phone"][role=dialog]')`)) && devices.entries().every((d) => d.view.getVisible()), 3000);
     criteria.push({ id: 'phone-dialog', ok: closed, detail: closed ? 'fermé avec Échap, aperçus réaffichés' : 'toujours ouvert' });
     await js(`window.parakeet.phone.stop()`);
 
     // 20. Title bar fits at any window width (worst case: a preview with a long branch name)
-    await clickText('nav button', 'Aperçu');
-    await clickText('[aria-label=Environnement] button', 'Preview');
+    await clickText('nav button', 'Devices');
+    await clickText('[aria-label=Environment] button', 'Preview');
     await waitFor(() => devices.entries().every((d) => d.view.webContents.getURL().startsWith('http://127.0.0.1:5176')), 6000);
     await sleep(800);
     const fits: string[] = [];
@@ -436,7 +436,7 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     }
     criteria.push({ id: 'titlebar-fits', ok: allFit, detail: fits.join(' · ') });
     win.setSize(1440, 900);
-    await clickText('[aria-label=Environnement] button', 'Local');
+    await clickText('[aria-label=Environment] button', 'Local');
     await sleep(1000);
 
     // ---- Phase 7 ----
@@ -450,28 +450,28 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     } else {
       criteria.push({ id: 'update', ok: upd.status === 'unsupported', detail: `version de dev : mises à jour ${upd.status === 'unsupported' ? 'désactivées' : upd.status}` });
     }
-    await clickText('nav button', 'Réglages');
+    await clickText('nav button', 'Settings');
     await sleep(800);
     await shot('19-mises-a-jour');
-    await clickText('nav button', 'Aperçu');
+    await clickText('nav button', 'Devices');
     await sleep(500);
 
     // ---- Multi-projects ----
     // 22. A second project in a tab (address typed in the switcher), Ctrl 1 goes back to the first.
     ui({ type: 'shortcut', action: 'switcher' });
-    const switcherShown = await waitFor(() => js<boolean>(`!!document.querySelector('[role=dialog][aria-label=Projets] input')`), 3000);
+    const switcherShown = await waitFor(() => js<boolean>(`!!document.querySelector('[role=dialog][aria-label=Projects] input')`), 3000);
     await sleep(400);
     report['switcher'] = { shown: switcherShown, frozen: devices.entries().map((d) => d.view.getVisible()) };
     await shot('20-changer-de-projet');
     await js(`(() => {
-      const el = document.querySelector('[role=dialog][aria-label=Projets] input');
+      const el = document.querySelector('[role=dialog][aria-label=Projects] input');
       Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(el, '127.0.0.1:5175/atelier.html');
       el.dispatchEvent(new Event('input', { bubbles: true }));
     })()`);
     await sleep(200);
-    await js(`document.querySelector('[role=dialog][aria-label=Projets] input').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))`);
+    await js(`document.querySelector('[role=dialog][aria-label=Projects] input').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))`);
     const onSecond = await waitFor(() => devices.entries().every((d) => d.view.webContents.getURL() === 'http://127.0.0.1:5175/atelier.html'), 6000);
-    const tabs = () => js<string[]>(`[...document.querySelectorAll('[aria-label="Projets ouverts"] [role=tab]')].map((t) => t.textContent)`);
+    const tabs = () => js<string[]>(`[...document.querySelectorAll('[aria-label="Open projects"] [role=tab]')].map((t) => t.textContent)`);
     const twoTabs = await tabs();
     ui({ type: 'shortcut', action: 'tab-1' });
     const backFirst = await waitFor(() => devices.entries().every((d) => d.view.webContents.getURL().startsWith('http://localhost:5173/')), 6000);
@@ -488,7 +488,7 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     const fire = (payload: object) => execFileSync('sh', [script], { input: JSON.stringify(payload) });
     fire({ hook_event_name: 'UserPromptSubmit', session_id: 'selftest', cwd: join(folder, 'src'), prompt: 'Corrige le débordement sur iPhone' });
     fire({ hook_event_name: 'PostToolUse', session_id: 'selftest', cwd: folder, tool_name: 'Edit', tool_input: { file_path: join(folder, 'src/Hero.tsx') } });
-    const working = await waitFor(() => js<boolean>(`!!document.querySelector('[aria-label="Projets ouverts"] [aria-selected=true] .claude-dot')`), 3000);
+    const working = await waitFor(() => js<boolean>(`!!document.querySelector('[aria-label="Open projects"] [aria-selected=true] .claude-dot')`), 3000);
     await sleep(1200);
     await shot('21-claude-travaille');
     const thumb = await js<string | null>(`window.parakeet.thumbnail()`);
@@ -514,7 +514,7 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     // 24. Favicon of the site kept on the project (its tab shows it).
     const cur = await js<{ projects: { id: string; favicon?: string | null }[]; activeId: string }>(`window.parakeet.updateSettings({})`);
     const fav = cur.projects.find((p) => p.id === cur.activeId)?.favicon ?? '';
-    const tabImg = await js<boolean>(`!!document.querySelector('[aria-label="Projets ouverts"] [aria-selected=true] img[src^="data:image/"]')`);
+    const tabImg = await js<boolean>(`!!document.querySelector('[aria-label="Open projects"] [aria-selected=true] img[src^="data:image/"]')`);
     criteria.push({ id: 'favicon', ok: fav.startsWith('data:image/') && tabImg, detail: `${fav.slice(0, 26)}… · ${tabImg ? 'shown in the tab' : 'not in the tab'}` });
 
     // 25. Console and network errors, live and per device (atelier.html calls an undefined function).
@@ -569,9 +569,21 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     });
     await clickText('[role=tab]', 'Page');
 
+    // 27. Language: French, then back to English (default).
+    await js(`window.parakeet.updateSettings({ language: 'fr' })`);
+    const fr = await waitFor(() => js<boolean>(`document.documentElement.lang === 'fr' && !!document.querySelector('nav button[aria-label="Réglages"]')`), 3000);
+    await clickText('nav button', 'Réglages');
+    await sleep(600);
+    await shot('25-francais');
+    await js(`window.parakeet.updateSettings({ language: 'en' })`);
+    const en = await waitFor(() => js<boolean>(`document.documentElement.lang === 'en' && !!document.querySelector('nav button[aria-label="Settings"]')`), 3000);
+    criteria.push({ id: 'language', ok: fr && en, detail: `français ${fr ? 'ok' : 'absent'} · back to English ${en ? 'ok' : 'failed'}` });
+    await clickText('nav button', 'Devices');
+    await sleep(500);
+
     // 10. Partage section
     ui({ type: 'shortcut', action: 'focus-url' });
-    await win.webContents.executeJavaScript(`[...document.querySelectorAll('nav button')].find((b) => (b.getAttribute('aria-label') || b.textContent).includes('Partage'))?.click()`);
+    await win.webContents.executeJavaScript(`[...document.querySelectorAll('nav button')].find((b) => (b.getAttribute('aria-label') || b.textContent).includes('Share'))?.click()`);
     await sleep(1200);
     await shot('08-section-partage');
   } catch (e) {

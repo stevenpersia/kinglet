@@ -1,5 +1,6 @@
 import type { PageMeta } from './meta.ts';
 import type { ImageProbe } from './image.ts';
+import { t } from './i18n.ts';
 
 export type Severity = 'error' | 'warning';
 
@@ -19,39 +20,40 @@ export function checkShare(meta: PageMeta, image?: ImageProbe | null): Issue[] {
   const issues: Issue[] = [];
   const add = (id: string, severity: Severity, tag: string, message: string) => issues.push({ id, severity, tag, message });
 
-  if (meta.status >= 400) add('http-status', 'error', `HTTP ${meta.status}`, 'Les robots de partage reçoivent une erreur : aucun aperçu ne sera affiché.');
+  if (meta.status >= 400) add('http-status', 'error', `HTTP ${meta.status}`, t('Share bots get an error: no preview will be shown.', 'Les robots de partage reçoivent une erreur : aucun aperçu ne sera affiché.'));
 
-  if (!meta.title) add('title-missing', 'error', '<title>', 'Pas de titre de page.');
-  else if (meta.title.length > 60) add('title-long', 'warning', '<title>', `${meta.title.length} caractères : Google coupe vers 60.`);
+  if (!meta.title) add('title-missing', 'error', '<title>', t('No page title.', 'Pas de titre de page.'));
+  else if (meta.title.length > 60) add('title-long', 'warning', '<title>', t(`${meta.title.length} characters: Google cuts around 60.`, `${meta.title.length} caractères : Google coupe vers 60.`));
 
-  if (!meta.description) add('description-missing', 'warning', 'meta description', 'Pas de description.');
-  else if (meta.description.length > 160) add('description-long', 'warning', 'meta description', `${meta.description.length} caractères : coupée au-delà de 160.`);
+  if (!meta.description) add('description-missing', 'warning', 'meta description', t('No description.', 'Pas de description.'));
+  else if (meta.description.length > 160) add('description-long', 'warning', 'meta description', t(`${meta.description.length} characters: cut beyond 160.`, `${meta.description.length} caractères : coupée au-delà de 160.`));
 
-  if (!meta.og['title']) add('og-title-missing', 'warning', 'og:title', 'Absent : les apps se rabattent sur <title>.');
-  if (!meta.og['description']) add('og-description-missing', 'warning', 'og:description', 'Absent : certaines apps n’affichent aucun texte.');
-  if (!meta.og['site_name']) add('og-site-name-missing', 'warning', 'og:site_name', 'Absent : Slack, Discord et Facebook affichent le domaine au lieu du nom du site.');
+  if (!meta.og['title']) add('og-title-missing', 'warning', 'og:title', t('Missing: apps fall back to <title>.', 'Absent : les apps se rabattent sur <title>.'));
+  if (!meta.og['description']) add('og-description-missing', 'warning', 'og:description', t('Missing: some apps show no text.', 'Absent : certaines apps n’affichent aucun texte.'));
+  if (!meta.og['site_name']) add('og-site-name-missing', 'warning', 'og:site_name', t('Missing: Slack, Discord and Facebook show the domain instead of the site name.', 'Absent : Slack, Discord et Facebook affichent le domaine au lieu du nom du site.'));
 
   if (!meta.ogImageUrl) {
-    add('og-image-missing', 'error', 'og:image', 'Pas d’image de partage : l’aperçu sera du texte seul.');
+    add('og-image-missing', 'error', 'og:image', t('No share image: the preview will be text only.', 'Pas d’image de partage : l’aperçu sera du texte seul.'));
   } else {
-    if (meta.ogImageIsRelative) add('og-image-relative', 'error', 'og:image', 'URL relative : la plupart des robots exigent une URL absolue (https://…).');
-    if (image && !image.ok) add('og-image-unreachable', 'error', 'og:image', `Image inaccessible (${image.error ?? 'erreur'}).`);
+    if (meta.ogImageIsRelative) add('og-image-relative', 'error', 'og:image', t('Relative URL: most bots require an absolute URL (https://…).', 'URL relative : la plupart des robots exigent une URL absolue (https://…).'));
+    if (image && !image.ok) add('og-image-unreachable', 'error', 'og:image', t(`Image unreachable (${image.error ?? 'error'}).`, `Image inaccessible (${image.error ?? 'erreur'}).`));
     if (image?.ok && image.width && image.height) {
       if (image.width < RECOMMENDED_OG.width || image.height < RECOMMENDED_OG.height) {
-        add('og-image-small', 'warning', 'og:image', `${image.width} × ${image.height} : recommandé ${RECOMMENDED_OG.width} × ${RECOMMENDED_OG.height}.`);
+        add('og-image-small', 'warning', 'og:image', t(`${image.width} × ${image.height}: ${RECOMMENDED_OG.width} × ${RECOMMENDED_OG.height} recommended.`, `${image.width} × ${image.height} : recommandé ${RECOMMENDED_OG.width} × ${RECOMMENDED_OG.height}.`));
       }
       const ratio = image.width / image.height;
-      if (Math.abs(ratio - 1.91) / 1.91 > 0.1) add('og-image-ratio', 'warning', 'og:image', `Ratio ${ratio.toFixed(2)}:1 : LinkedIn et X recadrent hors de 1,91:1.`);
+      if (Math.abs(ratio - 1.91) / 1.91 > 0.1) add('og-image-ratio', 'warning', 'og:image', t(`Ratio ${ratio.toFixed(2)}:1: LinkedIn and X crop anything other than 1.91:1.`, `Ratio ${ratio.toFixed(2)}:1 : LinkedIn et X recadrent hors de 1,91:1.`));
     }
     if (image?.ok && image.bytes != null && image.bytes > WHATSAPP_IMAGE_BYTES) {
-      add('og-image-heavy', 'warning', 'og:image', `${Math.round(image.bytes / 1024)} Ko : WhatsApp peut ignorer les images lourdes (moins de 300 Ko conseillé).`);
+      const size = Math.round(image.bytes / 1024);
+      add('og-image-heavy', 'warning', 'og:image', t(`${size} KB: WhatsApp may ignore heavy images (under 300 KB recommended).`, `${size} Ko : WhatsApp peut ignorer les images lourdes (moins de 300 Ko conseillé).`));
     }
   }
 
-  if (!meta.twitter['card']) add('twitter-card-missing', 'warning', 'twitter:card', 'Absent : X affichera une petite carte.');
-  if (!meta.viewport) add('viewport-missing', 'error', 'meta viewport', 'Absent : les mobiles affichent la version desktop rétrécie.');
-  if (!meta.lang) add('lang-missing', 'warning', 'html lang', 'Langue non déclarée.');
-  if (meta.icons.length === 0) add('icons-missing', 'warning', 'favicon', 'Aucune icône déclarée.');
+  if (!meta.twitter['card']) add('twitter-card-missing', 'warning', 'twitter:card', t('Missing: X will show a small card.', 'Absent : X affichera une petite carte.'));
+  if (!meta.viewport) add('viewport-missing', 'error', 'meta viewport', t('Missing: phones show the shrunk desktop version.', 'Absent : les mobiles affichent la version desktop rétrécie.'));
+  if (!meta.lang) add('lang-missing', 'warning', 'html lang', t('Language not declared.', 'Langue non déclarée.'));
+  if (meta.icons.length === 0) add('icons-missing', 'warning', 'favicon', t('No icon declared.', 'Aucune icône déclarée.'));
 
   return issues;
 }
@@ -89,11 +91,22 @@ export interface CheckInput {
   rendered?: RenderedDevice[];
 }
 
+/** Labels are getters: the language can change while the app runs. */
 export const CHECK_GROUPS: { id: CheckGroup; label: string }[] = [
   { id: 'seo', label: 'SEO' },
-  { id: 'partage', label: 'Partage' },
+  {
+    id: 'partage',
+    get label() {
+      return t('Share', 'Partage');
+    },
+  },
   { id: 'mobile', label: 'Mobile' },
-  { id: 'technique', label: 'Technique' },
+  {
+    id: 'technique',
+    get label() {
+      return t('Technical', 'Technique');
+    },
+  },
 ];
 
 const HEAVY_IMAGE = 500 * 1024;
@@ -108,76 +121,182 @@ export function isNonProduction(url: string): boolean {
   }
 }
 
-const kb = (b: number) => `${Math.round(b / 1024)} Ko`;
+const kb = (b: number) => `${Math.round(b / 1024)} ${t('KB', 'Ko')}`;
+
+/** "1 image" / "2 images" (English; the French strings keep their own plural). */
+const n = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
 
 export function runChecks({ meta, image, site, rendered }: CheckInput): CheckResult[] {
   const out: CheckResult[] = [];
   const add = (id: string, group: CheckGroup, label: string, status: CheckStatus, detail: string) => out.push({ id, group, label, status, detail });
   const nonProd = isNonProduction(meta.finalUrl);
+  const notRead = t('Not read.', 'Non lu.');
+  const inDevices = t('Measured in the devices.', 'Mesuré dans les appareils.');
 
   // SEO
-  const t = meta.title ?? '';
-  add('title', 'seo', 'Titre de la page', !t ? 'error' : t.length > 60 ? 'warning' : 'ok', !t ? 'Pas de <title>.' : `${t.length} caractères${t.length > 60 ? ' : Google coupe vers 60' : ''}.`);
+  const title = meta.title ?? '';
+  add(
+    'title',
+    'seo',
+    t('Page title', 'Titre de la page'),
+    !title ? 'error' : title.length > 60 ? 'warning' : 'ok',
+    !title ? t('No <title>.', 'Pas de <title>.') : t(`${title.length} characters${title.length > 60 ? ': Google cuts around 60' : ''}.`, `${title.length} caractères${title.length > 60 ? ' : Google coupe vers 60' : ''}.`),
+  );
   const d = meta.description ?? '';
-  add('description', 'seo', 'Description', !d ? 'warning' : d.length > 160 ? 'warning' : 'ok', !d ? 'Pas de meta description.' : `${d.length} caractères${d.length > 160 ? ' : coupée au-delà de 160' : ''}.`);
-  add('lang', 'seo', 'Langue', meta.lang ? 'ok' : 'warning', meta.lang ? `lang="${meta.lang}"` : 'Pas d’attribut lang sur <html>.');
-  add('canonical', 'seo', 'URL canonique', meta.canonical ? 'ok' : 'warning', meta.canonical ?? 'Pas de <link rel="canonical">.');
-  add('h1', 'seo', 'Titre principal (h1)', meta.h1Count === 1 ? 'ok' : 'warning', meta.h1Count === 1 ? 'Un seul h1.' : meta.h1Count === 0 ? 'Aucun h1 dans le HTML.' : `${meta.h1Count} h1 : un seul est recommandé.`);
+  add(
+    'description',
+    'seo',
+    t('Description', 'Description'),
+    !d ? 'warning' : d.length > 160 ? 'warning' : 'ok',
+    !d ? t('No meta description.', 'Pas de meta description.') : t(`${d.length} characters${d.length > 160 ? ': cut beyond 160' : ''}.`, `${d.length} caractères${d.length > 160 ? ' : coupée au-delà de 160' : ''}.`),
+  );
+  add('lang', 'seo', t('Language', 'Langue'), meta.lang ? 'ok' : 'warning', meta.lang ? `lang="${meta.lang}"` : t('No lang attribute on <html>.', 'Pas d’attribut lang sur <html>.'));
+  add('canonical', 'seo', t('Canonical URL', 'URL canonique'), meta.canonical ? 'ok' : 'warning', meta.canonical ?? t('No <link rel="canonical">.', 'Pas de <link rel="canonical">.'));
+  add(
+    'h1',
+    'seo',
+    t('Main heading (h1)', 'Titre principal (h1)'),
+    meta.h1Count === 1 ? 'ok' : 'warning',
+    meta.h1Count === 1 ? t('A single h1.', 'Un seul h1.') : meta.h1Count === 0 ? t('No h1 in the HTML.', 'Aucun h1 dans le HTML.') : t(`${meta.h1Count} h1: a single one is recommended.`, `${meta.h1Count} h1 : un seul est recommandé.`),
+  );
   const noindex = /noindex/i.test(`${meta.robotsMeta ?? ''} ${meta.robotsHeader ?? ''}`);
-  add('indexing', 'seo', 'Indexation', !noindex ? 'ok' : nonProd ? 'info' : 'error', !noindex ? 'Page indexable.' : nonProd ? 'noindex : normal hors production.' : 'noindex en production : Google n’affichera pas la page.');
-  if (!site?.robots || site.robots.status === null) add('robots', 'seo', 'robots.txt', 'skip', 'Non lu.');
-  else if (site.robots.status !== 200) add('robots', 'seo', 'robots.txt', 'warning', `Absent (HTTP ${site.robots.status}).`);
-  else add('robots', 'seo', 'robots.txt', site.robots.disallowAll && !nonProd ? 'error' : 'ok', site.robots.disallowAll ? 'Bloque tous les robots (Disallow: /).' : 'Présent.');
-  if (!site?.sitemap) add('sitemap', 'seo', 'Sitemap', 'skip', 'Non lu.');
-  else add('sitemap', 'seo', 'Sitemap', site.sitemap.urls.length ? 'ok' : 'warning', site.sitemap.urls.length ? `${site.sitemap.urls.length} URL.` : `Introuvable (${site.sitemap.error ?? 'absent'}).`);
+  add(
+    'indexing',
+    'seo',
+    t('Indexing', 'Indexation'),
+    !noindex ? 'ok' : nonProd ? 'info' : 'error',
+    !noindex ? t('Page can be indexed.', 'Page indexable.') : nonProd ? t('noindex: expected outside production.', 'noindex : normal hors production.') : t('noindex in production: Google will not show the page.', 'noindex en production : Google n’affichera pas la page.'),
+  );
+  if (!site?.robots || site.robots.status === null) add('robots', 'seo', 'robots.txt', 'skip', notRead);
+  else if (site.robots.status !== 200) add('robots', 'seo', 'robots.txt', 'warning', t(`Missing (HTTP ${site.robots.status}).`, `Absent (HTTP ${site.robots.status}).`));
+  else add('robots', 'seo', 'robots.txt', site.robots.disallowAll && !nonProd ? 'error' : 'ok', site.robots.disallowAll ? t('Blocks all bots (Disallow: /).', 'Bloque tous les robots (Disallow: /).') : t('Present.', 'Présent.'));
+  if (!site?.sitemap) add('sitemap', 'seo', 'Sitemap', 'skip', notRead);
+  else
+    add(
+      'sitemap',
+      'seo',
+      'Sitemap',
+      site.sitemap.urls.length ? 'ok' : 'warning',
+      site.sitemap.urls.length ? `${site.sitemap.urls.length} URL.` : t(`Not found (${site.sitemap.error ?? 'missing'}).`, `Introuvable (${site.sitemap.error ?? 'absent'}).`),
+    );
 
-  // Partage
-  add('og-title', 'partage', 'og:title', meta.og['title'] ? 'ok' : 'warning', meta.og['title'] ?? 'Absent : les apps se rabattent sur <title>.');
-  add('og-description', 'partage', 'og:description', meta.og['description'] ? 'ok' : 'warning', meta.og['description'] ?? 'Absent.');
-  add('og-site-name', 'partage', 'og:site_name', meta.og['site_name'] ? 'ok' : 'warning', meta.og['site_name'] ?? 'Absent : Slack, Discord et Facebook affichent le domaine au lieu du nom du site.');
-  if (!meta.ogImageUrl) add('og-image', 'partage', 'Image de partage', 'error', 'Pas d’og:image.');
-  else if (meta.ogImageIsRelative) add('og-image', 'partage', 'Image de partage', 'error', 'URL relative : les robots exigent une URL absolue.');
-  else if (image && !image.ok) add('og-image', 'partage', 'Image de partage', 'error', `Inaccessible (${image.error ?? 'erreur'}).`);
-  else add('og-image', 'partage', 'Image de partage', 'ok', 'Présente et accessible.');
-  if (!image?.ok || !image.width || !image.height) add('og-image-format', 'partage', 'Format de l’image', 'skip', 'Image non lue.');
+  // Share
+  const shareImage = t('Share image', 'Image de partage');
+  add('og-title', 'partage', 'og:title', meta.og['title'] ? 'ok' : 'warning', meta.og['title'] ?? t('Missing: apps fall back to <title>.', 'Absent : les apps se rabattent sur <title>.'));
+  add('og-description', 'partage', 'og:description', meta.og['description'] ? 'ok' : 'warning', meta.og['description'] ?? t('Missing.', 'Absent.'));
+  add(
+    'og-site-name',
+    'partage',
+    'og:site_name',
+    meta.og['site_name'] ? 'ok' : 'warning',
+    meta.og['site_name'] ?? t('Missing: Slack, Discord and Facebook show the domain instead of the site name.', 'Absent : Slack, Discord et Facebook affichent le domaine au lieu du nom du site.'),
+  );
+  if (!meta.ogImageUrl) add('og-image', 'partage', shareImage, 'error', t('No og:image.', 'Pas d’og:image.'));
+  else if (meta.ogImageIsRelative) add('og-image', 'partage', shareImage, 'error', t('Relative URL: bots require an absolute URL.', 'URL relative : les robots exigent une URL absolue.'));
+  else if (image && !image.ok) add('og-image', 'partage', shareImage, 'error', t(`Unreachable (${image.error ?? 'error'}).`, `Inaccessible (${image.error ?? 'erreur'}).`));
+  else add('og-image', 'partage', shareImage, 'ok', t('Present and reachable.', 'Présente et accessible.'));
+  const imageFormat = t('Image format', 'Format de l’image');
+  if (!image?.ok || !image.width || !image.height) add('og-image-format', 'partage', imageFormat, 'skip', t('Image not read.', 'Image non lue.'));
   else {
     const problems: string[] = [];
-    if (image.width < 1200 || image.height < 630) problems.push(`${image.width}×${image.height} (1200×630 conseillé)`);
+    if (image.width < 1200 || image.height < 630) problems.push(t(`${image.width}×${image.height} (1200×630 recommended)`, `${image.width}×${image.height} (1200×630 conseillé)`));
     if (Math.abs(image.width / image.height - 1.91) / 1.91 > 0.1) problems.push(`ratio ${(image.width / image.height).toFixed(2)}:1`);
-    if ((image.bytes ?? 0) > 300 * 1024) problems.push(`${kb(image.bytes ?? 0)} (moins de 300 Ko conseillé)`);
-    add('og-image-format', 'partage', 'Format de l’image', problems.length ? 'warning' : 'ok', problems.length ? problems.join(', ') : `${image.width}×${image.height}, ${kb(image.bytes ?? 0)}.`);
+    if ((image.bytes ?? 0) > 300 * 1024) problems.push(t(`${kb(image.bytes ?? 0)} (under 300 KB recommended)`, `${kb(image.bytes ?? 0)} (moins de 300 Ko conseillé)`));
+    add('og-image-format', 'partage', imageFormat, problems.length ? 'warning' : 'ok', problems.length ? problems.join(', ') : `${image.width}×${image.height}, ${kb(image.bytes ?? 0)}.`);
   }
-  add('twitter-card', 'partage', 'twitter:card', meta.twitter['card'] ? 'ok' : 'warning', meta.twitter['card'] ?? 'Absent : X affichera une petite carte.');
+  add('twitter-card', 'partage', 'twitter:card', meta.twitter['card'] ? 'ok' : 'warning', meta.twitter['card'] ?? t('Missing: X will show a small card.', 'Absent : X affichera une petite carte.'));
 
   // Mobile
   const vp = meta.viewport ?? '';
-  add('viewport', 'mobile', 'Meta viewport', !vp ? 'error' : /width=device-width/.test(vp) ? 'ok' : 'warning', vp || 'Absent : les mobiles affichent la version desktop rétrécie.');
-  if (!rendered?.length) add('overflow', 'mobile', 'Débordement horizontal', 'skip', 'Mesuré dans les appareils.');
+  add('viewport', 'mobile', 'Meta viewport', !vp ? 'error' : /width=device-width/.test(vp) ? 'ok' : 'warning', vp || t('Missing: phones show the shrunk desktop version.', 'Absent : les mobiles affichent la version desktop rétrécie.'));
+  const overflow = t('Horizontal overflow', 'Débordement horizontal');
+  if (!rendered?.length) add('overflow', 'mobile', overflow, 'skip', inDevices);
   else {
     const over = rendered.filter((r) => r.overflowPx > 1);
-    add('overflow', 'mobile', 'Débordement horizontal', over.length ? 'error' : 'ok', over.length ? over.map((r) => `${r.label} : +${Math.round(r.overflowPx)} px`).join(', ') : `Aucun sur ${rendered.length} appareil${rendered.length > 1 ? 's' : ''}.`);
+    add(
+      'overflow',
+      'mobile',
+      overflow,
+      over.length ? 'error' : 'ok',
+      over.length
+        ? over.map((r) => `${r.label}${t(':', ' :')} +${Math.round(r.overflowPx)} px`).join(', ')
+        : t(`None on ${n(rendered.length, 'device')}.`, `Aucun sur ${rendered.length} appareil${rendered.length > 1 ? 's' : ''}.`),
+    );
   }
-  add('theme-color', 'mobile', 'Couleur du thème', meta.themeColor ? 'ok' : 'warning', meta.themeColor ?? 'Absente : la barre du navigateur mobile reste par défaut.');
-  add('apple-touch-icon', 'mobile', 'Icône écran d’accueil', meta.appleTouchIcon ? 'ok' : 'warning', meta.appleTouchIcon ? meta.appleTouchIcon.split('/').pop()! : 'Pas d’apple-touch-icon.');
-  if (!meta.manifest) add('manifest', 'mobile', 'Manifest', 'warning', 'Pas de manifest : le site ne s’installe pas comme une app.');
-  else if (!site?.manifest || site.manifest.error) add('manifest', 'mobile', 'Manifest', 'error', site?.manifest?.error ?? 'Non lu.');
-  else add('manifest', 'mobile', 'Manifest', site.manifest.name && site.manifest.icons ? 'ok' : 'warning', `${site.manifest.name ?? 'sans nom'}, ${site.manifest.icons} icône${site.manifest.icons > 1 ? 's' : ''}.`);
+  add('theme-color', 'mobile', t('Theme color', 'Couleur du thème'), meta.themeColor ? 'ok' : 'warning', meta.themeColor ?? t('Missing: the mobile browser bar keeps its default color.', 'Absente : la barre du navigateur mobile reste par défaut.'));
+  add(
+    'apple-touch-icon',
+    'mobile',
+    t('Home screen icon', 'Icône écran d’accueil'),
+    meta.appleTouchIcon ? 'ok' : 'warning',
+    meta.appleTouchIcon ? meta.appleTouchIcon.split('/').pop()! : t('No apple-touch-icon.', 'Pas d’apple-touch-icon.'),
+  );
+  if (!meta.manifest) add('manifest', 'mobile', 'Manifest', 'warning', t('No manifest: the site cannot be installed as an app.', 'Pas de manifest : le site ne s’installe pas comme une app.'));
+  else if (!site?.manifest || site.manifest.error) add('manifest', 'mobile', 'Manifest', 'error', site?.manifest?.error ?? notRead);
+  else
+    add(
+      'manifest',
+      'mobile',
+      'Manifest',
+      site.manifest.name && site.manifest.icons ? 'ok' : 'warning',
+      t(
+        `${site.manifest.name ?? 'no name'}, ${n(site.manifest.icons, 'icon')}.`,
+        `${site.manifest.name ?? 'sans nom'}, ${site.manifest.icons} icône${site.manifest.icons > 1 ? 's' : ''}.`,
+      ),
+    );
 
-  // Technique
-  add('http', 'technique', 'Statut HTTP', meta.status < 300 ? 'ok' : 'error', `HTTP ${meta.status}${meta.finalUrl !== meta.requestedUrl ? ` après redirection` : ''}.`);
+  // Technical
+  add('http', 'technique', t('HTTP status', 'Statut HTTP'), meta.status < 300 ? 'ok' : 'error', `HTTP ${meta.status}${meta.finalUrl !== meta.requestedUrl ? t(' after redirect', ' après redirection') : ''}.`);
   const fav = site?.favicon;
-  add('favicon', 'technique', 'Favicon', !fav ? 'skip' : fav.status === 200 ? 'ok' : 'error', !fav ? 'Non lu.' : fav.status === 200 ? fav.url.split('/').pop()! : `${fav.url.split('/').pop()} introuvable (HTTP ${fav.status ?? '—'}).`);
-  add('img-alt', 'technique', 'Textes alternatifs', meta.imgMissingAlt ? 'warning' : 'ok', meta.imgCount === 0 ? 'Aucune image dans le HTML.' : meta.imgMissingAlt ? `${meta.imgMissingAlt} image${meta.imgMissingAlt > 1 ? 's' : ''} sur ${meta.imgCount} sans alt.` : `${meta.imgCount} image${meta.imgCount > 1 ? 's' : ''}, toutes avec alt.`);
+  add(
+    'favicon',
+    'technique',
+    'Favicon',
+    !fav ? 'skip' : fav.status === 200 ? 'ok' : 'error',
+    !fav ? notRead : fav.status === 200 ? fav.url.split('/').pop()! : t(`${fav.url.split('/').pop()} not found (HTTP ${fav.status ?? '—'}).`, `${fav.url.split('/').pop()} introuvable (HTTP ${fav.status ?? '—'}).`),
+  );
+  add(
+    'img-alt',
+    'technique',
+    t('Alt text', 'Textes alternatifs'),
+    meta.imgMissingAlt ? 'warning' : 'ok',
+    meta.imgCount === 0
+      ? t('No images in the HTML.', 'Aucune image dans le HTML.')
+      : meta.imgMissingAlt
+        ? t(`${meta.imgMissingAlt} of ${n(meta.imgCount, 'image')} without alt.`, `${meta.imgMissingAlt} image${meta.imgMissingAlt > 1 ? 's' : ''} sur ${meta.imgCount} sans alt.`)
+        : t(`${n(meta.imgCount, 'image')}, all with alt.`, `${meta.imgCount} image${meta.imgCount > 1 ? 's' : ''}, toutes avec alt.`),
+  );
+  const jsErrors = t('JavaScript errors', 'Erreurs JavaScript');
+  const imageWeight = t('Image weight', 'Poids des images');
   if (!rendered?.length) {
-    add('console', 'technique', 'Erreurs JavaScript', 'skip', 'Mesuré dans les appareils.');
-    add('heavy-images', 'technique', 'Poids des images', 'skip', 'Mesuré dans les appareils.');
+    add('console', 'technique', jsErrors, 'skip', inDevices);
+    add('heavy-images', 'technique', imageWeight, 'skip', inDevices);
   } else {
     const errors = [...new Set(rendered.flatMap((r) => r.consoleErrors))];
-    add('console', 'technique', 'Erreurs JavaScript', errors.length ? 'error' : 'ok', errors.length ? `${errors.length} erreur${errors.length > 1 ? 's' : ''} : ${errors[0]!.slice(0, 140)}` : 'Aucune erreur dans la console.');
+    add(
+      'console',
+      'technique',
+      jsErrors,
+      errors.length ? 'error' : 'ok',
+      errors.length
+        ? t(`${n(errors.length, 'error')}: ${errors[0]!.slice(0, 140)}`, `${errors.length} erreur${errors.length > 1 ? 's' : ''} : ${errors[0]!.slice(0, 140)}`)
+        : t('No errors in the console.', 'Aucune erreur dans la console.'),
+    );
     const heavy = new Map<string, number>();
     for (const r of rendered) for (const i of r.heavyImages) heavy.set(i.url, Math.max(heavy.get(i.url) ?? 0, i.bytes));
     const list = [...heavy].sort((a, b) => b[1] - a[1]);
-    add('heavy-images', 'technique', 'Poids des images', list.length ? 'warning' : 'ok', list.length ? `${list.length} image${list.length > 1 ? 's' : ''} > ${kb(HEAVY_IMAGE)} : ${list[0]![0].split('/').pop()} (${kb(list[0]![1])})` : `Aucune image > ${kb(HEAVY_IMAGE)}.`);
+    add(
+      'heavy-images',
+      'technique',
+      imageWeight,
+      list.length ? 'warning' : 'ok',
+      list.length
+        ? t(
+            `${n(list.length, 'image')} > ${kb(HEAVY_IMAGE)}: ${list[0]![0].split('/').pop()} (${kb(list[0]![1])})`,
+            `${list.length} image${list.length > 1 ? 's' : ''} > ${kb(HEAVY_IMAGE)} : ${list[0]![0].split('/').pop()} (${kb(list[0]![1])})`,
+          )
+        : t(`No images > ${kb(HEAVY_IMAGE)}.`, `Aucune image > ${kb(HEAVY_IMAGE)}.`),
+    );
   }
   return out;
 }
