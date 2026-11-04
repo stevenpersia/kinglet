@@ -4,17 +4,29 @@ import { CheckGroups } from './Checks';
 import { Icon } from './Icons';
 import { CopyButton, SLASH } from './Mcp';
 
-function Empty({ text }: { text: string }) {
+function Empty({ text, action }: { text: string; action?: React.ReactNode }) {
   return (
-    <main className="stage-bg flex flex-1 items-center justify-center">
-      <p className="text-faint">{text}</p>
+    <main className="stage-bg flex flex-1 flex-col items-center justify-center gap-3">
+      <p className="m-0 text-faint">{text}</p>
+      {action}
     </main>
   );
 }
 
 export function ChecksPage() {
   const state = useStore();
-  const { report, url, analyzing, analyze } = state;
+  const { report, url, analyzing, analyze, status } = state;
+  if (!report && url && !analyzing && status === 'loaded')
+    return (
+      <Empty
+        text={t('The checks haven’t run on this page yet.', 'Les checks n’ont pas encore tourné sur cette page.')}
+        action={
+          <button onClick={() => void analyze(url)} className="h-8 rounded-ui bg-fg px-3 font-semibold text-bg">
+            {t('Run the checks', 'Lancer les checks')}
+          </button>
+        }
+      />
+    );
   if (!report) return <Empty text={url ? t('Analyzing…', 'Analyse en cours…') : t('Open a site to run the checks.', 'Ouvre un site pour lancer les checks.')} />;
   const devices = activePresets(state);
   const errors = report.checks.filter((c) => c.status === 'error').length;

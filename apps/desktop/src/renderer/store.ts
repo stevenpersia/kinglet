@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type { ClaudeProjectState, AnalyzeReport, CrawledPage, DevicePreset, EnvId, InitState, McpActivity, McpInfo, ParakeetApi, PhoneState, Project, Settings, ShareReport, UpdateState, VercelState, VercelTeamProject } from '../shared/types';
 import { activeProject, closeProject as closeTab, openProject, patchProject, projectFromUrl } from '../shared/projects';
 import { envOf, envTargets, urlOnEnv, type ProjectVercel } from './lib/env';
+import { activeIds, allPresets } from '../shared/devices';
 
 declare global {
   interface Window {
@@ -14,7 +15,9 @@ export const api = (): ParakeetApi => window.parakeet;
 export const cleanError = (e: unknown) => String((e as Error)?.message ?? e).replace(/^Error invoking remote method '[^']+': (?:\w*Error: )?/, '');
 
 export type Section = 'apercu' | 'partage' | 'comparer' | 'deploiements' | 'checks' | 'reglages' | 'projets';
-export type InspectorTab = 'page' | 'partage' | 'checks' | 'console' | 'mcp';
+/** Panel opened next to the devices from the left bar. */
+export type Panel = 'page' | 'checks';
+export type SettingsTab = 'general' | 'devices' | 'project' | 'vercel' | 'claude' | 'mcp' | 'updates';
 export type LoadStatus = 'idle' | 'loading' | 'loaded' | 'failed';
 
 interface State {
@@ -35,7 +38,10 @@ interface State {
   crawling: boolean;
   crawledOrigin: string | null;
   section: Section;
-  inspectorTab: InspectorTab;
+  panel: Panel | null;
+  /** Console drawer under the devices. */
+  consoleOpen: boolean;
+  settingsTab: SettingsTab;
   maximized: boolean;
   /** Device snapshots shown while native views are hidden under a menu. */
   frozen: Record<string, string> | null;
@@ -48,6 +54,8 @@ interface State {
   phoneOpen: boolean;
   /** Preview deployment chosen in the environment switch (null: latest). */
   previewId: string | null;
+  /** Older production deployment chosen in the environment switch (null: the live one). */
+  prodId: string | null;
 
   init(): Promise<void>;
   navigate(url: string): Promise<void>;
@@ -56,7 +64,7 @@ interface State {
   crawlSite(force?: boolean): Promise<void>;
   loadMcp(): Promise<void>;
   /** Show the current page on another environment. */
-  switchEnv(env: EnvId, previewId?: string): Promise<void>;
+  switchEnv(env: EnvId, deploymentId?: string | null): Promise<void>;
   /** Tabs */
   switcherOpen: boolean;
   /** Claude Code activity per project id. */
@@ -76,7 +84,11 @@ interface State {
   openAddress(url: string): Promise<void>;
   pushMcpActivity(a: McpActivity): void;
   setSection(s: Section): void;
-  setInspectorTab(t: InspectorTab): void;
+  /** Open the settings on one of their pages. */
+  openSettings(tab: SettingsTab): void;
+  /** Open or close a panel next to the devices (opens the devices if needed). */
+  togglePanel(p: Panel): void;
+  toggleConsole(open?: boolean): void;
   /** Freeze native views as images while a menu or dialog covers the stage. */
   openOverlay(): Promise<void>;
   closeOverlay(): void;
@@ -89,7 +101,7 @@ let overlays = 0;
 export const useStore = create<State>((set, get) => ({
   ready: false,
   presets: [],
-  settings: { projects: [], openIds: [], activeId: null, recentUrls: [], active: [], scrollSync: true, landscape: false, throttle: { network: 'off', cpu: 1 }, language: 'en' },
+  settings: { projects: [], openIds: [], activeId: null, recentUrls: [], active: [], scrollSync: true, landscape: false, throttle: { network: 'off', cpu: 1 }, language: 'en', startup: 'restore', defaultSection: 'apercu', autoAnalyze: true, customDevices: [], deviceOrder: [], devicesPerProject: false },
   platform: null,
   url: null,
   detectedFrom: null,
@@ -103,7 +115,9 @@ export const useStore = create<State>((set, get) => ({
   crawling: false,
   crawledOrigin: null,
   section: 'apercu',
-  inspectorTab: 'page',
+  panel: null,
+  consoleOpen: false,
+  settingsTab: 'general',
   maximized: false,
   frozen: null,
   paletteOpen: false,
@@ -121,12 +135,15 @@ export const useStore = create<State>((set, get) => ({
   update: null,
   phoneOpen: false,
   previewId: null,
+  prodId: null,
 
   async init() {
     if (initStarted) return; // React StrictMode runs effects twice in dev
     initStarted = true;
     const s = await api().init();
-    set({ ready: true, presets: s.presets, settings: s.settings, platform: s.platform, url: s.url, detectedFrom: s.detectedFrom, status: s.url ? 'loading' : 'idle' });
+    const section: Section = s.settings.startup === 'projects' && s.settings.projects.length ? 'projets' : s.settings.defaultSection;
+    set({ ready: true, presets: s.presets, settings: s.settings, platform: s.platform, url: s.url, detectedFrom: s.detectedFrom, status: s.url ? 'loading' : 'idle', section });
+    api().setPreviewsVisible(section === 'apercu');
   },
 
   async navigate(url) {
@@ -192,7 +209,7 @@ export const useStore = create<State>((set, get) => ({
     if (!project) return;
     await s.updateSettings(openProject(s.settings, project));
     // Per-page state belongs to the previous project.
-    set({ report: null, share: null, shareError: null, pages: [], crawledOrigin: null, previewId: null, section: s.section === 'projets' ? 'apercu' : s.section });
+    set({ report: null, share: null, shareError: null, pages: [], crawledOrigin: null, previewId: null, prodId: null, section: s.section === 'projets' ? s.settings.defaultSection : s.section });
     api().setPreviewsVisible(get().section === 'apercu');
     const target = project.lastUrl ?? project.localOrigin ?? projectVercel(get()).project?.productionUrl ?? null;
     if (target) await get().navigate(target);
@@ -207,7 +224,7 @@ export const useStore = create<State>((set, get) => ({
     if (wasActive && next) {
       // selectProject returns early when the id is already active: navigate directly.
       const project = get().settings.projects.find((p) => p.id === next)!;
-      set({ report: null, share: null, pages: [], crawledOrigin: null, previewId: null });
+      set({ report: null, share: null, pages: [], crawledOrigin: null, previewId: null, prodId: null });
       const target = project.lastUrl ?? project.localOrigin ?? projectVercel(get()).project?.productionUrl ?? null;
       if (target) await get().navigate(target);
     }
@@ -232,10 +249,11 @@ export const useStore = create<State>((set, get) => ({
     if (existing) await get().navigate(url);
   },
 
-  async switchEnv(env, previewId) {
-    if (previewId !== undefined) set({ previewId });
+  async switchEnv(env, deploymentId) {
+    if (env === 'preview' && deploymentId !== undefined) set({ previewId: deploymentId });
+    if (env === 'prod') set({ prodId: deploymentId ?? null });
     const s = get();
-    const target = urlOnEnv(s.url, env, envTargets(activeProject(s.settings)?.localOrigin ?? null, projectVercel(s), s.previewId));
+    const target = urlOnEnv(s.url, env, envTargets(activeProject(s.settings)?.localOrigin ?? null, projectVercel(s), s.previewId, s.prodId));
     if (target) await get().navigate(target);
   },
 
@@ -250,8 +268,28 @@ export const useStore = create<State>((set, get) => ({
     api().setPreviewsVisible(section === 'apercu');
   },
 
-  setInspectorTab(inspectorTab) {
-    set({ inspectorTab });
+  openSettings(settingsTab) {
+    set({ settingsTab });
+    get().setSection('reglages');
+  },
+
+  togglePanel(p) {
+    const s = get();
+    if (s.section !== 'apercu') {
+      s.setSection('apercu');
+      set({ panel: p });
+    } else set({ panel: s.panel === p ? null : p });
+    // Without automatic analysis, opening a panel reads the page.
+    const after = get();
+    if (after.panel && !after.report && !after.analyzing && after.url && after.status === 'loaded') void after.analyze(after.url);
+  },
+
+  toggleConsole(open) {
+    const s = get();
+    if (s.section !== 'apercu') {
+      s.setSection('apercu');
+      set({ consoleOpen: true });
+    } else set({ consoleOpen: open ?? !s.consoleOpen });
   },
 
   async openOverlay() {
@@ -268,8 +306,16 @@ export const useStore = create<State>((set, get) => ({
   },
 }));
 
-export const activePresets = (s: Pick<State, 'presets' | 'settings'>) =>
-  s.settings.active.map((id) => s.presets.find((p) => p.id === id)).filter((p): p is DevicePreset => !!p);
+/** Built-in and custom devices, in the order chosen in the settings. */
+export const devicePresets = (s: Pick<State, 'presets' | 'settings'>) => allPresets(s.presets, s.settings);
+
+/** Devices shown side by side (global list, or the active project's). */
+export const activePresets = (s: Pick<State, 'presets' | 'settings'>) => {
+  const all = devicePresets(s);
+  return activeIds(s.presets, s.settings)
+    .map((id) => all.find((p) => p.id === id))
+    .filter((p): p is DevicePreset => !!p);
+};
 
 /** The Vercel project and deployments of a project (default: the active tab). */
 export function projectVercel(s: Pick<State, 'settings' | 'vercel'>, projectId?: string): ProjectVercel {

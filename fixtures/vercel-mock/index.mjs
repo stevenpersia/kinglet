@@ -15,7 +15,7 @@ export async function startVercelMock({ previewUrl, previewUrl2, prodUrl, port =
     name: 'maison-sable',
     framework: 'vite',
     link: { type: 'github', org: 'stevenpersia', repo: 'maison-sable' },
-    targets: { production: { alias: ['maison-sable.vercel.app', prodUrl] } },
+    targets: { production: { id: 'dpl_prod', alias: ['maison-sable.vercel.app', prodUrl] } },
     protectionBypass: state.bypass,
   });
   const deployments = [

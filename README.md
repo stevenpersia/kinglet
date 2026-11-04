@@ -8,6 +8,7 @@ Voir son site sur tous les écrans (iPhone, Android, iPad, desktop), en local, e
 
 - **Aperçu** : ton site sur 10 appareils émulés (largeur, densité, tactile, user agent), en portrait ou paysage. Le scroll et la navigation sont synchronisés entre appareils, et chacun a ses DevTools.
 - **Partage** : l'aperçu de ton lien sur WhatsApp, iMessage, Slack, Discord, LinkedIn, X et Google.
+  - Une plateforme à la fois, en taille réelle et en situation (conversation WhatsApp ou iMessage, message Slack ou Discord, post LinkedIn ou X, résultats Google), avec ses problèmes à côté. Flèches haut et bas pour passer d'une plateforme à l'autre.
   - La page est lue par le robot de chaque plateforme, avec son user agent et sans JavaScript.
   - Chaque rendu suit les règles de sa plateforme : textes coupés, recadrage en 1,91:1, carte X selon `twitter:card`, bordure Discord selon `theme-color`. Les rendus et les limites restent approximatifs.
   - Parakeet détecte le framework (Next.js, Nuxt, Astro, SvelteKit, Vite/HTML) et propose le correctif à coller au bon endroit, avec un prompt prêt pour Claude.
@@ -22,6 +23,7 @@ Voir son site sur tous les écrans (iPhone, Android, iPad, desktop), en local, e
   - **En local**, Parakeet relaie ton serveur de dev sur le Wi-Fi. Seul un appareil qui a scanné le code y a accès, le rechargement à chaud marche aussi, et le téléphone peut suivre la navigation de Parakeet.
   - **En preview ou en prod**, le QR code ouvre directement l'URL. Pour une preview protégée, il contient le secret de contournement.
 - **Local, preview, prod (Vercel)** : un clic affiche la même page sur ton serveur local, sur une preview (au choix par branche) ou en production.
+  - **Prod** a son menu, comme Preview : la prod actuelle (celle que sert le domaine) en tête, avec un badge « En ligne », puis les prods précédentes. Une ancienne prod s'ouvre sur son adresse Vercel ; le bouton passe en orange et un bandeau propose de revenir à la prod actuelle.
   - **Déploiements** liste les builds, rafraîchis toutes les 30 s.
   - **Comparer** met côte à côte les balises et le score des checks de la page sur chaque environnement, avec les différences surlignées.
 - **Claude Code (MCP)** : Claude voit ce que Parakeet voit. Il peut capturer les appareils, lire les balises, lancer les checks et vérifier lui-même ses corrections (détails plus bas).
@@ -29,8 +31,12 @@ Voir son site sur tous les écrans (iPhone, Android, iPad, desktop), en local, e
 - **Tous les projets** : une carte par projet ouvert (dernière capture, statut de Claude, dernier déploiement) et le fil d'activité de Claude sur tous les projets.
 - **Suivi de Claude Code** (à activer dans les réglages) : des hooks de Claude Code préviennent Parakeet de chaque demande, fichier modifié et fin de tâche, avec une notification système quand Claude termine ou qu'un build échoue (détails plus bas).
 - **Réseau et CPU ralentis** : 4G ou 3G lente, CPU d'un téléphone moyen (×4) ou d'entrée de gamme (×6), sur les téléphones et tablettes (les écrans restent à pleine vitesse). Le temps de chargement et le poids de la page s'affichent sous chaque appareil.
+- **Barre de gauche** : en haut ce qui sert pendant le dev (Appareils, Console, Déploiements), en dessous, plus discret, ce qui sert avant de publier (Page, Partage, Checks, Comparer). Page et Checks s'ouvrent en panneau à côté des appareils, la Console en tiroir sous les appareils.
 - **Console** : messages de console et erreurs réseau (requêtes échouées, HTTP 4xx/5xx) en direct, par appareil, avec une pastille d'erreurs sous chaque appareil. « Send to Claude » copie les erreurs et quoi faire, prêt à coller dans Claude Code ; Claude peut aussi les lire lui-même (outil MCP `get_console`, commande `/mcp__parakeet__fix_console`).
-- **Langue** : anglais par défaut, français dans **Settings → Language**. Le serveur MCP parle la langue choisie.
+- **Réglages** par rubriques :
+  - **Général** : langue (Système, English, Français ; le serveur MCP parle la langue choisie), ce qui s'ouvre au lancement, section par défaut d'un projet, synchro, orientation, réseau et CPU, analyse automatique après chaque chargement, raccourcis.
+  - **Appareils** : appareils affichés et leur ordre (glisser-déposer, ou Alt+flèches), appareils personnalisés (nom, taille, densité, type), une seule liste pour tous les projets ou une par projet.
+  - Puis le projet actif, Vercel, Claude Code, le serveur MCP et les mises à jour.
 - **Pages** : le menu « Pages » de la barre d'adresse liste les pages du site, trouvées via les liens du HTML, le sitemap et les liens de la page rendue (utile pour les SPA).
 
 ## Lancer en local (Linux)
@@ -71,7 +77,7 @@ Les raccourcis marchent aussi quand le focus est dans un appareil. Le bouton `�
 
 ### Vercel
 
-1. Dans **Réglages → Compte Vercel**, colle un jeton personnel créé sur [vercel.com/account/tokens](https://vercel.com/account/tokens). Il est chiffré par le trousseau du système (KWallet, GNOME Keyring) ; sans trousseau, il est stocké en clair dans un fichier lisible par toi seul, et Parakeet te le signale.
+1. Dans **Réglages → Vercel**, colle un jeton personnel créé sur [vercel.com/account/tokens](https://vercel.com/account/tokens). Il est chiffré par le trousseau du système (KWallet, GNOME Keyring) ; sans trousseau, il est stocké en clair dans un fichier lisible par toi seul, et Parakeet te le signale.
 2. `Ctrl P` liste alors les projets de ton compte et de toutes tes équipes. Ouvrir un projet récupère son domaine de production et suit ses déploiements (toutes les 30 s, pour chaque onglet ouvert). Un site déjà ouvert par son adresse se relie à son projet Vercel dans **Réglages → Projet actif**.
 3. Parakeet cherche le dossier du projet sur ton disque (dans `~/dev`, `~/code`, `~/projects`…, grâce au `.vercel/project.json` écrit par `vercel link`). Sinon, choisis-le dans **Projet actif** : il sert au suivi de Claude Code.
 
@@ -106,7 +112,7 @@ Outils exposés : `status`, `open_url`, `set_devices`, `screenshot`, `get_page_m
 - `/mcp__parakeet__fix_checks` corrige les problèmes trouvés par les checks, puis les relance ;
 - `/mcp__parakeet__fix_console` corrige les erreurs JavaScript et réseau vues dans les appareils, puis revérifie la console.
 
-Le serveur MCP marche app fermée, sur une URL donnée. Avec l'app ouverte, il utilise la page affichée et les appareils émulés : captures, débordement horizontal, erreurs JavaScript. Il parle à l'app par un serveur local (`127.0.0.1`, jeton aléatoire dans `~/.config/Parakeet/mcp.json`), et chaque appel de Claude apparaît dans l'onglet MCP de l'inspecteur.
+Le serveur MCP marche app fermée, sur une URL donnée. Avec l'app ouverte, il utilise la page affichée et les appareils émulés : captures, débordement horizontal, erreurs JavaScript. Il parle à l'app par un serveur local (`127.0.0.1`, jeton aléatoire dans `~/.config/Parakeet/mcp.json`), et chaque appel de Claude apparaît dans **Réglages → Serveur MCP** et dans la barre d'état.
 
 ## Installer l'app (Arch / CachyOS)
 

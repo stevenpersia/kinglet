@@ -4,7 +4,7 @@ import { Dot } from './Icons';
 
 export function StatusBar() {
   const state = useStore();
-  const { platform, url, status, mcp, update, setSection } = state;
+  const { platform, url, status, mcp, update } = state;
   const calls = mcp?.activity.length ?? 0;
   const devices = activePresets(state);
   const dot = status === 'loaded' ? 'bg-ok' : status === 'failed' ? 'bg-err' : 'bg-ghost';
@@ -21,7 +21,7 @@ export function StatusBar() {
         MCP · {calls ? t(`${calls} call${calls > 1 ? 's' : ''}`, `${calls} appel${calls > 1 ? 's' : ''}`) : t('ready', 'prêt')}
       </span>
       {update && (update.status === 'available' || update.status === 'downloading' || update.status === 'ready') && (
-        <button onClick={() => setSection('reglages')} className="flex items-center gap-1.5 text-fg hover:underline">
+        <button onClick={() => useStore.getState().openSettings('updates')} className="flex items-center gap-1.5 text-fg hover:underline">
           <Dot className={update.status === 'ready' ? 'bg-ok' : 'bg-local'} />
           {update.status === 'ready'
             ? t(`Parakeet ${update.latest} ready to install`, `Parakeet ${update.latest} prêt à installer`)

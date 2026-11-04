@@ -146,6 +146,11 @@ export class DeviceManager {
     for (const d of this.devices.values()) void this.emulate(d);
   }
 
+  /** Built-in and custom devices (custom ones can be added in the settings). */
+  setPresets(presets: DevicePreset[]) {
+    this.presets = presets;
+  }
+
   setActive(ids: string[]) {
     for (const [id, d] of this.devices) {
       if (!ids.includes(id)) {

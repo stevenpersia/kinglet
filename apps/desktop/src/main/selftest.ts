@@ -202,10 +202,12 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     ui({ type: 'shortcut', action: 'focus-url' });
     await devices.navigate('http://localhost:5173/');
     await sleep(2500);
-    await shot('09-checks-inspecteur');
+    await shot('09-appareils');
+    // Checks opens as a panel next to the devices, from the left bar.
     await win.webContents.executeJavaScript(`[...document.querySelectorAll('nav button')].find((b) => (b.getAttribute('aria-label') || b.textContent).includes('Checks'))?.click()`);
     await sleep(1200);
-    await shot('10-section-checks');
+    await shot('10-panneau-checks');
+    await win.webContents.executeJavaScript(`[...document.querySelectorAll('nav button')].find((b) => (b.getAttribute('aria-label') || b.textContent).includes('Checks'))?.click()`);
 
     // ---- Phase 3 ----
     // 13. Share previews: 7 platforms, each fetched by its own bot, and a fix for the detected framework
@@ -255,10 +257,9 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     criteria.push({ id: 'mcp-activity', ok: /MCP · \d+ calls/.test(statusBar), detail: statusBar.match(/MCP · \d+ calls?/)?.[0] ?? statusBar });
     await win.webContents.executeJavaScript(`[...document.querySelectorAll('nav button')].find((b) => (b.getAttribute('aria-label') || b.textContent).includes('Devices'))?.click()`);
     await sleep(600);
-    await win.webContents.executeJavaScript(`[...document.querySelectorAll('[role=tab]')].find((b) => (b.getAttribute('aria-label') || b.textContent).includes('MCP'))?.click()`);
-    await sleep(600);
-    await shot('11-inspecteur-mcp');
     await win.webContents.executeJavaScript(`[...document.querySelectorAll('nav button')].find((b) => (b.getAttribute('aria-label') || b.textContent).includes('Settings'))?.click()`);
+    await sleep(300);
+    await win.webContents.executeJavaScript(`[...document.querySelectorAll('[aria-label="Settings pages"] button')].find((b) => b.textContent.includes('MCP server'))?.click()`);
     await sleep(800);
     await shot('12-reglages-mcp');
     await win.webContents.executeJavaScript(`[...document.querySelectorAll('nav button')].find((b) => (b.getAttribute('aria-label') || b.textContent).includes('Devices'))?.click()`);
@@ -272,6 +273,7 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     // Link the active project to its Vercel project, from the settings page.
     type V = { projects: { id: string; productionUrl: string | null }[]; deployments: Record<string, unknown[]> };
     await clickText('nav button', 'Settings');
+    await clickText('[aria-label="Settings pages"] button', 'Active project');
     await waitFor(() => js<boolean>(`!!document.querySelector('select[aria-label="Vercel project"] option[value=prj_maisonsable]')`), 5000);
     await js(`(() => {
       const el = document.querySelector('select[aria-label="Vercel project"]');
@@ -344,6 +346,7 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     await sleep(2500);
     await shot('15-comparer');
     await clickText('nav button', 'Settings');
+    await clickText('[aria-label="Settings pages"] button', 'Vercel');
     await sleep(800);
     await js(`document.querySelector('main')?.scrollTo(0, 99999)`);
     await sleep(400);
@@ -451,6 +454,7 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
       criteria.push({ id: 'update', ok: upd.status === 'unsupported', detail: `version de dev : mises à jour ${upd.status === 'unsupported' ? 'désactivées' : upd.status}` });
     }
     await clickText('nav button', 'Settings');
+    await clickText('[aria-label="Settings pages"] button', 'Updates');
     await sleep(800);
     await shot('19-mises-a-jour');
     await clickText('nav button', 'Devices');
@@ -529,7 +533,8 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
       return logs.some((l) => l.source === 'network' && l.text !== '' && JSON.stringify(l).includes('parakeet-missing')) && devices.entries().every((d) => logs.some((l) => l.deviceId === d.preset.id && l.source === 'console' && l.level === 'error'));
     }, 5000);
     const uiCount = await waitFor(async () => {
-      await clickText('[role=tab]', 'Console');
+      // The console is a drawer under the devices, opened from the left bar.
+      if (!(await js<boolean>(`!!document.querySelector('[aria-label="Console drawer"]')`))) await clickText('nav button', 'Console');
       return js<boolean>(`[...document.querySelectorAll('[aria-label=Console] li')].some((li) => li.textContent.includes('parakeet-missing.png'))`);
     }, 3000);
     await sleep(500);
@@ -567,7 +572,22 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
       ok: slow.net >= 1900 && slow.cpu > fast.cpu * 2.5 && back.net < 1000,
       detail: `request ${fast.net} → ${slow.net} ms, computation ${fast.cpu} → ${slow.cpu} ms (slow 3G, CPU ×4), back to ${back.net} ms`,
     });
-    await clickText('[role=tab]', 'Page');
+    await clickText('nav button', 'Console'); // close the drawer
+
+    // 26b. Settings: a custom device is emulated like the built-in ones, then removed.
+    await js(`window.parakeet.updateSettings({ customDevices: [{ id: 'custom-selftest', label: 'Fold', width: 673, height: 841, dpr: 2.625, kind: 'phone' }], active: ['iphone-16', 'ipad-air', 'custom-selftest'] })`);
+    const customOn = await waitFor(() => devices.entries().some((d) => d.preset.id === 'custom-selftest' && d.preset.width === 673), 3000);
+    await clickText('nav button', 'Settings');
+    await clickText('[aria-label="Settings pages"] button', 'Devices');
+    await sleep(600);
+    await shot('26-reglages-appareils');
+    await clickText('[aria-label="Settings pages"] button', 'General');
+    await sleep(400);
+    await shot('27-reglages-general');
+    await js(`window.parakeet.updateSettings({ customDevices: [], active: ['iphone-16', 'ipad-air'] })`);
+    const customOff = await waitFor(() => !devices.entries().some((d) => d.preset.id === 'custom-selftest'), 3000);
+    criteria.push({ id: 'custom-device', ok: customOn && customOff, detail: `ajout ${customOn ? 'ok' : 'absent'} · retrait ${customOff ? 'ok' : 'échoué'}` });
+    await clickText('nav button', 'Devices');
 
     // 27. Language: French, then back to English (default).
     await js(`window.parakeet.updateSettings({ language: 'fr' })`);

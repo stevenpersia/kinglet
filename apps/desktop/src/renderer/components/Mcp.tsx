@@ -42,31 +42,3 @@ export function ActivityList({ items, limit = 50 }: { items: McpActivity[]; limi
   );
 }
 
-/** Inspector tab: what Claude Code asked Parakeet. */
-export function McpTab() {
-  const mcp = useStore((s) => s.mcp);
-  const setSection = useStore((s) => s.setSection);
-  if (!mcp) return null;
-  return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-1.5">
-        <span className="label">{t('Claude Code activity', 'Activité de Claude Code')}</span>
-        <ActivityList items={mcp.activity} limit={30} />
-      </div>
-      {!mcp.activity.length && (
-        <div className="flex flex-col gap-2 rounded-[10px] border border-line bg-card p-3">
-          <span className="text-xs leading-relaxed text-muted">
-            {t(
-              'Connect Parakeet to Claude Code once, then ask it, for example, “check the page on mobile with Parakeet”.',
-              'Branche Parakeet à Claude Code une fois pour toutes, puis demande-lui par exemple « vérifie la page sur mobile avec Parakeet ».',
-            )}
-          </span>
-          <CopyButton text={mcp.command} label={t('Copy the install command', 'Copier la commande d’installation')} primary />
-          <button onClick={() => setSection('reglages')} className="text-xs text-muted hover:text-fg">
-            {t('Details in Settings →', 'Détails dans les réglages →')}
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}

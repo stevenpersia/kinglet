@@ -2,7 +2,10 @@ import { useLayoutEffect, useRef, useState } from 'react';
 import { locale, t } from '@parakeet/core';
 import type { DevicePreset, Throttle } from '../../shared/types';
 import { BEZEL, fitScale, viewportOf } from '../lib/layout';
-import { activePresets, api, useStore } from '../store';
+import { activePresets, api, devicePresets, useStore } from '../store';
+import { setActiveIds } from '../../shared/devices';
+import { ConsoleTab } from './Console';
+import { OldProdBanner } from './EnvSwitch';
 import { Icon } from './Icons';
 
 const groups = (): { kind: DevicePreset['kind']; label: string }[] => [
@@ -12,13 +15,16 @@ const groups = (): { kind: DevicePreset['kind']; label: string }[] => [
 ];
 
 function DeviceToolbar({ scale }: { scale: number }) {
-  const { presets, settings, updateSettings } = useStore();
+  const state = useStore();
+  const { settings, updateSettings } = state;
+  const presets = devicePresets(state);
+  const active = activePresets(state).map((p) => p.id);
   const toggle = (id: string) => {
-    const on = settings.active.includes(id);
-    if (on && settings.active.length === 1) return;
-    const next = on ? settings.active.filter((x) => x !== id) : [...settings.active, id];
-    // Keep the presets' order: phones, then tablets, then screens.
-    void updateSettings({ active: presets.filter((p) => next.includes(p.id)).map((p) => p.id) });
+    const on = active.includes(id);
+    if (on && active.length === 1) return;
+    const next = on ? active.filter((x) => x !== id) : [...active, id];
+    // Keep the order chosen in the settings.
+    void updateSettings(setActiveIds(state.presets, settings, next));
   };
   const chip = (on: boolean) =>
     `inline-flex h-[26px] items-center gap-1.5 rounded-md border px-2.5 text-xs ${on ? 'border-line-strong bg-active font-medium text-fg' : 'border-line text-muted hover:border-line-strong'}`;
@@ -30,7 +36,7 @@ function DeviceToolbar({ scale }: { scale: number }) {
           {presets
             .filter((p) => p.kind === g.kind)
             .map((p) => {
-              const on = settings.active.includes(p.id);
+              const on = active.includes(p.id);
               return (
                 <button key={p.id} aria-pressed={on} onClick={() => toggle(p.id)} className={chip(on)}>
                   {p.label}
@@ -170,6 +176,7 @@ export function Stage() {
 
   return (
     <main className="stage-bg flex min-w-0 flex-1 flex-col">
+      <OldProdBanner />
       <DeviceToolbar scale={scale} />
       <div ref={stageRef} className="flex min-h-0 flex-1 items-center justify-center gap-11 overflow-hidden px-6 pt-2 pb-6">
         {items.map(({ preset, viewport }) => {
@@ -207,7 +214,7 @@ export function Stage() {
                   <button
                     onClick={() => {
                       useStore.setState({ consoleDevice: preset.id });
-                      state.setInspectorTab('console');
+                      state.toggleConsole(true);
                     }}
                     title={t('See the console of this device', 'Voir la console de cet appareil')}
                     className="flex items-center gap-1 rounded bg-[rgba(242,139,130,0.12)] px-1.5 py-px font-mono text-[10.5px] text-err hover:bg-[rgba(242,139,130,0.2)]"
@@ -223,6 +230,22 @@ export function Stage() {
           );
         })}
       </div>
+      {state.consoleOpen && <ConsoleDrawer />}
     </main>
+  );
+}
+
+/** Live console of the devices, under them (opened from the left bar). */
+function ConsoleDrawer() {
+  const toggleConsole = useStore((s) => s.toggleConsole);
+  return (
+    <section aria-label={t('Console drawer', 'Tiroir de console')} className="relative flex h-[280px] shrink-0 flex-col border-t border-line-soft bg-chrome">
+      <button onClick={() => toggleConsole(false)} aria-label={t('Close the console', 'Fermer la console')} title={t('Close', 'Fermer')} className="absolute top-2 right-2 z-10 flex size-6 items-center justify-center rounded-md text-faint hover:bg-active hover:text-fg">
+        <Icon name="close" size={11} />
+      </button>
+      <div className="min-h-0 flex-1 p-4 pr-10">
+        <ConsoleTab />
+      </div>
+    </section>
   );
 }

@@ -1,48 +1,64 @@
 import { t } from '@parakeet/core';
-import { useStore, type Section } from '../store';
+import { useStore, type Panel, type Section } from '../store';
 import { Icon, type IconName } from './Icons';
 
-const items = (): { id: Section; label: string; icon: IconName }[] => [
-  { id: 'apercu', label: t('Devices', 'Aperçu'), icon: 'eye' },
-  { id: 'partage', label: t('Share', 'Partage'), icon: 'share' },
-  { id: 'comparer', label: t('Compare', 'Comparer'), icon: 'cols' },
-  { id: 'deploiements', label: t('Deployments', 'Déploiements'), icon: 'tri' },
-  { id: 'checks', label: 'Checks', icon: 'check' },
-];
+type Item = { id: string; label: string; icon: IconName; on: boolean; run: () => void; badge?: React.ReactNode; hint?: string };
 
-/** Narrow icon rail: the sections of the active project. */
+/**
+ * Narrow icon rail. On top, what you use all along while developing (devices, console, deployments);
+ * below, smaller, what you check before publishing (page, share, checks, compare).
+ */
 export function Rail() {
-  const { section, setSection, share, report } = useStore();
-  const errors = share?.issues.filter((i) => i.severity === 'error').length ?? 0;
+  const s = useStore();
+  const { section, setSection, share, report, logs, panel, consoleOpen, togglePanel, toggleConsole } = s;
+  const shareErrors = share?.issues.filter((i) => i.severity === 'error').length ?? 0;
+  const consoleErrors = logs.filter((l) => l.level === 'error').length;
+  const onDevices = section === 'apercu';
+  const go = (id: Section) => () => setSection(id);
+  const open = (p: Panel) => () => togglePanel(p);
 
-  const item = (it: { id: Section; label: string; icon: IconName }, hint?: string) => {
-    const on = section === it.id;
-    const badge =
-      it.id === 'partage' && errors > 0 ? (
-        <span className="text-err">{errors}</span>
-      ) : it.id === 'checks' && report ? (
-        <span className={report.score.passed === report.score.total ? 'text-ok' : 'text-ghost'}>{report.score.total - report.score.passed || '✓'}</span>
-      ) : null;
-    return (
-      <button
-        key={it.id}
-        onClick={() => setSection(it.id)}
-        aria-current={on ? 'page' : undefined}
-        aria-label={it.label}
-        title={hint ? `${it.label} (${hint})` : it.label}
-        className={`relative flex size-10 shrink-0 items-center justify-center rounded-[9px] ${on ? 'bg-active text-fg shadow-[inset_0_0_0_1px_#26262b]' : 'text-faint hover:bg-active/60 hover:text-fg'}`}
-      >
-        <Icon name={it.icon} size={16} />
-        {badge && <span className="absolute top-[3px] right-[3px] font-mono text-[9px] leading-none">{badge}</span>}
-      </button>
-    );
-  };
+  const primary: Item[] = [
+    { id: 'apercu', label: t('Devices', 'Appareils'), icon: 'eye', on: onDevices, run: go('apercu') },
+    { id: 'console', label: 'Console', icon: 'terminal', on: onDevices && consoleOpen, run: () => toggleConsole(), badge: consoleErrors > 0 ? <span className="text-err">{consoleErrors}</span> : null },
+    { id: 'deploiements', label: t('Deployments', 'Déploiements'), icon: 'tri', on: section === 'deploiements', run: go('deploiements') },
+  ];
+  const secondary: Item[] = [
+    { id: 'page', label: 'Page', icon: 'page', on: onDevices && panel === 'page', run: open('page') },
+    { id: 'partage', label: t('Share', 'Partage'), icon: 'share', on: section === 'partage', run: go('partage'), badge: shareErrors > 0 ? <span className="text-err">{shareErrors}</span> : null },
+    {
+      id: 'checks',
+      label: 'Checks',
+      icon: 'check',
+      on: (onDevices && panel === 'checks') || section === 'checks',
+      run: open('checks'),
+      badge: report ? <span className={report.score.passed === report.score.total ? 'text-ok' : 'text-ghost'}>{report.score.total - report.score.passed || '✓'}</span> : null,
+    },
+    { id: 'comparer', label: t('Compare', 'Comparer'), icon: 'cols', on: section === 'comparer', run: go('comparer') },
+  ];
+
+  const button = (it: Item, small = false) => (
+    <button
+      key={it.id}
+      onClick={it.run}
+      aria-current={it.on ? 'page' : undefined}
+      aria-label={it.label}
+      title={it.hint ? `${it.label} (${it.hint})` : it.label}
+      className={`relative flex shrink-0 items-center justify-center ${small ? 'size-8 rounded-lg' : 'size-10 rounded-[9px]'} ${
+        it.on ? 'bg-active text-fg shadow-[inset_0_0_0_1px_#26262b]' : small ? 'text-ghost hover:bg-active/60 hover:text-fg' : 'text-faint hover:bg-active/60 hover:text-fg'
+      }`}
+    >
+      <Icon name={it.icon} size={small ? 14 : 16} />
+      {it.badge && <span className="absolute top-[2px] right-[2px] font-mono text-[9px] leading-none">{it.badge}</span>}
+    </button>
+  );
 
   return (
     <nav aria-label="Sections" className="flex w-14 shrink-0 flex-col items-center gap-1 border-r border-line-soft bg-chrome py-2.5">
-      {items().map((it) => item(it))}
+      {primary.map((it) => button(it))}
+      <span aria-hidden="true" className="mt-2 mb-1.5 h-px w-6 bg-line" />
+      {secondary.map((it) => button(it, true))}
       <span className="flex-1" />
-      {item({ id: 'reglages', label: t('Settings', 'Réglages'), icon: 'gear' }, 'Ctrl ,')}
+      {button({ id: 'reglages', label: t('Settings', 'Réglages'), icon: 'gear', on: section === 'reglages', run: go('reglages'), hint: 'Ctrl ,' })}
     </nav>
   );
 }
