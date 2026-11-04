@@ -39,16 +39,17 @@ function RecentMenu() {
     }
   };
   return (
-    <div className="no-drag relative">
+    <div className="no-drag relative min-w-0 shrink">
       <button
         onClick={toggle}
         aria-expanded={open}
         aria-haspopup="menu"
-        className="flex h-7 items-center gap-2 rounded-md px-2 text-[13px] font-medium text-fg hover:bg-active"
+        title={settings.url ? host(settings.url) : undefined}
+        className="flex h-7 max-w-[120px] items-center gap-2 rounded-md px-2 text-[13px] font-medium whitespace-nowrap text-fg hover:bg-active lg:max-w-[180px] 2xl:max-w-[280px]"
       >
-        <Icon name="globe" size={14} className="text-faint" />
-        {settings.url ? host(settings.url) : 'Aucun site'}
-        <Icon name="chevrons" size={10} className="text-faint" />
+        <Icon name="globe" size={14} className="shrink-0 text-faint" />
+        <span className="truncate">{settings.url ? host(settings.url) : 'Aucun site'}</span>
+        <Icon name="chevrons" size={10} className="shrink-0 text-faint" />
       </button>
       {open && (
         <>
@@ -88,15 +89,15 @@ export function TitleBar() {
   };
 
   return (
-    <header className="drag flex h-[46px] shrink-0 items-center gap-3 border-b border-line-soft bg-chrome pl-3.5">
+    <header className="drag flex h-[46px] shrink-0 items-center gap-2 overflow-hidden border-b border-line-soft bg-chrome pl-3.5 xl:gap-3">
       <Mark />
-      <span className="text-sm font-semibold tracking-[-0.04em]">parakeet</span>
-      <span className="text-[#4a4a52]">/</span>
+      <span className="hidden text-sm font-semibold tracking-[-0.04em] whitespace-nowrap xl:inline">parakeet</span>
+      <span className="hidden text-[#4a4a52] xl:inline">/</span>
       <RecentMenu />
 
       <EnvSwitch />
 
-      <form onSubmit={submit} className="no-drag flex h-7 min-w-0 flex-1 items-center gap-2 rounded-ui border border-line bg-bg px-2.5 focus-within:border-line-strong">
+      <form onSubmit={submit} className="no-drag flex h-7 min-w-[150px] flex-1 items-center gap-2 rounded-ui border border-line bg-bg px-2.5 focus-within:border-line-strong">
         <Dot className={env ? ENV_DOT[env] : 'bg-ghost'} />
         <label htmlFor="url" className="sr-only">
           Adresse
@@ -112,26 +113,36 @@ export function TitleBar() {
           placeholder="localhost:3000, 5173 ou https://…"
           className="min-w-0 flex-1 bg-transparent font-mono text-xs text-fg outline-none placeholder:text-ghost"
         />
-        <span className="whitespace-nowrap text-[11.5px] text-faint">{status === 'loaded' && detectedFrom ? detectedFrom : STATUS_LABEL[status]}</span>
+        <span className="hidden text-[11.5px] whitespace-nowrap text-faint lg:inline">{status === 'loaded' && detectedFrom ? detectedFrom : STATUS_LABEL[status]}</span>
       </form>
 
-      <button onClick={() => void api().reload()} aria-label="Recharger (Ctrl+R)" title="Recharger (Ctrl+R)" className="no-drag flex size-7 items-center justify-center rounded-ui border border-line text-muted hover:border-line-strong hover:text-fg">
+      <button onClick={() => void api().reload()} aria-label="Recharger (Ctrl+R)" title="Recharger (Ctrl+R)" className="no-drag flex size-7 shrink-0 items-center justify-center rounded-ui border border-line text-muted hover:border-line-strong hover:text-fg">
         <Icon name="reload" size={13} />
       </button>
       <button
         onClick={() => useStore.setState({ phoneOpen: true })}
         title="Ouvrir cette page sur ton téléphone"
-        className="no-drag flex h-7 items-center gap-2 rounded-ui border border-line px-2.5 text-xs text-muted hover:border-line-strong hover:text-fg"
+        aria-label="Sur mon téléphone"
+        className="no-drag flex h-7 shrink-0 items-center gap-2 rounded-ui border border-line px-2 text-xs whitespace-nowrap text-muted hover:border-line-strong hover:text-fg 2xl:px-2.5"
       >
         <Icon name="phone" size={13} />
-        Sur mon téléphone
+        <span className="hidden 2xl:inline">Sur mon téléphone</span>
         {!!phone?.clients.length && <span className="size-1.5 rounded-full bg-ok" aria-label="téléphone connecté" />}
       </button>
-      <button onClick={() => useStore.setState({ paletteOpen: true })} className="no-drag flex h-7 items-center gap-2.5 rounded-ui border border-line pr-2 pl-2.5 text-xs text-faint hover:border-line-strong">
-        Rechercher <Kbd>Ctrl K</Kbd>
+      <button
+        onClick={() => useStore.setState({ paletteOpen: true })}
+        aria-label="Rechercher (Ctrl K)"
+        title="Rechercher (Ctrl K)"
+        className="no-drag flex h-7 shrink-0 items-center gap-2.5 rounded-ui border border-line px-2 text-xs whitespace-nowrap text-faint hover:border-line-strong 2xl:pr-2 2xl:pl-2.5"
+      >
+        <Icon name="search" size={13} className="2xl:hidden" />
+        <span className="hidden 2xl:inline">Rechercher</span>
+        <span className="hidden 2xl:inline">
+          <Kbd>Ctrl K</Kbd>
+        </span>
       </button>
 
-      <div className="no-drag ml-1 flex h-full">
+      <div data-window-controls className="no-drag ml-1 flex h-full shrink-0">
         <button aria-label="Réduire" onClick={() => api().windowControl('minimize')} className="flex h-full w-[46px] items-center justify-center text-muted hover:bg-active hover:text-fg">
           <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M1 5h8" stroke="currentColor" strokeWidth="1.2" /></svg>
         </button>

@@ -21,6 +21,8 @@ export async function startVercelMock({ previewUrl, previewUrl2, prodUrl, port =
   const deployments = [
     { uid: 'dpl_prod', url: prodUrl, state: 'READY', target: 'production', createdAt: now - 86_400_000, inspectorUrl: 'https://vercel.com/x/maison-sable/dpl_prod', meta: { githubCommitRef: 'main', githubCommitSha: '4f0b7d0', githubCommitMessage: 'fix: footer mobile\n\nlong body', githubCommitAuthorLogin: 'stevenpersia' } },
     { uid: 'dpl_hero', url: previewUrl, state: 'READY', target: null, createdAt: now - 240_000, inspectorUrl: 'https://vercel.com/x/maison-sable/dpl_hero', meta: { githubCommitRef: 'feat/hero', githubCommitSha: 'a91c2e0', githubCommitMessage: 'hero: nouveau titre', githubCommitAuthorLogin: 'claude' } },
+    // A long branch name, like the ones Claude Code creates.
+    { uid: 'dpl_long', url: previewUrl, state: 'READY', target: null, createdAt: now - 120_000, meta: { githubCommitRef: 'claude/pensive-bardeen-a1b2c3-et-un-nom-tres-long', githubCommitMessage: 'refonte du footer' } },
     { uid: 'dpl_hero_old', url: previewUrl, state: 'READY', target: null, createdAt: now - 3_600_000, meta: { githubCommitRef: 'feat/hero', githubCommitMessage: 'hero: brouillon' } },
     { uid: 'dpl_og', url: previewUrl2 ?? previewUrl, state: 'BUILDING', target: null, createdAt: now - 60_000, meta: { githubCommitRef: 'feat/og-image', githubCommitMessage: 'ajoute og:image' }, creator: { username: 'claude' } },
     { uid: 'dpl_menu', url: 'maison-sable-git-fix-menu.vercel.app', state: 'ERROR', target: null, createdAt: now - 7_200_000, meta: { githubCommitRef: 'fix/menu', githubCommitMessage: 'menu burger iPad' } },

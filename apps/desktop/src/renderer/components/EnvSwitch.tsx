@@ -43,17 +43,17 @@ export function EnvSwitch() {
         disabled={disabled}
         onClick={() => (disabled ? undefined : on ? undefined : void switchEnv(env))}
         title={why[env] ?? (env === 'preview' && t.preview ? `${t.preview.branch ?? 'preview'} · ${t.preview.url}` : env === 'prod' ? (t.prod ?? '') : (t.local ?? ''))}
-        className={`flex h-6 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium ${on ? 'bg-raised text-fg shadow-[inset_0_0_0_1px_#2e2e33]' : disabled ? 'cursor-default text-ghost' : 'text-faint hover:text-fg'}`}
+        className={`flex h-6 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium whitespace-nowrap ${on ? 'bg-raised text-fg shadow-[inset_0_0_0_1px_#2e2e33]' : disabled ? 'cursor-default text-ghost' : 'text-faint hover:text-fg'}`}
       >
         <Dot className={ENV_DOT[env]} />
         {ENV_LABEL[env]}
-        {env === 'preview' && on && t.preview?.branch && <span className="max-w-28 truncate font-mono text-[10.5px] text-muted">{t.preview.branch}</span>}
+        {env === 'preview' && on && t.preview?.branch && <span className="hidden max-w-28 truncate font-mono text-[10.5px] text-muted 2xl:inline">{t.preview.branch}</span>}
       </button>
     );
   };
 
   return (
-    <div className="no-drag relative">
+    <div className="no-drag relative shrink-0">
       <div role="group" aria-label="Environnement" className="flex gap-0.5 rounded-lg border border-line bg-bg p-0.5">
         {button('local')}
         {button('preview')}

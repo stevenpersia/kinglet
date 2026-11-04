@@ -32,7 +32,7 @@ describe('VercelClient', () => {
 
   it('parses deployments: state, target, git metadata, first line of the message', async () => {
     const deps = await client().deployments('prj_maisonsable');
-    expect(deps.map((d) => d.id)).toEqual(['dpl_og', 'dpl_hero', 'dpl_hero_old', 'dpl_menu', 'dpl_prod']);
+    expect(deps.map((d) => d.id)).toEqual(['dpl_og', 'dpl_long', 'dpl_hero', 'dpl_hero_old', 'dpl_menu', 'dpl_prod']);
     const prod = deps.find((d) => d.production)!;
     expect(prod).toMatchObject({ url: 'https://maisonsable.fr', state: 'READY', branch: 'main', commitMessage: 'fix: footer mobile', author: 'stevenpersia' });
     expect(deps.find((d) => d.id === 'dpl_og')).toMatchObject({ state: 'BUILDING', author: 'claude' });
@@ -40,7 +40,7 @@ describe('VercelClient', () => {
 
   it('keeps the latest ready preview per branch', async () => {
     const previews = previewsByBranch(await client().deployments('prj_maisonsable'));
-    expect(previews.map((d) => d.id)).toEqual(['dpl_hero']);
+    expect(previews.map((d) => d.id)).toEqual(['dpl_long', 'dpl_hero']);
   });
 
   it('generates a protection bypass secret on request', async () => {

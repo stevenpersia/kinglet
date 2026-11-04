@@ -272,7 +272,7 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     await sleep(800);
     criteria.push({
       id: 'vercel-link',
-      ok: linked.project?.productionUrl === 'http://127.0.0.1:5175' && linked.deployments.length === 5,
+      ok: linked.project?.productionUrl === 'http://127.0.0.1:5175' && linked.deployments.length === 6,
       detail: `prod ${linked.project?.productionUrl}, ${linked.deployments.length} déploiements`,
     });
     // Encrypted when a keyring exists; otherwise clear text, but readable by the user only.
@@ -398,6 +398,31 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     const closed = await waitFor(async () => !(await js<boolean>(`!!document.querySelector('[aria-label="Sur mon téléphone"][role=dialog]')`)) && devices.entries().every((d) => d.view.getVisible()), 3000);
     criteria.push({ id: 'phone-dialog', ok: closed, detail: closed ? 'fermé avec Échap, aperçus réaffichés' : 'toujours ouvert' });
     await js(`window.parakeet.phone.stop()`);
+
+    // 20. Title bar fits at any window width (worst case: a preview with a long branch name)
+    await clickText('nav button', 'Aperçu');
+    await clickText('[aria-label=Environnement] button', 'Preview');
+    await waitFor(() => devices.entries().every((d) => d.view.webContents.getURL().startsWith('http://127.0.0.1:5176')), 6000);
+    await sleep(800);
+    const fits: string[] = [];
+    let allFit = true;
+    for (const width of [1600, 1280, 960]) {
+      win.setSize(width, 820);
+      await sleep(700);
+      const m = await js<{ overflow: number; wrapped: string[]; url: number }>(`(() => {
+        const h = document.querySelector('header');
+        const wrapped = [...h.querySelectorAll('button, form, [role=group]')].filter((el) => !el.closest('[data-window-controls]') && el.getBoundingClientRect().height > 32).map((el) => (el.getAttribute('aria-label') || el.textContent || el.tagName).trim().slice(0, 24));
+        return { overflow: h.scrollWidth - h.clientWidth, wrapped, url: h.querySelector('form').getBoundingClientRect().width };
+      })()`);
+      const ok = m.overflow <= 0 && m.wrapped.length === 0 && m.url >= 150;
+      allFit &&= ok;
+      fits.push(`${width}px : ${ok ? 'ok' : `débordement ${m.overflow}, sur 2 lignes [${m.wrapped.join(', ')}], adresse ${Math.round(m.url)} px`}`);
+      await shot(`18-barre-${width}`);
+    }
+    criteria.push({ id: 'titlebar-fits', ok: allFit, detail: fits.join(' · ') });
+    win.setSize(1440, 900);
+    await clickText('[aria-label=Environnement] button', 'Local');
+    await sleep(1000);
 
     // 10. Partage section
     ui({ type: 'shortcut', action: 'focus-url' });
