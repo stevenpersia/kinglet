@@ -76,6 +76,7 @@ const SHORTCUTS = (): [string, string][] => [
   ['Ctrl R', t('Reload devices', 'Recharger les appareils')],
   [t('Ctrl Shift O', 'Ctrl Maj O'), t('Portrait / landscape', 'Portrait / paysage')],
   [t('Ctrl Shift S', 'Ctrl Maj S'), t('Scroll sync', 'Synchro du défilement')],
+  ['Ctrl J', t('Claude panel', 'Panneau Claude')],
   ['Ctrl ,', t('Settings', 'Réglages')],
 ];
 
@@ -171,7 +172,15 @@ export function GeneralSettings() {
         </Row>
       </Group>
 
-      <div className="flex flex-col gap-2">
+      <Group>
+        <Row title={t('Guided setup', 'Accueil guidé')} hint={t('Accounts, first project and Claude, step by step.', 'Comptes, premier projet et Claude, étape par étape.')}>
+          <button onClick={() => set({ onboarded: false })} className="h-8 shrink-0 rounded-ui border border-[#2a2a2f] bg-active px-3 text-xs font-medium hover:border-line-strong">
+            {t('Show again', 'Revoir')}
+          </button>
+        </Row>
+      </Group>
+
+      <div className="flex shrink-0 flex-col gap-2">
         <span className="label">{t('Keyboard shortcuts', 'Raccourcis clavier')}</span>
         <Group>
           <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))]">

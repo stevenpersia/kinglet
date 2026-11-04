@@ -13,7 +13,10 @@ import { ClaudeTracker, type HookPayload } from './claude';
 import { ClaudeHooks } from './claude-hooks';
 import { lanAddresses, LanProxy } from './lan';
 import { Updater } from './updater';
-import { detectLocalServer } from './detect';
+import { detectLocalServer, detectLocalServers } from './detect';
+import { ClaudeChat, findClaude } from './claude-chat';
+import { GitHubService } from './github';
+import { execFile } from 'node:child_process';
 import { DeviceManager, shortcutFor } from './devices';
 import { PRESETS } from './presets';
 import { activeIds, allPresets, setActiveIds } from '../shared/devices';
@@ -375,6 +378,68 @@ async function createWindow() {
     },
   });
   app.on('will-quit', () => control.close());
+
+  // Claude inside Parakeet: Claude Code in the project folder, with this app's MCP server.
+  const chat = new ClaudeChat(
+    (state) => {
+      emit({ type: 'chat', state });
+      // Keep the session on the project, to resume it here or in a terminal.
+      const p = settings.value.projects.find((x) => x.id === state.projectId);
+      if (p && state.sessionId && p.claudeSession !== state.sessionId) {
+        settings.update(patchProject(settings.value, p.id, { claudeSession: state.sessionId }));
+        emit({ type: 'settings', settings: settings.value });
+      }
+    },
+    () => {
+      const { exe, args } = mcpLaunch();
+      return { command: exe, args: [...args, ...(process.getuid?.() === 0 ? ['--no-sandbox'] : [])], env: { PARAKEET_CONFIG_DIR: app.getPath('userData') } };
+    },
+  );
+  const chatContext = () => {
+    const ids = devices.entries().map((d) => `${d.preset.label} (${d.preset.width}×${d.preset.height}, id ${d.preset.id})`);
+    return [
+      'You are running inside Parakeet, a desktop app that shows the user’s site on several emulated devices side by side.',
+      `Page open now: ${devices.currentUrl ?? 'none'}. Devices shown: ${ids.join(', ') || 'none'}.`,
+      'The parakeet MCP tools see exactly what the user sees: after changing code, check the result yourself (screenshot, run_checks, get_console) before saying it is done. The dev server reloads the devices on its own.',
+      'Images joined to a message are captures of a device; a numbered clay pin marks the spot the user pointed at.',
+      `Answer in ${t('English', 'French')}, briefly.`,
+    ].join('\n');
+  };
+  ipcMain.handle('chat:cli', () => chat.cli());
+  ipcMain.handle('chat:state', (_e, projectId: string) => chat.state(projectId, settings.value.projects.find((p) => p.id === projectId)?.claudeSession ?? null));
+  ipcMain.handle('chat:send', (_e, projectId: string, text: string, attachments: import('../shared/types').ChatAttachment[]) => {
+    const project = settings.value.projects.find((p) => p.id === projectId);
+    if (!project?.folder) throw new Error(t('Choose the project folder first.', 'Choisis d’abord le dossier du projet.'));
+    chat.send({ projectId, folder: project.folder, sessionId: project.claudeSession ?? null, text, attachments, allowCommands: settings.value.claudeAllowCommands, context: chatContext() });
+  });
+  ipcMain.on('chat:stop', (_e, projectId: string) => chat.stop(projectId));
+  ipcMain.on('chat:clear', (_e, projectId: string) => {
+    chat.clear(projectId);
+    settings.update(patchProject(settings.value, projectId, { claudeSession: null }));
+    emit({ type: 'settings', settings: settings.value });
+  });
+  ipcMain.handle('chat:install-mcp', () => {
+    const bin = findClaude();
+    if (!bin) return { ok: false, output: t('Claude Code isn’t installed.', 'Claude Code n’est pas installé.') };
+    const { exe, args } = mcpLaunch();
+    return new Promise((resolve) =>
+      execFile(bin, ['mcp', 'add', '--scope', 'user', 'parakeet', '--', exe, ...args], { timeout: 20_000 }, (err, stdout, stderr) => {
+        const output = `${stdout}${stderr}`.trim();
+        resolve({ ok: !err || /already exists/i.test(output), output });
+      }),
+    );
+  });
+
+  // First run: local servers and their folders, GitHub.
+  ipcMain.handle('detect:servers', () => detectLocalServers());
+  ipcMain.handle('projects:find-folder', (_e, vercelProjectId: string) => findVercelFolder(vercelProjectId));
+  ipcMain.handle('preview:element-at', (_e, id: string, x: number, y: number) => devices.elementAt(id, x, y));
+
+  const github = new GitHubService(app.getPath('userData'), (state) => emit({ type: 'github', state }));
+  void github.restore();
+  ipcMain.handle('github:state', () => github.state);
+  ipcMain.handle('github:connect', (_e, token: string) => github.connect(token));
+  ipcMain.handle('github:disconnect', () => github.disconnect());
 
   ipcMain.handle('mcp:info', (): McpInfo => {
     const { exe, args } = mcpLaunch();

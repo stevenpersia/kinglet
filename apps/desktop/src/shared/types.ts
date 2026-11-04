@@ -54,6 +54,8 @@ export interface Project {
   favicon?: string | null;
   /** Devices of this project, when the settings keep one list per project. */
   active?: string[];
+  /** Claude Code session of the panel, to resume it (here or in a terminal). */
+  claudeSession?: string | null;
 }
 
 export interface Settings {
@@ -80,6 +82,12 @@ export interface Settings {
   deviceOrder: string[];
   /** One device list per project instead of one for all. */
   devicesPerProject: boolean;
+  /** The first-run window was shown (done or skipped). */
+  onboarded: boolean;
+  /** Claude panel in the left bar. */
+  claudePanel: boolean;
+  /** Let Claude run shell commands from the panel without asking (otherwise: edits only). */
+  claudeAllowCommands: boolean;
 }
 
 export type Language = 'system' | 'en' | 'fr';
@@ -238,7 +246,7 @@ export interface ShareStudio {
   fix: ShareFix;
 }
 
-export type ShortcutAction = 'reload' | 'focus-url' | 'palette' | 'toggle-scroll-sync' | 'toggle-landscape' | 'settings' | 'switcher' | 'overview' | `tab-${number}`;
+export type ShortcutAction = 'reload' | 'focus-url' | 'palette' | 'toggle-scroll-sync' | 'toggle-landscape' | 'settings' | 'switcher' | 'overview' | 'claude' | `tab-${number}`;
 
 /** A call made by Claude Code through the MCP server. */
 export interface McpActivity {
@@ -272,7 +280,56 @@ export type PreviewEvent =
   | { type: 'claude'; projects: Record<string, ClaudeProjectState> }
   | { type: 'logs'; entries: DeviceLog[]; cleared: string[] }
   | { type: 'perf'; perf: DevicePerf }
-  | { type: 'favicon'; url: string; pageUrl: string };
+  | { type: 'favicon'; url: string; pageUrl: string }
+  | { type: 'github'; state: GitHubState }
+  | { type: 'chat'; state: ChatState };
+
+export interface GitHubState {
+  connected: boolean;
+  user: { login: string; name: string | null } | null;
+  error: string | null;
+}
+
+/** A local dev server found on a usual port, and its folder when the process can be read. */
+export interface LocalServer {
+  url: string;
+  port: number;
+  folder: string | null;
+}
+
+/** Claude Code on this computer. */
+export interface ClaudeCli {
+  found: boolean;
+  path: string | null;
+  version: string | null;
+}
+
+/** Something joined to a message: a capture (with its pin), or text (an error, a check…). */
+export type ChatAttachment = { kind: 'image'; label: string; dataUrl: string } | { kind: 'context'; label: string; text: string };
+
+export type ChatItem =
+  | { id: string; kind: 'user'; text: string; attachments: { kind: ChatAttachment['kind']; label: string; thumb?: string }[] }
+  | { id: string; kind: 'text'; text: string }
+  | { id: string; kind: 'tool'; name: string; detail: string; status: 'running' | 'ok' | 'error' }
+  | { id: string; kind: 'notice'; level: 'info' | 'warning' | 'error'; text: string };
+
+/** The conversation with Claude for one project (one Claude Code session). */
+export interface ChatState {
+  projectId: string;
+  sessionId: string | null;
+  running: boolean;
+  items: ChatItem[];
+}
+
+/** What is under a point of a device's page. */
+export interface ElementInfo {
+  selector: string;
+  tag: string;
+  text: string;
+  html: string;
+  /** Box in CSS px of the device viewport. */
+  rect: { x: number; y: number; width: number; height: number };
+}
 
 export interface ParakeetApi {
   init(): Promise<InitState>;
@@ -339,5 +396,25 @@ export interface ParakeetApi {
     qr(url: string, local: boolean): Promise<PhoneQr>;
   };
   windowControl(action: 'minimize' | 'maximize' | 'close'): void;
+  /** Local dev servers running now (first-run screen, onboarding). */
+  localServers(): Promise<LocalServer[]>;
+  /** Folder on disk of a Vercel project (its .vercel/project.json), searched in the usual code folders. */
+  findFolder(vercelProjectId: string): Promise<string | null>;
+  /** The element under a point (CSS px) of a device's page. */
+  elementAt(deviceId: string, x: number, y: number): Promise<ElementInfo | null>;
+  github: {
+    state(): Promise<GitHubState>;
+    connect(token: string): Promise<GitHubState>;
+    disconnect(): Promise<GitHubState>;
+  };
+  chat: {
+    cli(): Promise<ClaudeCli>;
+    state(projectId: string): Promise<ChatState>;
+    send(projectId: string, text: string, attachments: ChatAttachment[]): Promise<void>;
+    stop(projectId: string): void;
+    clear(projectId: string): void;
+    /** Run `claude mcp add` (user scope) so Claude in a terminal sees Parakeet too. */
+    installMcp(): Promise<{ ok: boolean; output: string }>;
+  };
   onEvent(cb: (e: PreviewEvent) => void): () => void;
 }

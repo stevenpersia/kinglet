@@ -20,6 +20,9 @@ const base: Settings = {
   customDevices: [],
   deviceOrder: [],
   devicesPerProject: false,
+  onboarded: true,
+  claudePanel: true,
+  claudeAllowCommands: false,
 };
 
 describe('devices', () => {

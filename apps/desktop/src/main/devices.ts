@@ -1,7 +1,7 @@
 import { join } from 'node:path';
-import { BaseWindow, WebContentsView, ipcMain, session, type Input, type Session } from 'electron';
+import { BaseWindow, WebContentsView, ipcMain, screen, session, type Input, type Session } from 'electron';
 import { HEAVY_IMAGE_BYTES, getLanguage, t, type RenderedDevice } from '@parakeet/core';
-import type { DeviceLog, DevicePreset, DeviceSlot, PreviewEvent, ShortcutAction, Throttle } from '../shared/types';
+import type { DeviceLog, DevicePreset, DeviceSlot, ElementInfo, PreviewEvent, ShortcutAction, Throttle } from '../shared/types';
 
 export const PREVIEW_PARTITION = 'persist:parakeet-preview';
 
@@ -88,6 +88,7 @@ export function shortcutFor(input: Pick<Input, 'type' | 'key' | 'control' | 'met
   if (key === 's' && input.shift) return 'toggle-scroll-sync';
   if (key === 'p' && !input.shift) return 'switcher';
   if (key === 'a' && input.shift) return 'overview';
+  if (key === 'j' && !input.shift) return 'claude';
   if (/^[1-9]$/.test(key) && !input.shift) return `tab-${Number(key)}`;
   return null;
 }
@@ -144,6 +145,32 @@ export class DeviceManager {
     if (on === this.landscape) return;
     this.landscape = on;
     for (const d of this.devices.values()) void this.emulate(d);
+  }
+
+  /** The element under a point (CSS px of the device viewport): what "Show Claude" points at. */
+  async elementAt(id: string, x: number, y: number): Promise<ElementInfo | null> {
+    const d = this.devices.get(id);
+    if (!d) return null;
+    const code = `(() => {
+      const el = document.elementFromPoint(${Number(x)}, ${Number(y)});
+      if (!el) return null;
+      const part = (e) => {
+        if (e.id) return '#' + CSS.escape(e.id);
+        const cls = [...e.classList].slice(0, 2).map((c) => '.' + CSS.escape(c)).join('');
+        const parent = e.parentElement;
+        const same = parent ? [...parent.children].filter((c) => c.tagName === e.tagName) : [];
+        return e.tagName.toLowerCase() + cls + (same.length > 1 ? ':nth-of-type(' + (same.indexOf(e) + 1) + ')' : '');
+      };
+      const path = [];
+      for (let e = el; e && e !== document.body && path.length < 5; e = e.parentElement) { path.unshift(part(e)); if (e.id) break; }
+      const r = el.getBoundingClientRect();
+      return { selector: path.join(' > '), tag: el.tagName.toLowerCase(), text: (el.innerText || '').trim().slice(0, 200), html: el.outerHTML.slice(0, 600), rect: { x: r.x, y: r.y, width: r.width, height: r.height } };
+    })()`;
+    try {
+      return (await d.view.webContents.executeJavaScript(code)) as ElementInfo | null;
+    } catch {
+      return null;
+    }
   }
 
   /** Built-in and custom devices (custom ones can be added in the settings). */
@@ -448,9 +475,12 @@ export class DeviceManager {
     try {
       const full = await d.view.webContents.capturePage();
       if (full.isEmpty()) return null;
-      // With the emulation scale, the page is painted in the top-left `scale` part of the view.
+      // With the emulation scale, the page is sometimes painted in the top-left `scale` part of a
+      // larger surface, sometimes right at the view's size (after a resize): crop only in the first case.
       const { width, height } = full.getSize();
-      const img = d.scale < 0.999 ? full.crop({ x: 0, y: 0, width: Math.max(1, Math.round(width * d.scale)), height: Math.max(1, Math.round(height * d.scale)) }) : full;
+      const sf = screen.getDisplayMatching(this.window.getBounds()).scaleFactor;
+      const larger = width > d.view.getBounds().width * sf * 1.2;
+      const img = d.scale < 0.999 && larger ? full.crop({ x: 0, y: 0, width: Math.max(1, Math.round(width * d.scale)), height: Math.max(1, Math.round(height * d.scale)) }) : full;
       return img.isEmpty() ? null : `data:image/jpeg;base64,${img.toJPEG(quality).toString('base64')}`;
     } catch {
       return null; // not painted yet

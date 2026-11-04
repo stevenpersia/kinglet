@@ -2,6 +2,8 @@ import { t, type Issue } from '@parakeet/core';
 import { useStore } from '../store';
 import { CheckGroups } from './Checks';
 import { Dot, Icon } from './Icons';
+import { ClaudePanel } from './ClaudePanel';
+import { askCheck } from './askCheck';
 
 const formatBytes = (b: number) => (b < 1024 ? t(`${b} B`, `${b} o`) : t(`${Math.round(b / 1024)} KB`, `${Math.round(b / 1024)} Ko`));
 const sevColor = { error: 'bg-err', warning: 'bg-warn' } as const;
@@ -129,7 +131,7 @@ function ChecksBody() {
   if (!report) return null;
   return (
     <div className="flex flex-col gap-4">
-      <CheckGroups checks={report.checks} compact />
+      <CheckGroups checks={report.checks} compact onAsk={askCheck()} />
       <div className="flex gap-1.5">
         <button onClick={() => void analyze(report.url, { refreshSite: true })} disabled={analyzing} className="flex h-8 flex-1 items-center justify-center gap-2 rounded-ui border border-[#2a2a2f] bg-active px-3 text-xs font-medium hover:border-line-strong disabled:opacity-60">
           <Icon name="reload" size={12} className={analyzing ? 'animate-spin' : ''} />
@@ -160,6 +162,7 @@ function PageBody() {
 export function SidePanel() {
   const { panel, togglePanel, share, shareError, status, error, url, report, analyzing, analyze } = useStore();
   if (!panel) return null;
+  if (panel === 'claude') return <ClaudePanel />;
   let body;
   if (!url) body = <p className="text-faint">{t('Enter your dev server’s address at the top, or just its port (e.g. 3000).', 'Saisis l’adresse de ton serveur de dev en haut, ou juste son port (ex. 3000).')}</p>;
   else if (status === 'failed') body = <p className="text-faint">{error}</p>;

@@ -11,6 +11,7 @@ import { ClaudeBanner } from './components/ClaudeBanner';
 import { ProjectSwitcher } from './components/ProjectSwitcher';
 import { ProjectsPage } from './components/ProjectsPage';
 import { Stage } from './components/Stage';
+import { Onboarding } from './components/Onboarding';
 import { StatusBar } from './components/StatusBar';
 import { TitleBar } from './components/TitleBar';
 import { api, useStore } from './store';
@@ -23,6 +24,7 @@ function wantsAnalysis() {
 
 export function App() {
   const { ready, section } = useStore();
+  const onboarded = useStore((s) => s.settings.onboarded);
 
   useEffect(() => {
     const store = useStore.getState();
@@ -85,6 +87,12 @@ export function App() {
         case 'claude':
           useStore.setState({ claude: e.projects });
           break;
+        case 'github':
+          useStore.setState({ github: e.state });
+          break;
+        case 'chat':
+          useStore.setState((st) => ({ chats: { ...st.chats, [e.state.projectId]: e.state } }));
+          break;
         case 'shortcut':
           if (e.action === 'reload') void api().reload();
           else if (e.action === 'focus-url') useStore.setState({ urlFocusTick: s.urlFocusTick + 1 });
@@ -92,6 +100,7 @@ export function App() {
           else if (e.action === 'settings') s.setSection('reglages');
           else if (e.action === 'toggle-landscape') void s.updateSettings({ landscape: !s.settings.landscape });
           else if (e.action === 'toggle-scroll-sync') void s.updateSettings({ scrollSync: !s.settings.scrollSync });
+          else if (e.action === 'claude') s.settings.claudePanel && s.togglePanel('claude');
           else if (e.action === 'switcher') useStore.setState({ switcherOpen: !s.switcherOpen, paletteOpen: false });
           else if (e.action === 'overview') s.setSection(s.section === 'projets' ? 'apercu' : 'projets');
           else if (e.action.startsWith('tab-')) {
@@ -108,7 +117,7 @@ export function App() {
       await store.loadMcp();
       const claude = await api().claude.state();
       useStore.setState({ logs: await api().logs() });
-      useStore.setState({ vercel: await api().vercel.state(), update: await api().update.state(), claude: claude.projects, claudeHooks: claude.hooks });
+      useStore.setState({ vercel: await api().vercel.state(), update: await api().update.state(), claude: claude.projects, claudeHooks: claude.hooks, github: await api().github.state() });
     });
     return off;
   }, []);
@@ -144,6 +153,7 @@ export function App() {
       <Palette />
       <ProjectSwitcher />
       <PhoneDialog />
+      {ready && !onboarded && <Onboarding />}
     </div>
   );
 }

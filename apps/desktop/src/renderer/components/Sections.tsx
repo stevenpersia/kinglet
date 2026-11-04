@@ -1,6 +1,7 @@
 import { t } from '@parakeet/core';
 import { activePresets, useStore } from '../store';
 import { CheckGroups } from './Checks';
+import { askCheck } from './askCheck';
 import { Icon } from './Icons';
 import { CopyButton, SLASH } from './Mcp';
 
@@ -68,7 +69,7 @@ export function ChecksPage() {
           </button>
         </div>
       </div>
-      <CheckGroups checks={report.checks} />
+      <CheckGroups checks={report.checks} onAsk={askCheck()} />
     </main>
   );
 }

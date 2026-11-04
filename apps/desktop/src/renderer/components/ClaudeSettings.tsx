@@ -1,9 +1,59 @@
 import { t } from '@parakeet/core';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { api, useStore } from '../store';
 
 const btn = 'flex h-8 shrink-0 items-center justify-center rounded-ui border border-[#2a2a2f] bg-active px-3 font-medium text-fg hover:border-line-strong disabled:opacity-60';
 const primary = 'flex h-8 shrink-0 items-center justify-center rounded-ui bg-fg px-3 font-semibold text-bg disabled:opacity-60';
+
+function Switch({ label, on, onChange }: { label: string; on: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <button role="switch" aria-checked={on} aria-label={label} onClick={() => onChange(!on)} className={`relative h-[18px] w-[30px] shrink-0 rounded-full ${on ? 'bg-fg' : 'bg-raised shadow-[inset_0_0_0_1px_#34343a]'}`}>
+      <span className={`absolute top-[3px] size-3 rounded-full transition-[left] motion-reduce:transition-none ${on ? 'left-[15px] bg-bg' : 'left-[3px] bg-faint'}`} />
+    </button>
+  );
+}
+
+/** Claude in Parakeet: the panel, what it may do, and the Claude Code it runs. */
+export function ClaudePanelSettings() {
+  const { settings, updateSettings } = useStore();
+  const [cli, setCli] = useState<import('../../shared/types').ClaudeCli | null>(null);
+  useEffect(() => {
+    void api().chat.cli().then(setCli);
+  }, []);
+  const row = 'flex items-center gap-4 border-t border-line-soft px-3.5 py-3 first:border-t-0';
+  return (
+    <div className="shrink-0 overflow-hidden rounded-[10px] border border-line bg-card">
+      <div className={row}>
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="font-medium">Claude Code</span>
+          <span className="truncate text-xs text-muted">
+            {!cli ? '…' : cli.found ? `${cli.version ?? ''} · ${cli.path}` : t('Not installed: npm install -g @anthropic-ai/claude-code', 'Pas installé : npm install -g @anthropic-ai/claude-code')}
+          </span>
+        </div>
+        <span className={`size-2 shrink-0 rounded-full ${cli?.found ? 'bg-ok' : 'bg-ghost'}`} aria-hidden="true" />
+      </div>
+      <div className={row}>
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="font-medium">{t('Claude panel', 'Panneau Claude')}</span>
+          <span className="text-xs text-muted">{t('Ask Claude next to the devices (left bar, Ctrl J).', 'Demander à Claude à côté des appareils (barre de gauche, Ctrl J).')}</span>
+        </div>
+        <Switch label={t('Claude panel', 'Panneau Claude')} on={settings.claudePanel} onChange={(claudePanel) => void updateSettings({ claudePanel })} />
+      </div>
+      <div className={row}>
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="font-medium">{t('Let Claude run commands', 'Laisser Claude lancer des commandes')}</span>
+          <span className="text-xs text-muted">
+            {t(
+              'Off: Claude edits files in the project folder and uses Parakeet, but shell commands (npm install, git…) are blocked and shown in the chat. On: everything runs without asking.',
+              'Désactivé : Claude modifie les fichiers du dossier et utilise Parakeet, mais les commandes (npm install, git…) sont bloquées et signalées. Activé : tout s’exécute sans demander.',
+            )}
+          </span>
+        </div>
+        <Switch label={t('Let Claude run commands', 'Laisser Claude lancer des commandes')} on={settings.claudeAllowCommands} onChange={(claudeAllowCommands) => void updateSettings({ claudeAllowCommands })} />
+      </div>
+    </div>
+  );
+}
 
 /** Opt-in: Claude Code hooks that tell Parakeet what Claude is doing on each project. */
 export function ClaudeSettings() {

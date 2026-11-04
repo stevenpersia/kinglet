@@ -511,6 +511,12 @@ export function SharePage() {
               {t(`Nothing to fix for ${card.label}.`, `Rien à corriger pour ${card.label}.`)}
             </p>
           )}
+          {studio.fix.changes.length > 0 && useStore.getState().settings.claudePanel && (
+            <button onClick={() => useStore.getState().askClaude(studio.fix.prompt)} className="flex h-8 items-center justify-center gap-2 rounded-ui border border-[rgba(217,119,87,0.35)] bg-[rgba(217,119,87,0.08)] text-xs font-semibold text-[#d97757] hover:bg-[rgba(217,119,87,0.14)]">
+              <Icon name="spark" size={12} />
+              {t('Ask Claude to fix it', 'Demander à Claude de corriger')}
+            </button>
+          )}
           <div className="h-px bg-line-soft" />
           <FixDetails studio={studio} />
         </aside>

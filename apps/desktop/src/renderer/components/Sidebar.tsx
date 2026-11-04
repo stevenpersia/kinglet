@@ -2,7 +2,7 @@ import { t } from '@parakeet/core';
 import { useStore, type Panel, type Section } from '../store';
 import { Icon, type IconName } from './Icons';
 
-type Item = { id: string; label: string; icon: IconName; on: boolean; run: () => void; badge?: React.ReactNode; hint?: string };
+type Item = { id: string; label: string; icon: IconName; on: boolean; run: () => void; badge?: React.ReactNode; hint?: string; claude?: boolean };
 
 /**
  * Narrow icon rail. On top, what you use all along while developing (devices, console, deployments);
@@ -21,6 +21,7 @@ export function Rail() {
     { id: 'apercu', label: t('Devices', 'Appareils'), icon: 'eye', on: onDevices, run: go('apercu') },
     { id: 'console', label: 'Console', icon: 'terminal', on: onDevices && consoleOpen, run: () => toggleConsole(), badge: consoleErrors > 0 ? <span className="text-err">{consoleErrors}</span> : null },
     { id: 'deploiements', label: t('Deployments', 'Déploiements'), icon: 'tri', on: section === 'deploiements', run: go('deploiements') },
+    ...(s.settings.claudePanel ? [{ id: 'claude', label: 'Claude', icon: 'spark' as IconName, on: onDevices && panel === 'claude', run: open('claude'), hint: 'Ctrl J', claude: true }] : []),
   ];
   const secondary: Item[] = [
     { id: 'page', label: 'Page', icon: 'page', on: onDevices && panel === 'page', run: open('page') },
@@ -44,10 +45,17 @@ export function Rail() {
       aria-label={it.label}
       title={it.hint ? `${it.label} (${it.hint})` : it.label}
       className={`relative flex shrink-0 items-center justify-center ${small ? 'size-8 rounded-lg' : 'size-10 rounded-[9px]'} ${
-        it.on ? 'bg-active text-fg shadow-[inset_0_0_0_1px_#26262b]' : small ? 'text-ghost hover:bg-active/60 hover:text-fg' : 'text-faint hover:bg-active/60 hover:text-fg'
+        it.claude
+          ? it.on
+            ? 'bg-[rgba(217,119,87,0.14)] text-[#d97757] shadow-[inset_0_0_0_1px_rgba(217,119,87,0.35)]'
+            : 'text-[#d97757]/80 hover:bg-[rgba(217,119,87,0.1)] hover:text-[#d97757]'
+          : it.on
+            ? 'bg-active text-fg shadow-[inset_0_0_0_1px_#26262b]'
+            : small ? 'text-ghost hover:bg-active/60 hover:text-fg' : 'text-faint hover:bg-active/60 hover:text-fg'
       }`}
     >
       <Icon name={it.icon} size={small ? 14 : 16} />
+      {it.claude && s.settings.activeId && s.chats[s.settings.activeId]?.running && <span aria-hidden="true" className="claude-dot absolute top-[6px] right-[6px] size-1.5 rounded-full bg-[#d97757]" />}
       {it.badge && <span className="absolute top-[2px] right-[2px] font-mono text-[9px] leading-none">{it.badge}</span>}
     </button>
   );

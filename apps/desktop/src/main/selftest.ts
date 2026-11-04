@@ -55,6 +55,17 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
       const es = devices.entries();
       return es.length > 0 && es.every((d) => !d.view.webContents.isLoading() && d.view.webContents.getURL().startsWith('http'));
     }, 20_000);
+    // First run: the guided setup opens over the devices; it can be skipped.
+    const ui0 = <T,>(code: string) => win.webContents.executeJavaScript(code) as Promise<T>;
+    const onboardingShown = await waitFor(() => ui0<boolean>(`!!document.querySelector('[role=dialog][aria-modal=true] [role=tablist]')`), 5000);
+    await shot('00-accueil-guide');
+    await ui0(`[...document.querySelectorAll('[role=dialog] [role=tab]')].find((b) => b.textContent.includes('Claude'))?.click()`);
+    await sleep(500);
+    await shot('00b-accueil-claude');
+    const fakeFound = await ui0<boolean>(`document.querySelector('[role=dialog]')?.textContent.includes('9.9.9') ?? false`);
+    await ui0(`window.parakeet.updateSettings({ onboarded: true })`);
+    const onboardingGone = await waitFor(async () => !(await ui0<boolean>(`!!document.querySelector('[role=dialog][aria-modal=true]')`)) && devices.entries().every((d) => d.view.getVisible()), 5000);
+    criteria.push({ id: 'onboarding', ok: onboardingShown && onboardingGone && fakeFound, detail: `affiché ${onboardingShown} · Claude Code trouvé ${fakeFound} · passé ${onboardingGone}` });
     await sleep(1500); // inspector fetch + fonts
     criteria.push({ id: 'devices-loaded', ok: loaded, detail: `${devices.entries().length} vues chargées sur ${devices.currentUrl}` });
     await shot('01-apercu');
@@ -573,6 +584,54 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
       detail: `request ${fast.net} → ${slow.net} ms, computation ${fast.cpu} → ${slow.cpu} ms (slow 3G, CPU ×4), back to ${back.net} ms`,
     });
     await clickText('nav button', 'Console'); // close the drawer
+
+    // 26a. Claude panel: Claude Code (a stand-in here) in the project folder, with Parakeet's MCP, a pointed spot joined.
+    await js(`(async () => {
+      const s = await window.parakeet.updateSettings({});
+      await window.parakeet.updateSettings({ projects: s.projects.map((p) => (p.id === s.activeId ? { ...p, folder: ${JSON.stringify(process.env.PARAKEET_DEMO_DIR ?? '/tmp')} } : p)) });
+    })()`);
+    await clickText('nav button', 'Claude');
+    await waitFor(() => js<boolean>(`!!document.querySelector('textarea[aria-label="Message to Claude"]')`), 4000);
+    await sleep(1000); // the devices settle at their new size next to the panel
+    await clickText('aside[aria-label=Claude] button', 'Show');
+    await waitFor(() => js<boolean>(`!!document.querySelector('.cursor-crosshair')`), 4000);
+    await sleep(400);
+    await shot('28-claude-montrer');
+    await js(`(() => {
+      const el = document.querySelector('.cursor-crosshair');
+      const r = el.getBoundingClientRect();
+      el.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: r.left + r.width * 0.5, clientY: r.top + 30 }));
+    })()`);
+    const pointStart = Date.now();
+    const pinned = await waitFor(() => js<boolean>(`[...document.querySelectorAll('aside[aria-label=Claude] img')].length > 0`), 15000);
+    const pointMs = Date.now() - pointStart;
+    await js(`(() => {
+      const ta = document.querySelector('textarea[aria-label="Message to Claude"]');
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(ta, 'The title is too big here, make it smaller');
+      ta.dispatchEvent(new Event('input', { bubbles: true }));
+    })()`);
+    await sleep(200);
+    await js(`document.querySelector('textarea[aria-label="Message to Claude"]').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))`);
+    let reply = '';
+    const replied = await waitFor(async () => (reply = await js<string>(`[...document.querySelectorAll('aside[aria-label=Claude] p')].map((p) => p.textContent).find((x) => x.includes('FAKE-CLAUDE')) ?? ''`)) !== '', 8000);
+    await sleep(500);
+    await shot('29-claude-reponse');
+    criteria.push({
+      id: 'claude-panel',
+      ok: pinned && pointMs < 3000 && replied && reply.includes('1 image') && reply.includes('mcp parakeet') && reply.includes('pointed yes') && reply.includes(process.env.PARAKEET_DEMO_DIR ?? '/tmp'),
+      detail: `${reply || `épingle ${pinned}, pas de réponse`} · épingle en ${pointMs} ms`,
+    });
+    // A second message resumes the same Claude Code session.
+    await js(`(() => {
+      const ta = document.querySelector('textarea[aria-label="Message to Claude"]');
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(ta, 'Thanks');
+      ta.dispatchEvent(new Event('input', { bubbles: true }));
+    })()`);
+    await sleep(200);
+    await js(`document.querySelector('textarea[aria-label="Message to Claude"]').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))`);
+    const resumed = await waitFor(() => js<boolean>(`[...document.querySelectorAll('aside[aria-label=Claude] p')].some((p) => p.textContent.includes('resume fake-session-1'))`), 8000);
+    criteria.push({ id: 'claude-resume', ok: resumed, detail: resumed ? 'session fake-session-1 reprise' : 'session non reprise' });
+    await clickText('nav button', 'Claude'); // close the panel
 
     // 26b. Settings: a custom device is emulated like the built-in ones, then removed.
     await js(`window.parakeet.updateSettings({ customDevices: [{ id: 'custom-selftest', label: 'Fold', width: 673, height: 841, dpr: 2.625, kind: 'phone' }], active: ['iphone-16', 'ipad-air', 'custom-selftest'] })`);
