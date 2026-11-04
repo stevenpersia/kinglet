@@ -82,6 +82,8 @@ export interface Settings {
   deviceOrder: string[];
   /** One device list per project instead of one for all. */
   devicesPerProject: boolean;
+  /** Dark mode, reduced motion, high contrast, on every device. */
+  media: MediaPrefs;
   /** The first-run window was shown (done or skipped). */
   onboarded: boolean;
   /** Claude panel in the left bar. */
@@ -91,6 +93,13 @@ export interface Settings {
 }
 
 export type Language = 'system' | 'en' | 'fr';
+
+/** User preferences the devices pretend to have (CSS media features). */
+export interface MediaPrefs {
+  colorScheme: 'auto' | 'light' | 'dark';
+  reducedMotion: boolean;
+  moreContrast: boolean;
+}
 
 export interface Throttle {
   network: 'off' | '4g' | '3g';
@@ -284,6 +293,17 @@ export type PreviewEvent =
   | { type: 'github'; state: GitHubState }
   | { type: 'chat'; state: ChatState };
 
+/** The pull request opened from a branch, and the state of its CI. */
+export interface PullRequest {
+  branch: string;
+  number: number;
+  title: string;
+  state: 'open' | 'draft' | 'merged' | 'closed';
+  url: string;
+  /** Check runs of the PR's last commit (null: none). */
+  checks: { state: 'success' | 'failure' | 'pending'; passed: number; total: number } | null;
+}
+
 export interface GitHubState {
   connected: boolean;
   user: { login: string; name: string | null } | null;
@@ -416,6 +436,8 @@ export interface ParakeetApi {
   elementAt(deviceId: string, x: number, y: number): Promise<ElementInfo | null>;
   github: {
     state(): Promise<GitHubState>;
+    /** Pull request of each branch of a repository ("owner/name"), by branch. */
+    pullRequests(repo: string, branches: string[]): Promise<Record<string, PullRequest>>;
     connect(token: string): Promise<GitHubState>;
     disconnect(): Promise<GitHubState>;
   };

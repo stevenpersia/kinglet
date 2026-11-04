@@ -350,9 +350,14 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
       detail: cols.map((c) => `${c.env}: « ${c.values['title']} » ${c.score?.passed ?? '?'} ok`).join(' · '),
     });
 
+    // GitHub: the pull request of each preview branch, with its CI.
+    await js(`window.parakeet.github.connect(${JSON.stringify(process.env.PARAKEET_VERCEL_TEST_TOKEN ?? '')})`);
+    await sleep(300);
     await clickText('nav button', 'Deployments');
-    await sleep(900);
+    const prShown = await waitFor(() => js<boolean>(`document.querySelector('main')?.textContent.includes('#12') ?? false`), 6000);
+    const prText = await js<string>(`[...document.querySelectorAll('main [role=link]')].map((e) => e.textContent).join(' | ')`);
     await shot('14-deploiements');
+    criteria.push({ id: 'github-pr', ok: prShown && /#12\s*open/.test(prText) && prText.includes('2/3'), detail: prText || 'aucune PR affichée' });
     await clickText('nav button', 'Compare');
     await sleep(2500);
     await shot('15-comparer');
@@ -584,6 +589,17 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
       detail: `request ${fast.net} → ${slow.net} ms, computation ${fast.cpu} → ${slow.cpu} ms (slow 3G, CPU ×4), back to ${back.net} ms`,
     });
     await clickText('nav button', 'Console'); // close the drawer
+
+    // 26-media. Dark mode, reduced motion, high contrast: what the pages see in their media queries.
+    await js(`window.parakeet.updateSettings({ media: { colorScheme: 'dark', reducedMotion: true, moreContrast: true } })`);
+    const mq = `[matchMedia('(prefers-color-scheme: dark)').matches, matchMedia('(prefers-reduced-motion: reduce)').matches, matchMedia('(prefers-contrast: more)').matches]`;
+    const mediaOn = await waitFor(async () => (await Promise.all(devices.entries().map((d) => d.view.webContents.executeJavaScript(mq) as Promise<boolean[]>))).every((r) => r.every(Boolean)), 3000);
+    await sleep(300);
+    await shot('31-mode-sombre');
+    await js(`window.parakeet.updateSettings({ media: { colorScheme: 'light', reducedMotion: false, moreContrast: false } })`);
+    const mediaOff = await waitFor(async () => (await Promise.all(devices.entries().map((d) => d.view.webContents.executeJavaScript(mq) as Promise<boolean[]>))).every((r) => r.every((x) => !x)), 3000);
+    await js(`window.parakeet.updateSettings({ media: { colorScheme: 'auto', reducedMotion: false, moreContrast: false } })`);
+    criteria.push({ id: 'media', ok: mediaOn && mediaOff, detail: `sombre + animations réduites + contraste : ${mediaOn ? 'vus par les pages' : 'absents'} · clair : ${mediaOff ? 'ok' : 'échec'}` });
 
     // 26a. Claude panel: Claude Code (a stand-in here) in the project folder, with Parakeet's MCP, a pointed spot joined.
     await js(`(async () => {

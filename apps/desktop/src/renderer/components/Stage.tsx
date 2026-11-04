@@ -49,6 +49,7 @@ function DeviceToolbar({ scale }: { scale: number }) {
         </div>
       ))}
       <div className="ml-auto flex items-center gap-1.5">
+        <MediaMenu />
         <ThrottleMenu />
         <button aria-pressed={settings.landscape} onClick={() => void updateSettings({ landscape: !settings.landscape })} title={t('Landscape (Ctrl+Shift+O)', 'Paysage (Ctrl+Maj+O)')} className={chip(settings.landscape)}>
           <Icon name="rotate" size={13} />
@@ -74,6 +75,72 @@ const CPU: { id: Throttle['cpu']; label: () => string; hint: () => string }[] = 
   { id: 4, label: () => t('Mid-range phone', 'Téléphone moyen'), hint: () => 'CPU ×4' },
   { id: 6, label: () => t('Low-end phone', 'Téléphone d’entrée de gamme'), hint: () => 'CPU ×6' },
 ];
+
+/** Dark mode, reduced motion, high contrast on every device (CSS media features). */
+function MediaMenu() {
+  const { settings, updateSettings, openOverlay, closeOverlay } = useStore();
+  const [open, setOpen] = useState(false);
+  const m = settings.media;
+  const on = m.colorScheme !== 'auto' || m.reducedMotion || m.moreContrast;
+  const toggle = async () => {
+    if (open) {
+      setOpen(false);
+      closeOverlay();
+    } else {
+      await openOverlay();
+      setOpen(true);
+    }
+  };
+  const set = (patch: Partial<typeof m>) => void updateSettings({ media: { ...m, ...patch } });
+  const row = (active: boolean) => `flex w-full items-center justify-between gap-3 rounded-md px-2.5 py-1.5 text-left text-xs ${active ? 'bg-active text-fg' : 'text-muted hover:bg-active/60 hover:text-fg'}`;
+  const label = [m.colorScheme === 'dark' ? t('Dark', 'Sombre') : m.colorScheme === 'light' ? t('Light', 'Clair') : null, m.reducedMotion ? t('No motion', 'Sans animation') : null, m.moreContrast ? t('Contrast', 'Contraste') : null].filter(Boolean).join(' · ');
+  return (
+    <div className="relative">
+      <button
+        aria-pressed={on}
+        aria-expanded={open}
+        onClick={toggle}
+        title={t('Dark mode, reduced motion, high contrast', 'Mode sombre, animations réduites, contraste élevé')}
+        className={`inline-flex h-[26px] items-center gap-1.5 rounded-md border px-2.5 text-xs ${on ? 'border-[#3a3f5c] bg-[rgba(138,180,248,0.08)] font-medium text-local' : 'border-line text-muted hover:border-line-strong'}`}
+      >
+        <svg width="13" height="13" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18zM12 3a9 9 0 0 1 0 18" stroke="currentColor" strokeWidth="1.8" fill="none" /><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor" /></svg>
+        {on ? label : t('Appearance', 'Apparence')}
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={toggle} />
+          <div role="menu" className="absolute top-8 right-0 z-50 w-72 rounded-[10px] border border-line bg-card p-1 shadow-2xl shadow-black/60">
+            <div className="label px-2.5 pt-2 pb-1.5">{t('Theme', 'Thème')}</div>
+            {(
+              [
+                ['auto', t('Site default', 'Celui du site'), t('no preference', 'pas de préférence')],
+                ['light', t('Light', 'Clair'), 'prefers-color-scheme: light'],
+                ['dark', t('Dark', 'Sombre'), 'prefers-color-scheme: dark'],
+              ] as const
+            ).map(([id, text, hint]) => (
+              <button key={id} role="menuitemradio" aria-checked={m.colorScheme === id} onClick={() => set({ colorScheme: id })} className={row(m.colorScheme === id)}>
+                {text}
+                <span className="font-mono text-[10.5px] text-ghost">{hint}</span>
+              </button>
+            ))}
+            <div className="label px-2.5 pt-3 pb-1.5">{t('Accessibility', 'Accessibilité')}</div>
+            <button role="menuitemcheckbox" aria-checked={m.reducedMotion} onClick={() => set({ reducedMotion: !m.reducedMotion })} className={row(m.reducedMotion)}>
+              {t('Reduced motion', 'Animations réduites')}
+              <span className="font-mono text-[10.5px] text-ghost">{m.reducedMotion ? '✓' : ''} reduce</span>
+            </button>
+            <button role="menuitemcheckbox" aria-checked={m.moreContrast} onClick={() => set({ moreContrast: !m.moreContrast })} className={row(m.moreContrast)}>
+              {t('High contrast', 'Contraste élevé')}
+              <span className="font-mono text-[10.5px] text-ghost">{m.moreContrast ? '✓' : ''} more</span>
+            </button>
+            <p className="m-0 px-2.5 pt-2.5 pb-2 text-[11.5px] leading-normal text-faint">
+              {t('What the page sees in its CSS media queries, on every device. Applies right away, no reload.', 'Ce que la page voit dans ses media queries CSS, sur tous les appareils. Immédiat, sans recharger.')}
+            </p>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
 
 /** Slow network and CPU for phones and tablets: a site is much slower there than on a PC. */
 function ThrottleMenu() {

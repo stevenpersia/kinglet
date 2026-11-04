@@ -49,6 +49,12 @@ export async function startVercelMock({ previewUrl, previewUrl2, prodUrl, port =
         if (url.searchParams.get('projectId') !== 'prj_maisonsable') return send(200, { deployments: [] });
         return send(200, { deployments: deployments.slice(0, Number(url.searchParams.get('limit') ?? 20)) });
       }
+      // GitHub (same server in tests): the account, the PR of feat/hero and its CI.
+      if (p === '/user') return send(200, { login: 'stevenpersia', name: 'Steven' });
+      if (p === '/repos/stevenpersia/maison-sable/pulls')
+        return send(200, url.searchParams.get('head') === 'stevenpersia:feat/hero' ? [{ number: 12, title: 'Nouveau titre du hero', state: 'open', draft: false, merged_at: null, html_url: 'https://github.com/stevenpersia/maison-sable/pull/12', head: { sha: 'a91c2e0' } }] : []);
+      if (p === '/repos/stevenpersia/maison-sable/commits/a91c2e0/check-runs')
+        return send(200, { check_runs: [{ status: 'completed', conclusion: 'success' }, { status: 'completed', conclusion: 'success' }, { status: 'completed', conclusion: 'failure' }] });
       if (p === '/v1/projects/prj_maisonsable/protection-bypass' && req.method === 'PATCH') {
         const body = JSON.parse(raw || '{}');
         if (!body.generate) return send(400, { error: { message: 'missing generate' } });

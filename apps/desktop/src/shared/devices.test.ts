@@ -20,6 +20,7 @@ const base: Settings = {
   customDevices: [],
   deviceOrder: [],
   devicesPerProject: false,
+  media: { colorScheme: 'auto', reducedMotion: false, moreContrast: false },
   onboarded: true,
   claudePanel: true,
   claudeAllowCommands: false,

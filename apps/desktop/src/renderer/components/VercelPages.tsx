@@ -1,3 +1,4 @@
+import { PrBadge, usePullRequests } from './PullRequest';
 import { samePageOn, t, type VercelDeployment } from '@parakeet/core';
 import { useEffect, useState } from 'react';
 import type { CompareColumn, EnvId } from '../../shared/types';
@@ -42,6 +43,7 @@ export function DeploymentsPage() {
   const vercel = { ...projectVercel(s), syncedAt: s.vercel?.syncedAt ?? null, error: s.vercel?.error ?? null };
   const [filter, setFilter] = useState<'all' | 'prod' | 'preview'>('all');
   const [refreshing, setRefreshing] = useState(false);
+  const prs = usePullRequests();
   if (!vercel.project) return <NotLinked what={t('Deployments', 'Déploiements')} />;
 
   const list = vercel.deployments.filter((d) => filter === 'all' || (filter === 'prod' ? d.production : !d.production));
@@ -95,6 +97,7 @@ export function DeploymentsPage() {
                 <span className="flex items-center gap-2">
                   <span className="truncate font-mono text-[12.5px] text-fg">{d.branch ?? d.id}</span>
                   {d.production && <span className="rounded border border-prod/40 px-1.5 text-[10.5px] font-medium text-prod">PROD</span>}
+                  {!d.production && d.branch && prs[d.branch] && <PrBadge pr={prs[d.branch]!} />}
                   {showing && <span className="text-[11px] text-faint">{t('shown', 'affiché')}</span>}
                 </span>
                 <span className="truncate text-xs text-muted">{d.commitMessage ?? d.url}</span>

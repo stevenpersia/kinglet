@@ -16,3 +16,4 @@ h1{font-family:Georgia,serif;font-weight:500;font-size:clamp(30px,6vw,56px);line
 article{display:flex;flex-direction:column;gap:4px;font-size:14px}
 .img{aspect-ratio:1;border-radius:12px;background:#E2D7CC}
 a{color:inherit}
+@media (prefers-color-scheme:dark){body{background:#171512;color:#EEE7DD}header{border-color:#2E2A25}.diag{background:#211E1A;border-color:#2E2A25}.diag span,.nav{color:#A89F94}.img{background:#2E2A25}.kicker{color:#7FB8A6}}

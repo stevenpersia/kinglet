@@ -1,7 +1,7 @@
 import { join } from 'node:path';
 import { BaseWindow, WebContentsView, ipcMain, screen, session, type Input, type Session } from 'electron';
 import { HEAVY_IMAGE_BYTES, getLanguage, t, type RenderedDevice } from '@parakeet/core';
-import type { DeviceLog, DevicePreset, DeviceSlot, ElementInfo, PreviewEvent, ShortcutAction, Throttle } from '../shared/types';
+import type { DeviceLog, DevicePreset, DeviceSlot, ElementInfo, MediaPrefs, PreviewEvent, ShortcutAction, Throttle } from '../shared/types';
 
 export const PREVIEW_PARTITION = 'persist:parakeet-preview';
 
@@ -105,6 +105,7 @@ export class DeviceManager {
   private visible = true;
   private frozen = false;
   private throttle: Throttle = { network: 'off', cpu: 1 };
+  private media: MediaPrefs = { colorScheme: 'auto', reducedMotion: false, moreContrast: false };
   private logSeq = 0;
   private pendingLogs: DeviceLog[] = [];
   private clearedLogs = new Set<string>();
@@ -296,7 +297,7 @@ export class DeviceManager {
   private watchNetwork(entry: DeviceEntry) {
     const dbg = entry.view.webContents.debugger;
     if (!dbg.isAttached()) return;
-    void dbg.sendCommand('Network.enable').then(() => this.applyThrottle(entry)).catch(() => undefined);
+    void dbg.sendCommand('Network.enable').then(() => Promise.all([this.applyThrottle(entry), this.applyMedia(entry)])).catch(() => undefined);
     dbg.on('message', (_e, method, params) => {
       if (method === 'Network.requestWillBeSent') {
         if (entry.requests.size > 2000) entry.requests.clear();
@@ -350,6 +351,29 @@ export class DeviceManager {
   setThrottle(t: Throttle) {
     this.throttle = t;
     for (const d of this.devices.values()) void this.applyThrottle(d);
+  }
+
+  /** Dark mode, reduced motion, high contrast: what the page sees in its CSS media queries. */
+  setMedia(m: MediaPrefs) {
+    this.media = m;
+    for (const d of this.devices.values()) void this.applyMedia(d);
+  }
+
+  private applyMedia(d: DeviceEntry) {
+    return serial(d, async () => {
+      const dbg = d.view.webContents.debugger;
+      if (!dbg.isAttached()) return;
+      const m = this.media;
+      await dbg
+        .sendCommand('Emulation.setEmulatedMedia', {
+          features: [
+            { name: 'prefers-color-scheme', value: m.colorScheme === 'auto' ? '' : m.colorScheme },
+            { name: 'prefers-reduced-motion', value: m.reducedMotion ? 'reduce' : '' },
+            { name: 'prefers-contrast', value: m.moreContrast ? 'more' : '' },
+          ],
+        })
+        .catch((e: Error) => console.error(`[${d.preset.id}] media`, e.message));
+    });
   }
 
   get throttling() {

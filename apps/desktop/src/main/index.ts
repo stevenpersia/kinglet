@@ -109,6 +109,7 @@ async function createWindow() {
     devices.setActive(activeIds(PRESETS, settings.value));
   };
   devices.setThrottle(settings.value.throttle);
+  devices.setMedia(settings.value.media);
   devices.setScrollSync(settings.value.scrollSync);
   /** The site's favicon, kept on the project for its tab (also when closed). */
   async function saveFavicon(url: string, pageUrl: string) {
@@ -264,6 +265,7 @@ async function createWindow() {
     if (patch.scrollSync !== undefined) devices.setScrollSync(patch.scrollSync);
     if (patch.landscape !== undefined) devices.setLandscape(patch.landscape);
     if (patch.throttle) devices.setThrottle(patch.throttle);
+    if (patch.media) devices.setMedia(patch.media);
     if (patch.openIds || patch.projects) watchOpenProjects();
     emit({ type: 'settings', settings: next });
     return next;
@@ -442,6 +444,7 @@ async function createWindow() {
   ipcMain.handle('github:state', () => github.state);
   ipcMain.handle('github:connect', (_e, token: string) => github.connect(token));
   ipcMain.handle('github:disconnect', () => github.disconnect());
+  ipcMain.handle('github:prs', (_e, repo: string, branches: string[]) => github.pullRequests(repo, branches));
 
   ipcMain.handle('mcp:info', (): McpInfo => {
     const { exe, args } = mcpLaunch();

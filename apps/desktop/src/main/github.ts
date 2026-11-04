@@ -2,7 +2,7 @@ import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync }
 import { dirname, join } from 'node:path';
 import { safeStorage } from 'electron';
 import { t } from '@parakeet/core';
-import type { GitHubState } from '../shared/types';
+import type { GitHubState, PullRequest } from '../shared/types';
 
 interface Stored {
   token: string;
@@ -65,6 +65,57 @@ export class GitHubService {
     writeFileSync(this.file, JSON.stringify({ token: encrypted ? safeStorage.encryptString(clean).toString('base64') : clean, encrypted } satisfies Stored), { mode: 0o600 });
     chmodSync(this.file, 0o600);
     return this.state;
+  }
+
+  private cache = new Map<string, { at: number; pr: PullRequest | null }>();
+
+  private async get<T>(path: string): Promise<T> {
+    const res = await fetch(`${this.baseUrl}${path}`, { headers: { authorization: `Bearer ${this.token}`, accept: 'application/vnd.github+json', 'user-agent': 'Parakeet' }, signal: AbortSignal.timeout(10_000) });
+    if (!res.ok) throw new Error(`GitHub ${path}: HTTP ${res.status}`);
+    return (await res.json()) as T;
+  }
+
+  /** The PR of each branch (latest one), with the CI of its head commit. Cached a minute. */
+  async pullRequests(repo: string, branches: string[]): Promise<Record<string, PullRequest>> {
+    if (!this.token || !/^[\w.-]+\/[\w.-]+$/.test(repo)) return {};
+    const owner = repo.split('/')[0]!;
+    const out: Record<string, PullRequest> = {};
+    await Promise.all(
+      [...new Set(branches)].slice(0, 20).map(async (branch) => {
+        const key = `${repo}#${branch}`;
+        const hit = this.cache.get(key);
+        if (hit && Date.now() - hit.at < 60_000) {
+          if (hit.pr) out[branch] = hit.pr;
+          return;
+        }
+        try {
+          type Pr = { number: number; title: string; state: string; draft?: boolean; merged_at: string | null; html_url: string; head: { sha: string } };
+          const prs = await this.get<Pr[]>(`/repos/${repo}/pulls?state=all&per_page=1&head=${encodeURIComponent(`${owner}:${branch}`)}`);
+          const p = prs[0];
+          let pr: PullRequest | null = null;
+          if (p) {
+            const runs = await this.get<{ check_runs: { status: string; conclusion: string | null }[] }>(`/repos/${repo}/commits/${p.head.sha}/check-runs?per_page=100`).catch(() => ({ check_runs: [] }));
+            const total = runs.check_runs.length;
+            const passed = runs.check_runs.filter((r) => r.conclusion === 'success' || r.conclusion === 'skipped' || r.conclusion === 'neutral').length;
+            const failed = runs.check_runs.some((r) => r.conclusion === 'failure' || r.conclusion === 'timed_out' || r.conclusion === 'cancelled');
+            const running = runs.check_runs.some((r) => r.status !== 'completed');
+            pr = {
+              branch,
+              number: p.number,
+              title: p.title,
+              state: p.merged_at ? 'merged' : p.state === 'closed' ? 'closed' : p.draft ? 'draft' : 'open',
+              url: p.html_url,
+              checks: total ? { state: failed ? 'failure' : running ? 'pending' : 'success', passed, total } : null,
+            };
+          }
+          this.cache.set(key, { at: Date.now(), pr });
+          if (pr) out[branch] = pr;
+        } catch {
+          /* no access to this repository, rate limit: no PR shown */
+        }
+      }),
+    );
+    return out;
   }
 
   disconnect() {

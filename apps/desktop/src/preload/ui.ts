@@ -56,6 +56,7 @@ const api: ParakeetApi = {
   elementAt: (deviceId, x, y) => ipcRenderer.invoke('preview:element-at', deviceId, x, y),
   github: {
     state: () => ipcRenderer.invoke('github:state'),
+    pullRequests: (repo, branches) => ipcRenderer.invoke('github:prs', repo, branches),
     connect: (token) => ipcRenderer.invoke('github:connect', token),
     disconnect: () => ipcRenderer.invoke('github:disconnect'),
   },

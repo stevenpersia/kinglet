@@ -127,6 +127,7 @@ const app = spawn(packaged ?? electronBin, args, {
     PARAKEET_BYPASS_HOSTS: '127.0.0.1',  // the fake deployments and the echo server
     PARAKEET_ECHO_URL: 'http://127.0.0.1:5199/',
     PARAKEET_VERCEL_API: vercelMock.url,
+    PARAKEET_GITHUB_API: vercelMock.url,
     PARAKEET_UPDATE_URL: 'http://127.0.0.1:5198/',
     PARAKEET_VERCEL_TEST_TOKEN: VERCEL_TOKEN,
     PARAKEET_CLAUDE_BIN: join(root, 'fixtures/fake-claude/claude'),
