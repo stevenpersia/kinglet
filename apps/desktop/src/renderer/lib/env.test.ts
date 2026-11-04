@@ -17,7 +17,7 @@ const dep = (p: Partial<VercelDeployment>): VercelDeployment => ({
 });
 
 const vercel = {
-  project: { id: 'p', name: 'maison-sable', framework: null, repo: null, productionUrl: 'https://maisonsable.fr', bypassSecrets: [] },
+  project: { id: 'p', name: 'maison-sable', framework: null, repo: null, productionUrl: 'https://maisonsable.fr', bypassSecrets: [], teamId: null },
   deployments: [
     dep({ id: 'og', url: 'https://ms-og.vercel.app', state: 'BUILDING', branch: 'feat/og' }),
     dep({ id: 'hero', url: 'https://ms-hero.vercel.app', branch: 'feat/hero', createdAt: 2 }),

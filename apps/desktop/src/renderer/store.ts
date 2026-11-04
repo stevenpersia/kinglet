@@ -1,6 +1,7 @@
 import { create } from 'zustand';
-import type { AnalyzeReport, CrawledPage, DevicePreset, EnvId, InitState, McpActivity, McpInfo, ParakeetApi, PhoneState, Settings, ShareReport, UpdateState, VercelState } from '../shared/types';
-import { envOf, envTargets, urlOnEnv } from './lib/env';
+import type { ClaudeProjectState, AnalyzeReport, CrawledPage, DevicePreset, EnvId, InitState, McpActivity, McpInfo, ParakeetApi, PhoneState, Project, Settings, ShareReport, UpdateState, VercelState, VercelTeamProject } from '../shared/types';
+import { activeProject, closeProject as closeTab, openProject, patchProject, projectFromUrl } from '../shared/projects';
+import { envOf, envTargets, urlOnEnv, type ProjectVercel } from './lib/env';
 
 declare global {
   interface Window {
@@ -12,7 +13,7 @@ export const api = (): ParakeetApi => window.parakeet;
 /** "Error invoking remote method 'x': Error: why" → "why". */
 export const cleanError = (e: unknown) => String((e as Error)?.message ?? e).replace(/^Error invoking remote method '[^']+': (?:\w*Error: )?/, '');
 
-export type Section = 'apercu' | 'partage' | 'comparer' | 'deploiements' | 'checks' | 'reglages';
+export type Section = 'apercu' | 'partage' | 'comparer' | 'deploiements' | 'checks' | 'reglages' | 'projets';
 export type InspectorTab = 'page' | 'partage' | 'checks' | 'mcp';
 export type LoadStatus = 'idle' | 'loading' | 'loaded' | 'failed';
 
@@ -56,6 +57,17 @@ interface State {
   loadMcp(): Promise<void>;
   /** Show the current page on another environment. */
   switchEnv(env: EnvId, previewId?: string): Promise<void>;
+  /** Tabs */
+  switcherOpen: boolean;
+  /** Claude Code activity per project id. */
+  claude: Record<string, ClaudeProjectState>;
+  /** Last capture of each project (overview cards). */
+  thumbs: Record<string, string>;
+  claudeHooks: import('../shared/types').ClaudeHookState | null;
+  selectProject(id: string): Promise<void>;
+  closeProject(id: string): Promise<void>;
+  openVercelProject(vp: VercelTeamProject): Promise<void>;
+  openAddress(url: string): Promise<void>;
   pushMcpActivity(a: McpActivity): void;
   setSection(s: Section): void;
   setInspectorTab(t: InspectorTab): void;
@@ -71,7 +83,7 @@ let overlays = 0;
 export const useStore = create<State>((set, get) => ({
   ready: false,
   presets: [],
-  settings: { url: null, localOrigin: null, recentUrls: [], active: [], scrollSync: true, landscape: false },
+  settings: { projects: [], openIds: [], activeId: null, recentUrls: [], active: [], scrollSync: true, landscape: false },
   platform: null,
   url: null,
   detectedFrom: null,
@@ -92,6 +104,10 @@ export const useStore = create<State>((set, get) => ({
   urlFocusTick: 0,
   mcp: null,
   vercel: null,
+  switcherOpen: false,
+  claude: {},
+  thumbs: {},
+  claudeHooks: null,
   phone: null,
   update: null,
   phoneOpen: false,
@@ -106,8 +122,12 @@ export const useStore = create<State>((set, get) => ({
 
   async navigate(url) {
     set({ url, status: 'loading', error: null, detectedFrom: null });
-    // Remember the local dev server, to come back to it from preview or prod.
-    if (envOf(url, get().vercel) === 'local') await get().updateSettings({ localOrigin: new URL(url).origin });
+    // Remember the project's local dev server, to come back to it from preview or prod.
+    const s = get();
+    const project = activeProject(s.settings);
+    if (project && envOf(url, projectVercel(s)) === 'local' && project.localOrigin !== new URL(url).origin) {
+      await s.updateSettings(patchProject(s.settings, project.id, { localOrigin: new URL(url).origin }));
+    }
     await api().navigate(url);
     const settings = await api().updateSettings({});
     set({ settings });
@@ -156,10 +176,57 @@ export const useStore = create<State>((set, get) => ({
     set({ mcp: await api().mcpInfo() });
   },
 
+  async selectProject(id) {
+    const s = get();
+    if (s.settings.activeId === id && s.settings.openIds.includes(id)) return;
+    const project = s.settings.projects.find((p) => p.id === id);
+    if (!project) return;
+    await s.updateSettings(openProject(s.settings, project));
+    // Per-page state belongs to the previous project.
+    set({ report: null, share: null, shareError: null, pages: [], crawledOrigin: null, previewId: null, section: s.section === 'projets' ? 'apercu' : s.section });
+    api().setPreviewsVisible(get().section === 'apercu');
+    const target = project.lastUrl ?? project.localOrigin ?? projectVercel(get()).project?.productionUrl ?? null;
+    if (target) await get().navigate(target);
+    else set({ url: null, status: 'idle' });
+  },
+
+  async closeProject(id) {
+    const s = get();
+    const wasActive = s.settings.activeId === id;
+    await s.updateSettings(closeTab(s.settings, id));
+    const next = get().settings.activeId;
+    if (wasActive && next) {
+      // selectProject returns early when the id is already active: navigate directly.
+      const project = get().settings.projects.find((p) => p.id === next)!;
+      set({ report: null, share: null, pages: [], crawledOrigin: null, previewId: null });
+      const target = project.lastUrl ?? project.localOrigin ?? projectVercel(get()).project?.productionUrl ?? null;
+      if (target) await get().navigate(target);
+    }
+    if (!get().settings.openIds.length) set({ url: null, status: 'idle', report: null, share: null });
+  },
+
+  async openVercelProject(vp) {
+    const s = get();
+    const existing = s.settings.projects.find((p) => p.vercelProjectId === vp.id);
+    const project: Project = existing ?? { id: vp.id, name: vp.name, vercelProjectId: vp.id, teamId: vp.teamId, localOrigin: null, folder: null, lastUrl: null };
+    await s.updateSettings({ projects: existing ? s.settings.projects : [...s.settings.projects, project] });
+    await get().selectProject(project.id);
+  },
+
+  async openAddress(url) {
+    const s = get();
+    const origin = new URL(url).origin;
+    const existing = s.settings.projects.find((p) => p.localOrigin === origin || p.id === `local:${origin}`);
+    const project = existing ?? projectFromUrl(url);
+    await s.updateSettings({ projects: existing ? s.settings.projects : [...s.settings.projects, { ...project, lastUrl: url }] });
+    await get().selectProject(project.id);
+    if (existing) await get().navigate(url);
+  },
+
   async switchEnv(env, previewId) {
     if (previewId !== undefined) set({ previewId });
-    const { url, settings, vercel } = get();
-    const target = urlOnEnv(url, env, envTargets(settings.localOrigin, vercel, get().previewId));
+    const s = get();
+    const target = urlOnEnv(s.url, env, envTargets(activeProject(s.settings)?.localOrigin ?? null, projectVercel(s), s.previewId));
     if (target) await get().navigate(target);
   },
 
@@ -194,3 +261,12 @@ export const useStore = create<State>((set, get) => ({
 
 export const activePresets = (s: Pick<State, 'presets' | 'settings'>) =>
   s.settings.active.map((id) => s.presets.find((p) => p.id === id)).filter((p): p is DevicePreset => !!p);
+
+/** The Vercel project and deployments of a project (default: the active tab). */
+export function projectVercel(s: Pick<State, 'settings' | 'vercel'>, projectId?: string): ProjectVercel {
+  const project = projectId ? s.settings.projects.find((p) => p.id === projectId) : activeProject(s.settings);
+  const vp = project?.vercelProjectId ? (s.vercel?.projects.find((p) => p.id === project.vercelProjectId) ?? null) : null;
+  return { project: vp, deployments: vp ? (s.vercel?.deployments[vp.id] ?? []) : [] };
+}
+
+export const currentProject = (s: Pick<State, 'settings'>) => activeProject(s.settings);

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { PhoneQr } from '../../shared/types';
 import { ENV_DOT, ENV_LABEL, envOf } from '../lib/env';
-import { api, cleanError, useStore } from '../store';
+import { api, cleanError, projectVercel, useStore } from '../store';
 import { Dot } from './Icons';
 import { CopyButton } from './Mcp';
 
@@ -16,11 +16,12 @@ function deviceName(ua: string) {
 
 /** "On my phone": QR code for the page shown, through the local network (local) or directly (preview, prod). */
 export function PhoneDialog() {
-  const { phoneOpen, phone, url, vercel, openOverlay, closeOverlay } = useStore();
+  const s = useStore();
+  const { phoneOpen, phone, url, openOverlay, closeOverlay } = s;
   const [qr, setQr] = useState<PhoneQr | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const env = envOf(url, vercel);
+  const env = envOf(url, projectVercel(s));
   const local = env === 'local';
 
   useEffect(() => {

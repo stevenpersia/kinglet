@@ -6,7 +6,10 @@ import { ChecksPage } from './components/Sections';
 import { ComparePage, DeploymentsPage } from './components/VercelPages';
 import { SettingsPage } from './components/SettingsPage';
 import { SharePage } from './components/SharePage';
-import { Sidebar } from './components/Sidebar';
+import { Rail } from './components/Sidebar';
+import { ClaudeBanner } from './components/ClaudeBanner';
+import { ProjectSwitcher } from './components/ProjectSwitcher';
+import { ProjectsPage } from './components/ProjectsPage';
 import { Stage } from './components/Stage';
 import { StatusBar } from './components/StatusBar';
 import { TitleBar } from './components/TitleBar';
@@ -30,6 +33,12 @@ export function App() {
             if (useStore.getState().url === e.url) void useStore.getState().analyze(e.url);
             void useStore.getState().crawlSite();
           }, 700);
+          // Thumbnail of the project for the overview.
+          setTimeout(async () => {
+            const id = useStore.getState().settings.activeId;
+            const thumb = id && useStore.getState().section === 'apercu' ? await api().thumbnail() : null;
+            if (thumb && id && id === useStore.getState().settings.activeId) useStore.setState((st) => ({ thumbs: { ...st.thumbs, [id]: thumb } }));
+          }, 1500);
           break;
         case 'failed':
           useStore.setState({ status: 'failed', error: e.error, share: null, report: null });
@@ -57,6 +66,9 @@ export function App() {
         case 'update':
           useStore.setState({ update: e.state });
           break;
+        case 'claude':
+          useStore.setState({ claude: e.projects });
+          break;
         case 'shortcut':
           if (e.action === 'reload') void api().reload();
           else if (e.action === 'focus-url') useStore.setState({ urlFocusTick: s.urlFocusTick + 1 });
@@ -64,12 +76,22 @@ export function App() {
           else if (e.action === 'settings') s.setSection('reglages');
           else if (e.action === 'toggle-landscape') void s.updateSettings({ landscape: !s.settings.landscape });
           else if (e.action === 'toggle-scroll-sync') void s.updateSettings({ scrollSync: !s.settings.scrollSync });
+          else if (e.action === 'switcher') useStore.setState({ switcherOpen: !s.switcherOpen, paletteOpen: false });
+          else if (e.action === 'overview') s.setSection(s.section === 'projets' ? 'apercu' : 'projets');
+          else if (e.action.startsWith('tab-')) {
+            const id = s.settings.openIds[Number(e.action.slice(4)) - 1];
+            if (id) {
+              void s.selectProject(id);
+              if (s.section === 'projets') s.setSection('apercu');
+            }
+          }
           break;
       }
     });
     void store.init().then(async () => {
       await store.loadMcp();
-      useStore.setState({ vercel: await api().vercel.state(), update: await api().update.state() });
+      const claude = await api().claude.state();
+      useStore.setState({ vercel: await api().vercel.state(), update: await api().update.state(), claude: claude.projects, claudeHooks: claude.hooks });
     });
     return off;
   }, []);
@@ -77,8 +99,9 @@ export function App() {
   return (
     <div className="flex h-full flex-col">
       <TitleBar />
+      <ClaudeBanner />
       <div className="flex min-h-0 flex-1">
-        <Sidebar />
+        {section !== 'projets' && <Rail />}
         {!ready ? (
           <main className="stage-bg flex-1" />
         ) : section === 'apercu' ? (
@@ -86,6 +109,8 @@ export function App() {
             <Stage />
             <Inspector />
           </>
+        ) : section === 'projets' ? (
+          <ProjectsPage />
         ) : section === 'partage' ? (
           <SharePage />
         ) : section === 'checks' ? (
@@ -100,6 +125,7 @@ export function App() {
       </div>
       <StatusBar />
       <Palette />
+      <ProjectSwitcher />
       <PhoneDialog />
     </div>
   );

@@ -1,21 +1,24 @@
 import { useState } from 'react';
 import type { EnvId } from '../../shared/types';
 import { ENV_DOT, ENV_LABEL, envOf, envTargets, timeAgo } from '../lib/env';
-import { useStore } from '../store';
+import { activeProject } from '../../shared/projects';
+import { projectVercel, useStore } from '../store';
 import { Dot, Icon } from './Icons';
 
 /** Local / Preview / Prod: the same page on each environment. */
 export function EnvSwitch() {
-  const { url, settings, vercel, previewId, switchEnv, openOverlay, closeOverlay } = useStore();
+  const s = useStore();
+  const { url, previewId, switchEnv, openOverlay, closeOverlay } = s;
+  const vercel = projectVercel(s);
   const [menu, setMenu] = useState(false);
   const current = envOf(url, vercel);
-  const t = envTargets(settings.localOrigin, vercel, previewId);
-  const linked = !!vercel?.project;
+  const t = envTargets(activeProject(s.settings)?.localOrigin ?? null, vercel, previewId);
+  const linked = !!vercel.project;
 
   const why: Record<EnvId, string | null> = {
     local: t.local ? null : 'Aucun serveur local ouvert pour l’instant',
-    preview: !linked ? 'Connecte un projet Vercel dans les réglages' : t.preview ? null : 'Aucune preview prête',
-    prod: !linked ? 'Connecte un projet Vercel dans les réglages' : t.prod ? null : 'Pas de déploiement de production',
+    preview: !linked ? 'Relie ce projet à Vercel dans les réglages' : t.preview ? null : 'Aucune preview prête',
+    prod: !linked ? 'Relie ce projet à Vercel dans les réglages' : t.prod ? null : 'Pas de déploiement de production',
   };
 
   const toggleMenu = async () => {

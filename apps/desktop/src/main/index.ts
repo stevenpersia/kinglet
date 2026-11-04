@@ -1,12 +1,16 @@
 import { join } from 'node:path';
-import { app, BrowserWindow, clipboard, ipcMain, Menu, shell } from 'electron';
+import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, Notification, shell } from 'electron';
 import { buildShareFix, checkShare, crawl, probeImage, readPageMeta, readSharePreviews, readSiteFiles, runChecks, score, vercelBypassHeaders, type CrawledPage, type SiteFiles } from '@parakeet/core';
 import { startStdio } from '@parakeet/mcp';
 import QRCode from 'qrcode';
 import type { AnalyzeReport, CompareColumn, DeviceSlot, EnvId, InitState, McpActivity, McpInfo, PhoneQr, PhoneState, PreviewEvent, Settings, ShareStudio } from '../shared/types';
 import { startControlServer } from './control';
 import { mcpLaunch } from './mcp-launch';
+import { activeProject, isLocalUrl, openProject, patchProject, projectForFolder, projectFromUrl, visit } from '../shared/projects';
 import { VercelService } from './vercel';
+import { findVercelFolder, vercelLinkOf } from './folders';
+import { ClaudeTracker, type HookPayload } from './claude';
+import { ClaudeHooks } from './claude-hooks';
 import { lanAddresses, LanProxy } from './lan';
 import { Updater } from './updater';
 import { detectLocalServer } from './detect';
@@ -22,7 +26,11 @@ app.setName('Parakeet');
 // Same folder in dev and packaged: ~/.config/Parakeet (the MCP bridge looks there).
 app.setPath('userData', join(app.getPath('appData'), 'Parakeet'));
 // The acceptance run must not read or write the user's real settings.
-if (process.env.PARAKEET_SELFTEST) app.setPath('userData', join(process.env.PARAKEET_SELFTEST, 'userdata'));
+if (process.env.PARAKEET_SELFTEST) {
+  app.setPath('userData', join(process.env.PARAKEET_SELFTEST, 'userdata'));
+  // …nor the user's Claude Code settings (hooks).
+  process.env.CLAUDE_CONFIG_DIR = join(process.env.PARAKEET_SELFTEST, 'claude');
+}
 // Linux: let Chromium pick Wayland when the session is Wayland, X11 otherwise.
 // The MCP server needs no display: it is launched with --ozone-platform=headless (too late
 // to set from here, Chromium picks its platform before this script runs) and no GPU.
@@ -33,13 +41,12 @@ else app.commandLine.appendSwitch('ozone-platform-hint', 'auto');
  * Vercel Deployment Protection bypass ("Protection Bypass for Automation" secret):
  * from PARAKEET_VERCEL_BYPASS, else from the linked Vercel project.
  */
-let projectBypass: () => string | null = () => null;
-const bypassSecret = () => process.env.PARAKEET_VERCEL_BYPASS || projectBypass() || '';
+let projectBypass: (url: string) => string | null = () => null;
+const bypassSecret = (url: string) => process.env.PARAKEET_VERCEL_BYPASS || projectBypass(url) || '';
 const BYPASS_HOSTS = (process.env.PARAKEET_BYPASS_HOSTS ?? '*.vercel.app').split(',').map((h) => h.trim()).filter(Boolean);
 
 /** Bots (tag reading, checks, compare): the secret only. Devices (real browsers) also get the cookie header. */
-const bypassHeaders = (url: string, browser = false) => vercelBypassHeaders(url, { secret: bypassSecret(), hosts: BYPASS_HOSTS, browser });
-const isLocalUrl = (u: string) => /^https?:\/\/(localhost|127\.|\[::1\]|0\.0\.0\.0)/.test(u);
+const bypassHeaders = (url: string, browser = false) => vercelBypassHeaders(url, { secret: bypassSecret(url), hosts: BYPASS_HOSTS, browser });
 
 async function createWindow() {
   const settings = new SettingsStore();
@@ -66,7 +73,7 @@ async function createWindow() {
   // "On my phone": proxy to the local dev server, created on demand. Paired phones follow local navigation.
   let lanAddress: string | null = null;
   const lan = new LanProxy(
-    () => settings.value.localOrigin,
+    () => activeProject(settings.value)?.localOrigin ?? null,
     (clients) => {
       lanClients = clients;
       emit({ type: 'phone', state: phoneState() });
@@ -81,7 +88,8 @@ async function createWindow() {
   app.on('will-quit', () => lan.stop());
 
   const emit = (e: PreviewEvent) => {
-    if ((e.type === 'loaded' || e.type === 'navigated') && settings.value.localOrigin && e.url.startsWith(settings.value.localOrigin)) {
+    const localOrigin = activeProject(settings.value)?.localOrigin;
+    if ((e.type === 'loaded' || e.type === 'navigated') && localOrigin && e.url.startsWith(localOrigin)) {
       const u = new URL(e.url);
       lan.notify(u.pathname + u.search);
     }
@@ -91,27 +99,95 @@ async function createWindow() {
   devices.setScrollSync(settings.value.scrollSync);
   devices.setLandscape(settings.value.landscape);
 
-  const vercel = new VercelService(app.getPath('userData'), (state) => emit({ type: 'vercel', state }));
-  projectBypass = () => vercel.bypassSecret;
-  void vercel.restore();
+  /** System notification, unless the user is already looking at that project. */
+  const notify = (projectId: string | null, title: string, body: string) => {
+    if (win.isFocused() && activeProject(settings.value)?.id === projectId) return;
+    if (!Notification.isSupported() || process.env.PARAKEET_SELFTEST) return;
+    const n = new Notification({ title, body, silent: false });
+    n.on('click', () => {
+      win.show();
+      win.focus();
+      if (projectId) emit({ type: 'shortcut', action: `tab-${settings.value.openIds.indexOf(projectId) + 1}` });
+    });
+    n.show();
+  };
+  /** Latest deployment state per Vercel project, to notice a build that just failed. */
+  const lastBuild = new Map<string, string>();
+  const vercel = new VercelService(app.getPath('userData'), (state) => {
+    emit({ type: 'vercel', state });
+    for (const [vpId, list] of Object.entries(state.deployments)) {
+      const d = list[0];
+      if (!d) continue;
+      const key = `${d.id}:${d.state}`;
+      const before = lastBuild.get(vpId);
+      lastBuild.set(vpId, key);
+      if (before && before !== key && d.state === 'ERROR') {
+        const project = settings.value.projects.find((p) => p.vercelProjectId === vpId);
+        notify(project?.id ?? null, `Build en erreur · ${project?.name ?? 'Vercel'}`, `${d.branch ?? ''} ${d.commitMessage ?? ''}`.trim());
+      }
+    }
+  });
+  projectBypass = (url) => vercel.bypassSecretFor(url);
+  /** Vercel projects whose folder we already looked for (once per run). */
+  const searchedFolders = new Set<string>();
+  /** Follow the deployments of the Vercel projects open in tabs, and find their folders on disk. */
+  const watchOpenProjects = () => {
+    const open = settings.value.openIds.map((id) => settings.value.projects.find((p) => p.id === id)).filter((p): p is NonNullable<typeof p> => !!p?.vercelProjectId);
+    vercel.setWatched(open.map((p) => ({ projectId: p.vercelProjectId!, teamId: p.teamId })));
+    for (const p of open.filter((x) => !x.folder && !searchedFolders.has(x.id))) {
+      searchedFolders.add(p.id);
+      setTimeout(() => {
+        const folder = findVercelFolder(p.vercelProjectId!);
+        if (!folder) return;
+        settings.update(patchProject(settings.value, p.id, { folder }));
+        emit({ type: 'settings', settings: settings.value });
+      }, 50);
+    }
+  };
+  void vercel.restore().then(() => {
+    // Before multi-project support, one Vercel project was linked to the (single) site.
+    const legacy = vercel.legacyLink();
+    const active = activeProject(settings.value);
+    if (legacy && active && !settings.value.projects.some((p) => p.vercelProjectId === legacy.projectId)) {
+      const vp = vercel.state.projects.find((p) => p.id === legacy.projectId);
+      settings.update(patchProject(settings.value, active.id, { vercelProjectId: legacy.projectId, teamId: legacy.teamId, name: vp?.name ?? active.name }));
+      emit({ type: 'settings', settings: settings.value });
+    }
+    watchOpenProjects();
+  });
   app.on('will-quit', () => vercel.stop());
 
   devices.session.webRequest.onBeforeSendHeaders((details, cb) => {
     cb({ requestHeaders: { ...details.requestHeaders, ...bypassHeaders(details.url, true) } });
   });
 
+  /** Open (or reuse) the project of a URL in a tab, active. */
+  const openUrlProject = (url: string) => {
+    const origin = new URL(url).origin;
+    const existing = settings.value.projects.find((p) => p.localOrigin === origin || p.id === `local:${origin}`);
+    settings.update(openProject(settings.value, existing ?? projectFromUrl(url)));
+  };
+
   ipcMain.handle('app:init', async (): Promise<InitState> => {
-    let url = process.env.PARAKEET_URL ?? null;
-    let detectedFrom: string | null = url ? 'PARAKEET_URL' : null;
-    if (!url) {
-      url = await detectLocalServer();
-      if (url) detectedFrom = 'détecté';
-    }
-    if (!url && settings.value.url) {
-      url = settings.value.url;
+    let url: string | null = null;
+    let detectedFrom: string | null = null;
+    const active = activeProject(settings.value);
+    if (process.env.PARAKEET_URL) {
+      url = process.env.PARAKEET_URL;
+      detectedFrom = 'PARAKEET_URL';
+      openUrlProject(url);
+    } else if (active?.lastUrl) {
+      url = active.lastUrl;
       detectedFrom = 'dernière session';
+    } else {
+      url = await detectLocalServer();
+      if (url) {
+        detectedFrom = 'détecté';
+        openUrlProject(url);
+      }
     }
     devices.setActive(settings.value.active);
+    watchOpenProjects();
     if (url) void navigate(url);
     return {
       presets: PRESETS,
@@ -132,7 +208,9 @@ async function createWindow() {
    * the UI (which knows the Vercel deployments) decides what is local.
    */
   const navigate = (url: string) => {
-    settings.update({ url, ...(isLocalUrl(url) && !settings.value.localOrigin ? { localOrigin: new URL(url).origin } : {}) });
+    settings.update(visit(settings.value, url));
+    const active = activeProject(settings.value);
+    if (active && !active.localOrigin && isLocalUrl(url)) settings.update(patchProject(settings.value, active.id, { localOrigin: new URL(url).origin }));
     return devices.navigate(url);
   };
   ipcMain.handle('preview:navigate', (_e, url: string) => navigate(url));
@@ -143,11 +221,19 @@ async function createWindow() {
     if (patch.active) devices.setActive(next.active);
     if (patch.scrollSync !== undefined) devices.setScrollSync(patch.scrollSync);
     if (patch.landscape !== undefined) devices.setLandscape(patch.landscape);
+    if (patch.openIds || patch.projects) watchOpenProjects();
+    emit({ type: 'settings', settings: next });
     return next;
+  });
+  ipcMain.handle('projects:pick-folder', async () => {
+    const r = await dialog.showOpenDialog(win, { title: 'Dossier du projet', properties: ['openDirectory'], defaultPath: activeProject(settings.value)?.folder ?? app.getPath('home') });
+    const folder = r.canceled ? null : (r.filePaths[0] ?? null);
+    return folder ? { folder, vercelProjectId: vercelLinkOf(folder)?.projectId ?? null } : null;
   });
   ipcMain.on('preview:layout', (_e, slots: DeviceSlot[]) => devices.setLayout(slots));
   ipcMain.on('preview:visible', (_e, visible: boolean) => devices.setVisible(visible));
   ipcMain.handle('preview:freeze', () => devices.freeze());
+  ipcMain.handle('preview:thumbnail', () => devices.thumbnail());
   ipcMain.on('preview:unfreeze', () => devices.unfreeze());
   ipcMain.on('preview:devtools', (_e, id: string) => devices.openDevtools(id));
   // Site-wide files and crawl results are cached per origin (they rarely change while you work on a page).
@@ -187,6 +273,31 @@ async function createWindow() {
     }
     return crawlCache.get(key);
   });
+  // Claude Code activity, through hooks (opt-in, see claude-hooks.ts).
+  const claudeHooks = new ClaudeHooks(app.getPath('userData'));
+  const tracker = new ClaudeTracker();
+  const emitClaude = () => emit({ type: 'claude', projects: tracker.projects });
+  const expireTimer = setInterval(() => tracker.expire() && emitClaude(), 60_000);
+  app.on('will-quit', () => {
+    clearInterval(expireTimer);
+    claudeHooks.unpublish();
+  });
+  const onClaudeEvent = (payload: HookPayload) => {
+    const project = payload.cwd ? projectForFolder(settings.value.projects, payload.cwd) : null;
+    const r = tracker.ingest(payload, project);
+    if (!r) return;
+    emitClaude();
+    if (r.finished && project) {
+      const st = tracker.projects[project.id]!;
+      const n = st.files.length;
+      notify(project.id, `Claude a terminé · ${project.name}`, st.lastAction?.startsWith('Erreur') ? st.lastAction : n ? `${n} fichier${n > 1 ? 's' : ''} modifié${n > 1 ? 's' : ''}` : (st.prompt ?? ''));
+    } else if (r.event.kind === 'waiting' && project) notify(project.id, `Claude attend ta réponse · ${project.name}`, r.event.text ?? '');
+  };
+  ipcMain.handle('claude:state', () => ({ hooks: claudeHooks.state(), projects: tracker.projects }));
+  ipcMain.handle('claude:install', () => claudeHooks.install());
+  ipcMain.handle('claude:uninstall', () => claudeHooks.uninstall());
+  ipcMain.on('claude:seen', (_e, projectId: string) => tracker.markSeen(projectId) && emitClaude());
+
   // MCP: control server for Claude Code (through packages/mcp), and the activity it generates.
   const activity: McpActivity[] = [];
   const control = startControlServer({
@@ -205,7 +316,12 @@ async function createWindow() {
       devices.setActive(next.active);
       emit({ type: 'settings', settings: next });
     },
-    deployments: () => ({ project: vercel.state.project, deployments: vercel.state.deployments }),
+    deployments: () => {
+      const id = activeProject(settings.value)?.vercelProjectId;
+      return { project: vercel.state.projects.find((p) => p.id === id) ?? null, deployments: id ? (vercel.state.deployments[id] ?? []) : [] };
+    },
+    onClaudeEvent: (payload) => onClaudeEvent(payload as HookPayload),
+    onListen: (port, token) => claudeHooks.publish(port, token),
     onActivity: (a) => {
       activity.unshift(a);
       activity.length = Math.min(activity.length, 100);
@@ -227,10 +343,9 @@ async function createWindow() {
   };
   ipcMain.handle('vercel:state', () => vercel.state);
   ipcMain.handle('vercel:connect', (_e, token: string) => vercelCall(() => vercel.connect(token))());
-  ipcMain.handle('vercel:team', (_e, teamId: string | null) => vercelCall(() => vercel.selectTeam(teamId))());
-  ipcMain.handle('vercel:link', (_e, projectId: string | null) => vercelCall(() => vercel.link(projectId))());
   ipcMain.handle('vercel:refresh', vercelCall(() => vercel.refresh()));
-  ipcMain.handle('vercel:bypass', vercelCall(() => vercel.generateBypass()));
+  ipcMain.handle('vercel:projects', vercelCall(() => vercel.refreshProjects()));
+  ipcMain.handle('vercel:bypass', (_e, projectId: string) => vercelCall(() => vercel.generateBypass(projectId))());
   ipcMain.handle('vercel:disconnect', vercelCall(() => vercel.disconnect()));
   ipcMain.on('shell:open', (_e, url: string) => {
     if (/^https:\/\//.test(url)) void shell.openExternal(url);

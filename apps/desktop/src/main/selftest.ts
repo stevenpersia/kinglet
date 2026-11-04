@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import { mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { app, BrowserWindow, safeStorage } from 'electron';
@@ -202,7 +203,7 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     await devices.navigate('http://localhost:5173/');
     await sleep(2500);
     await shot('09-checks-inspecteur');
-    await win.webContents.executeJavaScript(`[...document.querySelectorAll('nav button')].find((b) => b.textContent.includes('Checks'))?.click()`);
+    await win.webContents.executeJavaScript(`[...document.querySelectorAll('nav button')].find((b) => (b.getAttribute('aria-label') || b.textContent).includes('Checks'))?.click()`);
     await sleep(1200);
     await shot('10-section-checks');
 
@@ -252,29 +253,43 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     await sleep(500);
     const statusBar = (await win.webContents.executeJavaScript(`document.querySelector('footer')?.textContent ?? ''`)) as string;
     criteria.push({ id: 'mcp-activity', ok: /MCP · \d+ appels/.test(statusBar), detail: statusBar.match(/MCP · \d+ appels?/)?.[0] ?? statusBar });
-    await win.webContents.executeJavaScript(`[...document.querySelectorAll('nav button')].find((b) => b.textContent.includes('Aperçu'))?.click()`);
+    await win.webContents.executeJavaScript(`[...document.querySelectorAll('nav button')].find((b) => (b.getAttribute('aria-label') || b.textContent).includes('Aperçu'))?.click()`);
     await sleep(600);
-    await win.webContents.executeJavaScript(`[...document.querySelectorAll('[role=tab]')].find((b) => b.textContent.includes('MCP'))?.click()`);
+    await win.webContents.executeJavaScript(`[...document.querySelectorAll('[role=tab]')].find((b) => (b.getAttribute('aria-label') || b.textContent).includes('MCP'))?.click()`);
     await sleep(600);
     await shot('11-inspecteur-mcp');
-    await win.webContents.executeJavaScript(`[...document.querySelectorAll('nav button')].find((b) => b.textContent.includes('Réglages'))?.click()`);
+    await win.webContents.executeJavaScript(`[...document.querySelectorAll('nav button')].find((b) => (b.getAttribute('aria-label') || b.textContent).includes('Réglages'))?.click()`);
     await sleep(800);
     await shot('12-reglages-mcp');
-    await win.webContents.executeJavaScript(`[...document.querySelectorAll('nav button')].find((b) => b.textContent.includes('Aperçu'))?.click()`);
+    await win.webContents.executeJavaScript(`[...document.querySelectorAll('nav button')].find((b) => (b.getAttribute('aria-label') || b.textContent).includes('Aperçu'))?.click()`);
     await sleep(600);
 
     // ---- Phase 5 ----
     // 15. Vercel: connect with a token, link the project, deployments loaded (fake API)
     const js = <T,>(code: string) => win.webContents.executeJavaScript(code) as Promise<T>;
-    const clickText = (selector: string, text: string) => js(`[...document.querySelectorAll(${JSON.stringify(selector)})].find((b) => b.textContent.includes(${JSON.stringify(text)}))?.click()`);
+    const clickText = (selector: string, text: string) => js(`[...document.querySelectorAll(${JSON.stringify(selector)})].find((b) => (b.getAttribute('aria-label') || b.textContent).includes(${JSON.stringify(text)}))?.click()`);
     await js(`window.parakeet.vercel.connect(${JSON.stringify(process.env.PARAKEET_VERCEL_TEST_TOKEN ?? '')})`);
-    const linked = (await js(`window.parakeet.vercel.link('prj_maisonsable')`)) as { project: { productionUrl: string } | null; deployments: unknown[] };
-    await sleep(800);
+    // Link the active project to its Vercel project, from the settings page.
+    type V = { projects: { id: string; productionUrl: string | null }[]; deployments: Record<string, unknown[]> };
+    await clickText('nav button', 'Réglages');
+    await waitFor(() => js<boolean>(`!!document.querySelector('select[aria-label="Projet Vercel"] option[value=prj_maisonsable]')`), 5000);
+    await js(`(() => {
+      const el = document.querySelector('select[aria-label="Projet Vercel"]');
+      Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(el, 'prj_maisonsable');
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    })()`);
+    await waitFor(async () => (await js<V>(`window.parakeet.vercel.state()`)).deployments['prj_maisonsable']?.length === 6, 6000);
+    const vs = await js<V>(`window.parakeet.vercel.state()`);
+    const linkedProject = vs.projects.find((p) => p.id === 'prj_maisonsable');
+    const linkedCount = vs.deployments['prj_maisonsable']?.length ?? 0;
     criteria.push({
       id: 'vercel-link',
-      ok: linked.project?.productionUrl === 'http://127.0.0.1:5175' && linked.deployments.length === 6,
-      detail: `prod ${linked.project?.productionUrl}, ${linked.deployments.length} déploiements`,
+      ok: linkedProject?.productionUrl === 'http://127.0.0.1:5175' && linkedCount === 6,
+      detail: `prod ${linkedProject?.productionUrl}, ${linkedCount} déploiements suivis pour le projet actif`,
     });
+    await shot('13-reglages-projet');
+    await clickText('nav button', 'Aperçu');
+    await sleep(500);
     // Encrypted when a keyring exists; otherwise clear text, but readable by the user only.
     const vercelFile = join(app.getPath('userData'), 'vercel.json');
     const stored = JSON.parse(readFileSync(vercelFile, 'utf8')) as { encrypted: boolean; token: string };
@@ -306,7 +321,7 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
 
     // 17. Bypass secret taken from the Vercel project (once the env variable is gone)
     process.env.PARAKEET_VERCEL_BYPASS = '';
-    await js(`window.parakeet.vercel.generateBypass()`);
+    await js(`window.parakeet.vercel.generateBypass('prj_maisonsable')`);
     const echoed = (await (await devices.session.fetch(process.env.PARAKEET_ECHO_URL ?? '')).json()) as Record<string, string>;
     criteria.push({ id: 'vercel-bypass-project', ok: echoed['x-vercel-protection-bypass'] === 'mock-bypass-secret', detail: `en-tête : ${echoed['x-vercel-protection-bypass'] ?? 'absent'}` });
 
@@ -410,7 +425,7 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
       win.setSize(width, 820);
       await sleep(700);
       const m = await js<{ overflow: number; wrapped: string[]; url: number }>(`(() => {
-        const h = document.querySelector('header');
+        const h = document.querySelector('[data-toolbar]');
         const wrapped = [...h.querySelectorAll('button, form, [role=group]')].filter((el) => !el.closest('[data-window-controls]') && el.getBoundingClientRect().height > 32).map((el) => (el.getAttribute('aria-label') || el.textContent || el.tagName).trim().slice(0, 24));
         return { overflow: h.scrollWidth - h.clientWidth, wrapped, url: h.querySelector('form').getBoundingClientRect().width };
       })()`);
@@ -441,9 +456,63 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     await clickText('nav button', 'Aperçu');
     await sleep(500);
 
+    // ---- Multi-projects ----
+    // 22. A second project in a tab (address typed in the switcher), Ctrl 1 goes back to the first.
+    ui({ type: 'shortcut', action: 'switcher' });
+    const switcherShown = await waitFor(() => js<boolean>(`!!document.querySelector('[role=dialog][aria-label=Projets] input')`), 3000);
+    await sleep(400);
+    report['switcher'] = { shown: switcherShown, frozen: devices.entries().map((d) => d.view.getVisible()) };
+    await shot('20-changer-de-projet');
+    await js(`(() => {
+      const el = document.querySelector('[role=dialog][aria-label=Projets] input');
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(el, '127.0.0.1:5175/atelier.html');
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+    })()`);
+    await sleep(200);
+    await js(`document.querySelector('[role=dialog][aria-label=Projets] input').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))`);
+    const onSecond = await waitFor(() => devices.entries().every((d) => d.view.webContents.getURL() === 'http://127.0.0.1:5175/atelier.html'), 6000);
+    const tabs = () => js<string[]>(`[...document.querySelectorAll('[aria-label="Projets ouverts"] [role=tab]')].map((t) => t.textContent)`);
+    const twoTabs = await tabs();
+    ui({ type: 'shortcut', action: 'tab-1' });
+    const backFirst = await waitFor(() => devices.entries().every((d) => d.view.webContents.getURL().startsWith('http://localhost:5173/')), 6000);
+    criteria.push({ id: 'project-tabs', ok: onSecond && twoTabs.length === 2 && backFirst, detail: `onglets [${twoTabs.join(' | ')}] · 2e projet ${onSecond ? 'affiché' : 'absent'} · Ctrl 1 ${backFirst ? 'revient au 1er' : 'sans effet'}` });
+
+    // 23. Claude Code hooks (in a temporary CLAUDE_CONFIG_DIR): a prompt in the project's folder
+    //     marks its tab as working, Stop marks it done.
+    const folder = join(outDir, 'projet-maison-sable');
+    mkdirSync(folder, { recursive: true });
+    const hooks = await js<{ installed: boolean; file: string }>(`window.parakeet.claude.install()`);
+    const current = await js<{ projects: { id: string; folder: string | null }[]; activeId: string }>(`window.parakeet.updateSettings({})`);
+    await js(`window.parakeet.updateSettings(${JSON.stringify({ projects: current.projects.map((p) => (p.id === current.activeId ? { ...p, folder } : p)) })})`);
+    const script = join(app.getPath('userData'), 'claude-hook.sh');
+    const fire = (payload: object) => execFileSync('sh', [script], { input: JSON.stringify(payload) });
+    fire({ hook_event_name: 'UserPromptSubmit', session_id: 'selftest', cwd: join(folder, 'src'), prompt: 'Corrige le débordement sur iPhone' });
+    fire({ hook_event_name: 'PostToolUse', session_id: 'selftest', cwd: folder, tool_name: 'Edit', tool_input: { file_path: join(folder, 'src/Hero.tsx') } });
+    const working = await waitFor(() => js<boolean>(`!!document.querySelector('[aria-label="Projets ouverts"] [aria-selected=true] .claude-dot')`), 3000);
+    await sleep(1200);
+    await shot('21-claude-travaille');
+    const thumb = await js<string | null>(`window.parakeet.thumbnail()`);
+    if (thumb) writeFileSync(join(outDir, 'thumbnail.jpg'), Buffer.from(thumb.split(',')[1]!, 'base64'));
+    fire({ hook_event_name: 'Stop', session_id: 'selftest', cwd: folder });
+    type CS = { projects: Record<string, { status: string; files: string[] }> };
+    const done = await waitFor(async () => (await js<CS>(`window.parakeet.claude.state()`)).projects[current.activeId]?.status === 'done', 3000);
+    const cs = (await js<CS>(`window.parakeet.claude.state()`)).projects[current.activeId];
+    criteria.push({
+      id: 'claude-hooks',
+      ok: hooks.installed && hooks.file.startsWith(outDir) && working && done && cs?.files[0] === 'src/Hero.tsx',
+      detail: `hooks dans ${hooks.file.replace(outDir, '<selftest>')} · onglet ${working ? 'en cours (pastille)' : 'sans pastille'} · fin ${done ? 'reçue' : 'absente'} · fichiers ${cs?.files.join(', ')}`,
+    });
+    ui({ type: 'shortcut', action: 'overview' });
+    await sleep(900);
+    await shot('22-tous-les-projets');
+    const uninstalled = await js<{ installed: boolean }>(`window.parakeet.claude.uninstall()`);
+    criteria.push({ id: 'claude-hooks-uninstall', ok: !uninstalled.installed && JSON.stringify(JSON.parse(readFileSync(hooks.file, 'utf8'))) === '{}', detail: 'hooks retirés, réglages de Claude Code laissés vides comme avant' });
+    ui({ type: 'shortcut', action: 'overview' });
+    await sleep(500);
+
     // 10. Partage section
     ui({ type: 'shortcut', action: 'focus-url' });
-    await win.webContents.executeJavaScript(`[...document.querySelectorAll('nav button')].find((b) => b.textContent.includes('Partage'))?.click()`);
+    await win.webContents.executeJavaScript(`[...document.querySelectorAll('nav button')].find((b) => (b.getAttribute('aria-label') || b.textContent).includes('Partage'))?.click()`);
     await sleep(1200);
     await shot('08-section-partage');
   } catch (e) {

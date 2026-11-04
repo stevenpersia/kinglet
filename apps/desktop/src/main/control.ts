@@ -15,7 +15,14 @@ interface Deps {
   navigate(url: string): Promise<void>;
   onActivity(a: McpActivity): void;
   deployments(): { project: unknown; deployments: unknown[] };
+  /** A Claude Code hook event (see claude-hooks.ts). */
+  onClaudeEvent?(payload: Record<string, unknown>): void;
+  /** The server listens: where to reach it. */
+  onListen?(port: number, token: string): void;
 }
+
+/** Hook payloads carry tool output (whole files): accept big bodies, within reason. */
+const MAX_BODY = 32 * 1024 * 1024;
 
 /** Device pixels are big (iPhone: 1179×2556). Half of that is plenty for Claude to look at. */
 const SHOT_SCALE = 0.5;
@@ -39,7 +46,9 @@ export function startControlServer(deps: Deps) {
   const readBody = (req: IncomingMessage) =>
     new Promise<Record<string, unknown>>((resolve) => {
       let raw = '';
-      req.on('data', (c) => (raw += c));
+      req.on('data', (c) => {
+        if (raw.length < MAX_BODY) raw += c;
+      });
       req.on('end', () => {
         try {
           resolve(raw ? JSON.parse(raw) : {});
@@ -68,6 +77,10 @@ export function startControlServer(deps: Deps) {
         case 'POST /activity': {
           // Reported by the MCP server once per tool or prompt call.
           deps.onActivity({ at: Date.now(), tool: String(body.tool ?? '?'), ok: body.ok !== false, detail: String(body.detail ?? ''), ms: Number(body.ms ?? 0) });
+          return send(res, 200, { ok: true });
+        }
+        case 'POST /claude-event': {
+          deps.onClaudeEvent?.(body);
           return send(res, 200, { ok: true });
         }
         case 'POST /navigate': {
@@ -113,6 +126,7 @@ export function startControlServer(deps: Deps) {
     const info: ControlFile = { port: address.port, token, pid: process.pid, version: deps.version };
     mkdirSync(deps.userData, { recursive: true });
     writeFileSync(file, JSON.stringify(info), { mode: 0o600 });
+    deps.onListen?.(address.port, token);
   });
 
   return {

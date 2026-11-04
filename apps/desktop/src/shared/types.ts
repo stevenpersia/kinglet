@@ -25,10 +25,26 @@ export interface DeviceSlot {
   scale: number;
 }
 
-export interface Settings {
-  url: string | null;
+/** A site you work on: one tab. Optionally a Vercel project and a local folder. */
+export interface Project {
+  /** Vercel project id, or "local:<origin>" for a site that is not on Vercel. */
+  id: string;
+  name: string;
+  vercelProjectId: string | null;
+  teamId: string | null;
   /** Origin of the local dev server, to come back to it from preview or prod. */
   localOrigin: string | null;
+  /** Project folder on disk: links Claude Code sessions (by their cwd) to this project. */
+  folder: string | null;
+  /** Last page shown, restored when the tab is opened again. */
+  lastUrl: string | null;
+}
+
+export interface Settings {
+  projects: Project[];
+  /** Tabs, in order. */
+  openIds: string[];
+  activeId: string | null;
   recentUrls: string[];
   active: string[];
   scrollSync: boolean;
@@ -60,14 +76,16 @@ export interface AnalyzeReport {
 
 export type { CheckResult, CrawledPage, ShareFix, SharePreviews, VercelDeployment, VercelProject };
 
+export type VercelTeamProject = VercelProject & { teamId: string | null };
+
 export interface VercelState {
   connected: boolean;
   user: VercelUser | null;
   teams: VercelTeam[];
-  teamId: string | null;
-  projects: VercelProject[];
-  project: VercelProject | null;
-  deployments: VercelDeployment[];
+  /** Projects of every team (personal account: teamId null). */
+  projects: VercelTeamProject[];
+  /** Deployments of the projects open in tabs, by Vercel project id. */
+  deployments: Record<string, VercelDeployment[]>;
   error: string | null;
   /** keyring: encrypted by the system keyring; basic: weak fixed key; none: clear text. */
   storage: 'keyring' | 'basic' | 'none';
@@ -75,6 +93,41 @@ export interface VercelState {
 }
 
 export type EnvId = 'local' | 'preview' | 'prod';
+
+/** One Claude Code hook event, attributed to a project by the session's folder. */
+export interface ClaudeEvent {
+  at: number;
+  projectId: string | null;
+  sessionId: string;
+  kind: 'start' | 'prompt' | 'tool' | 'waiting' | 'stop' | 'error' | 'end';
+  tool?: string;
+  /** File touched by Edit / Write. */
+  file?: string;
+  /** Prompt, notification message, or error. */
+  text?: string;
+}
+
+/** What Claude is doing on a project, from its Claude Code sessions. */
+export interface ClaudeProjectState {
+  status: 'working' | 'waiting' | 'done' | 'idle';
+  /** When the current status started. */
+  since: number;
+  lastAt: number;
+  prompt: string | null;
+  lastAction: string | null;
+  /** Files edited during the current / last task. */
+  files: string[];
+  /** The user looked at the result of the last task. */
+  seen: boolean;
+  events: ClaudeEvent[];
+}
+
+export interface ClaudeHookState {
+  installed: boolean;
+  /** Claude Code settings file the hooks live in. */
+  file: string;
+  error: string | null;
+}
 
 export interface PhoneState {
   running: boolean;
@@ -117,7 +170,7 @@ export interface ShareStudio {
   fix: ShareFix;
 }
 
-export type ShortcutAction = 'reload' | 'focus-url' | 'palette' | 'toggle-scroll-sync' | 'toggle-landscape' | 'settings';
+export type ShortcutAction = 'reload' | 'focus-url' | 'palette' | 'toggle-scroll-sync' | 'toggle-landscape' | 'settings' | 'switcher' | 'overview' | `tab-${number}`;
 
 /** A call made by Claude Code through the MCP server. */
 export interface McpActivity {
@@ -147,7 +200,8 @@ export type PreviewEvent =
   | { type: 'mcp'; activity: McpActivity }
   | { type: 'vercel'; state: VercelState }
   | { type: 'phone'; state: PhoneState }
-  | { type: 'update'; state: UpdateState };
+  | { type: 'update'; state: UpdateState }
+  | { type: 'claude'; projects: Record<string, ClaudeProjectState> };
 
 export interface ParakeetApi {
   init(): Promise<InitState>;
@@ -163,6 +217,8 @@ export interface ParakeetApi {
    */
   freeze(): Promise<Record<string, string>>;
   unfreeze(): void;
+  /** Small capture of the page on the first phone (data URL). */
+  thumbnail(): Promise<string | null>;
   openDevtools(deviceId: string): void;
   /** Read the page like the bots do, measure it in the devices, run the checks. */
   analyze(url: string, opts?: { refreshSite?: boolean }): Promise<AnalyzeReport>;
@@ -175,14 +231,25 @@ export interface ParakeetApi {
   vercel: {
     state(): Promise<VercelState>;
     connect(token: string): Promise<VercelState>;
-    selectTeam(teamId: string | null): Promise<VercelState>;
-    link(projectId: string | null): Promise<VercelState>;
     refresh(): Promise<VercelState>;
-    generateBypass(): Promise<VercelState>;
+    refreshProjects(): Promise<VercelState>;
+    generateBypass(projectId: string): Promise<VercelState>;
     disconnect(): Promise<VercelState>;
   };
   /** The same path on each environment: tags side by side and checks score. */
   compare(targets: { env: EnvId; label: string; url: string }[]): Promise<CompareColumn[]>;
+  claude: {
+    state(): Promise<{ hooks: ClaudeHookState; projects: Record<string, ClaudeProjectState> }>;
+    /** Add Parakeet's hooks to ~/.claude/settings.json (a backup is kept). */
+    install(): Promise<ClaudeHookState>;
+    uninstall(): Promise<ClaudeHookState>;
+    /** The user looked at the result of the last task on this project. */
+    markSeen(projectId: string): void;
+  };
+  projects: {
+    /** Folder picker; also reads the folder's Vercel link (.vercel/project.json). */
+    pickFolder(): Promise<{ folder: string; vercelProjectId: string | null } | null>;
+  };
   openExternal(url: string): void;
   update: {
     state(): Promise<UpdateState>;

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { api, useStore, type Section } from '../store';
+import { api, projectVercel, useStore, type Section } from '../store';
 import { Icon, Kbd } from './Icons';
 
 interface Command {
@@ -11,7 +11,9 @@ interface Command {
 
 /** Ctrl+K command palette. Native previews are frozen as images while it is open. */
 export function Palette() {
-  const { paletteOpen, presets, settings, updateSettings, setSection, openOverlay, closeOverlay, vercel, switchEnv } = useStore();
+  const st = useStore();
+  const { paletteOpen, presets, settings, updateSettings, setSection, openOverlay, closeOverlay, switchEnv } = st;
+  const linked = !!projectVercel(st).project;
   const [query, setQuery] = useState('');
   const [index, setIndex] = useState(0);
   const input = useRef<HTMLInputElement>(null);
@@ -47,13 +49,19 @@ export function Palette() {
           },
         };
       }),
-      ...(vercel?.project
+      ...(linked
         ? [
             { id: 'env-local', label: 'Voir cette page en local', run: () => void switchEnv('local') },
             { id: 'env-preview', label: 'Voir cette page sur la dernière preview', run: () => void switchEnv('preview') },
             { id: 'env-prod', label: 'Voir cette page en production', run: () => void switchEnv('prod') },
           ]
         : []),
+      { id: 'switcher', label: 'Changer de projet…', hint: 'Ctrl P', run: () => useStore.setState({ switcherOpen: true }) },
+      ...settings.openIds.map((id, i) => {
+        const p = settings.projects.find((x) => x.id === id);
+        return { id: `tab-${id}`, label: `Aller au projet ${p?.name ?? id}`, hint: i < 9 ? `Ctrl ${i + 1}` : undefined, run: () => void useStore.getState().selectProject(id) };
+      }),
+      go('projets', 'tous les projets'),
       go('apercu', 'l’aperçu'),
       go('deploiements', 'Déploiements'),
       go('comparer', 'Comparer'),
@@ -61,7 +69,7 @@ export function Palette() {
       go('reglages', 'Réglages'),
       ...settings.recentUrls.map((u) => ({ id: `open-${u}`, label: `Ouvrir ${u}`, run: () => void useStore.getState().navigate(u) })),
     ];
-  }, [presets, settings, updateSettings, setSection, vercel, switchEnv]);
+  }, [presets, settings, updateSettings, setSection, linked, switchEnv]);
 
   const q = query.trim().toLowerCase();
   const results = q ? commands.filter((c) => c.label.toLowerCase().includes(q)) : commands;

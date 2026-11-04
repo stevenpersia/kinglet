@@ -2,7 +2,8 @@ import { samePageOn, type VercelDeployment } from '@parakeet/core';
 import { useEffect, useState } from 'react';
 import type { CompareColumn, EnvId } from '../../shared/types';
 import { ENV_DOT, envTargets, timeAgo, urlOnEnv } from '../lib/env';
-import { api, useStore } from '../store';
+import { activeProject } from '../../shared/projects';
+import { api, projectVercel, useStore } from '../store';
 import { Dot, Icon } from './Icons';
 
 const STATE: Record<string, { dot: string; label: string }> = {
@@ -32,10 +33,12 @@ function NotLinked({ what }: { what: string }) {
 const btn = 'flex h-7 items-center gap-1.5 rounded-ui border border-[#2a2a2f] bg-active px-2.5 text-xs font-medium text-fg hover:border-line-strong';
 
 export function DeploymentsPage() {
-  const { vercel, url, navigate } = useStore();
+  const s = useStore();
+  const { url, navigate } = s;
+  const vercel = { ...projectVercel(s), syncedAt: s.vercel?.syncedAt ?? null, error: s.vercel?.error ?? null };
   const [filter, setFilter] = useState<'all' | 'prod' | 'preview'>('all');
   const [refreshing, setRefreshing] = useState(false);
-  if (!vercel?.project) return <NotLinked what="Déploiements" />;
+  if (!vercel.project) return <NotLinked what="Déploiements" />;
 
   const list = vercel.deployments.filter((d) => filter === 'all' || (filter === 'prod' ? d.production : !d.production));
   // Open exactly this deployment (even an older one of a branch), on the same page.
@@ -121,10 +124,12 @@ export function DeploymentsPage() {
 const ROW_LABEL: Record<string, string> = { title: '<title>', description: 'description' };
 
 export function ComparePage() {
-  const { vercel, url, settings, previewId } = useStore();
+  const s = useStore();
+  const { url, previewId } = s;
+  const vercel = projectVercel(s);
   const [columns, setColumns] = useState<CompareColumn[] | null>(null);
   const [loading, setLoading] = useState(false);
-  const t = envTargets(settings.localOrigin, vercel, previewId);
+  const t = envTargets(activeProject(s.settings)?.localOrigin ?? null, vercel, previewId);
   const path = url ? new URL(url).pathname : '/';
 
   const targets = (['local', 'preview', 'prod'] as EnvId[])
@@ -144,7 +149,7 @@ export function ComparePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
 
-  if (!vercel?.project) return <NotLinked what="Comparer" />;
+  if (!vercel.project) return <NotLinked what="Comparer" />;
   const rows = columns ? [...new Set(columns.flatMap((c) => Object.keys(c.values)))] : [];
 
   return (

@@ -1,10 +1,11 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { app } from 'electron';
+import { migrateSettings } from '../shared/projects';
 import type { Settings } from '../shared/types';
 import { DEFAULT_ACTIVE, PRESETS } from './presets';
 
-const DEFAULTS: Settings = { url: null, localOrigin: null, recentUrls: [], active: DEFAULT_ACTIVE, scrollSync: true, landscape: false };
+const DEFAULTS: Settings = { projects: [], openIds: [], activeId: null, recentUrls: [], active: DEFAULT_ACTIVE, scrollSync: true, landscape: false };
 
 /** Small JSON file in the user data folder (~/.config/Parakeet on Linux). */
 export class SettingsStore {
@@ -15,7 +16,8 @@ export class SettingsStore {
   constructor() {
     let stored: Partial<Settings> = {};
     try {
-      stored = JSON.parse(readFileSync(this.file, 'utf8'));
+      // Settings from before multi-project support had a single site: migrated into a project.
+      stored = migrateSettings(JSON.parse(readFileSync(this.file, 'utf8')));
     } catch {
       /* first run or unreadable: defaults */
     }
@@ -26,7 +28,6 @@ export class SettingsStore {
 
   update(patch: Partial<Settings>): Settings {
     this.value = { ...this.value, ...patch };
-    if (patch.url) this.value.recentUrls = [patch.url, ...this.value.recentUrls.filter((u) => u !== patch.url)].slice(0, 8);
     if (this.timer) clearTimeout(this.timer);
     this.timer = setTimeout(() => this.flush(), 300);
     return this.value;

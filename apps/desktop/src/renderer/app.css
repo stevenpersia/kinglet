@@ -57,3 +57,12 @@
     radial-gradient(#18181b 1px, transparent 1px);
   background-size: 100% 100%, 18px 18px;
 }
+
+/* Claude is working: the clay dot pulses. */
+@keyframes claude-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(217, 119, 87, 0.55); }
+  70% { box-shadow: 0 0 0 6px rgba(217, 119, 87, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(217, 119, 87, 0); }
+}
+.claude-dot { animation: claude-pulse 1.6s infinite; }
+@media (prefers-reduced-motion: reduce) { .claude-dot { animation: none; } }

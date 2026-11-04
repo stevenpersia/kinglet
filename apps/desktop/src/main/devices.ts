@@ -14,7 +14,18 @@ interface DeviceEntry {
   followingUntil: number;
   /** console.error and uncaught errors since the last page load. */
   consoleErrors: string[];
+  /**
+   * Emulation changes and captures run one at a time: a capture with a clip scale overrides
+   * the device metrics for a moment, and a resize landing in between left the view zoomed.
+   */
+  queue?: Promise<unknown>;
 }
+
+const serial = <T,>(d: DeviceEntry, job: () => Promise<T>): Promise<T> => {
+  const run = (d.queue ?? Promise.resolve()).then(job, job);
+  d.queue = run.catch(() => undefined);
+  return run;
+};
 
 /** Runs inside a device page: what only the rendered page (after JavaScript) can tell. */
 const MEASURE = `(() => {
@@ -48,6 +59,9 @@ export function shortcutFor(input: Pick<Input, 'type' | 'key' | 'control' | 'met
   if (key === ',' && !input.shift) return 'settings';
   if (key === 'o' && input.shift) return 'toggle-landscape';
   if (key === 's' && input.shift) return 'toggle-scroll-sync';
+  if (key === 'p' && !input.shift) return 'switcher';
+  if (key === 'a' && input.shift) return 'overview';
+  if (/^[1-9]$/.test(key) && !input.shift) return `tab-${Number(key)}`;
   return null;
 }
 
@@ -208,7 +222,11 @@ export class DeviceManager {
     return this.landscape && preset.kind !== 'desktop' ? { width: preset.height, height: preset.width } : { width: preset.width, height: preset.height };
   }
 
-  private async emulate(d: DeviceEntry) {
+  private emulate(d: DeviceEntry) {
+    return serial(d, () => this.emulateNow(d));
+  }
+
+  private async emulateNow(d: DeviceEntry) {
     const { preset, scale } = d;
     const dbg = d.view.webContents.debugger;
     if (!dbg.isAttached()) return;
@@ -263,6 +281,10 @@ export class DeviceManager {
   async capture(id: string, scale = 1): Promise<string | null> {
     const d = this.devices.get(id);
     if (!d) return null;
+    return serial(d, () => this.captureNow(d, scale));
+  }
+
+  private async captureNow(d: DeviceEntry, scale: number): Promise<string | null> {
     try {
       const dbg = d.view.webContents.debugger;
       const { cssVisualViewport: vv } = (await dbg.sendCommand('Page.getLayoutMetrics')) as {
@@ -280,6 +302,25 @@ export class DeviceManager {
       } catch {
         return null; // view not painted yet
       }
+    }
+  }
+
+  /** Small capture of the first phone (else the first device), for the projects overview. */
+  async thumbnail(): Promise<string | null> {
+    const list = this.entries();
+    const d = list.find((x) => x.preset.kind === 'phone') ?? list[0];
+    if (!d) return null;
+    // What the view shows on screen (already scaled): no emulation change, unlike a DevTools
+    // capture with a clip scale, which could leave the view zoomed after a resize.
+    try {
+      const full = await d.view.webContents.capturePage();
+      if (full.isEmpty()) return null;
+      // With the emulation scale, the page is painted in the top-left `scale` part of the view.
+      const { width, height } = full.getSize();
+      const img = d.scale < 0.999 ? full.crop({ x: 0, y: 0, width: Math.max(1, Math.round(width * d.scale)), height: Math.max(1, Math.round(height * d.scale)) }) : full;
+      return img.isEmpty() ? null : `data:image/jpeg;base64,${img.toJPEG(80).toString('base64')}`;
+    } catch {
+      return null;
     }
   }
 

@@ -1,5 +1,11 @@
 import { previewsByBranch, samePageOn, type VercelDeployment } from '@parakeet/core';
-import type { EnvId, VercelState } from '../../shared/types';
+import type { EnvId, VercelTeamProject } from '../../shared/types';
+
+/** The Vercel side of one project: the project and its deployments. */
+export interface ProjectVercel {
+  project: VercelTeamProject | null;
+  deployments: VercelDeployment[];
+}
 
 export const isLocal = (u: string) => /^https?:\/\/(localhost|127\.|\[::1\]|0\.0\.0\.0)/.test(u);
 
@@ -12,7 +18,7 @@ const originOf = (u: string | null | undefined) => {
 };
 
 /** Which environment a URL belongs to (null: some other site). */
-export function envOf(url: string | null, vercel: Pick<VercelState, 'project' | 'deployments'> | null): EnvId | null {
+export function envOf(url: string | null, vercel: ProjectVercel | null): EnvId | null {
   if (!url) return null;
   const origin = originOf(url);
   // Known deployments first: a deployment may be served from a local address (tests, tunnels).
@@ -35,7 +41,7 @@ export interface EnvTargets {
  * Where each environment is: the local dev server (remembered), the chosen preview
  * (default: the latest ready one), production (project domain, else the latest production deployment).
  */
-export function envTargets(localOrigin: string | null, vercel: Pick<VercelState, 'project' | 'deployments'> | null, previewId: string | null): EnvTargets {
+export function envTargets(localOrigin: string | null, vercel: ProjectVercel | null, previewId: string | null): EnvTargets {
   const previews = vercel ? previewsByBranch(vercel.deployments) : [];
   const preview = previews.find((d) => d.id === previewId) ?? previews[0] ?? null;
   const prodDeployment = vercel?.deployments.find((d) => d.production && d.state === 'READY');

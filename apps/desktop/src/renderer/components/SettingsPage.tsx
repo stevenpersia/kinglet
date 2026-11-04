@@ -2,7 +2,9 @@ import { useState } from 'react';
 import { api, useStore } from '../store';
 import { Icon } from './Icons';
 import { ActivityList, CopyButton, SLASH } from './Mcp';
-import { VercelSettings } from './VercelSettings';
+import { ProjectSettings, VercelSettings } from './VercelSettings';
+import { ClaudeSettings } from './ClaudeSettings';
+import { activeProject } from '../../shared/projects';
 
 const TOOLS: [string, string][] = [
   ['status', 'Page ouverte et appareils émulés'],
@@ -84,6 +86,14 @@ export function SettingsPage() {
           <p className="m-0 mt-1 text-muted">Parakeet {platform?.version} · réglages enregistrés dans ~/.config/Parakeet</p>
         </div>
 
+        <Section title={`Projet actif${activeProject(useStore.getState().settings) ? ` · ${activeProject(useStore.getState().settings)!.name}` : ''}`}>
+          <ProjectSettings />
+        </Section>
+
+        <Section title="Suivi de Claude Code">
+          <ClaudeSettings />
+        </Section>
+
         <Section title="Mises à jour">
           <UpdateSettings />
         </Section>
@@ -144,7 +154,7 @@ export function SettingsPage() {
           </div>
         </Section>
 
-        <Section title="Vercel">
+        <Section title="Compte Vercel">
           <VercelSettings />
         </Section>
       </div>
