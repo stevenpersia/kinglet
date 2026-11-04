@@ -52,9 +52,9 @@ function Tab({ project, index }: { project: Project; index: number }) {
           void s.closeProject(project.id);
         }
       }}
-      className={`group no-drag relative flex h-9 max-w-[236px] min-w-[120px] flex-1 items-center gap-2 rounded-t-[9px] pr-1.5 pl-3 text-[12.5px] ${on ? 'bg-card font-medium text-fg shadow-[inset_0_1px_0_#26262b]' : 'text-faint hover:bg-card/50 hover:text-muted'}`}
+      className={`group no-drag relative -mb-px flex max-w-[236px] min-w-[120px] flex-1 items-center gap-2 border-r border-line-soft pr-1.5 pl-3 text-[12.5px] ${on ? 'bg-card font-medium text-fg shadow-[inset_0_1px_0_#ededef]' : 'border-b text-faint hover:bg-active/60 hover:text-muted'}`}
     >
-      <button onClick={() => void s.selectProject(project.id)} className="absolute inset-0 rounded-t-[9px]" aria-label={`${project.name}, ${st.label}`} />
+      <button onClick={() => void s.selectProject(project.id)} className="absolute inset-0" aria-label={`${project.name}, ${st.label}`} />
       <ProjectBadge name={project.name} />
       <span className="pointer-events-none min-w-0 flex-1 truncate">{project.name}</span>
       {st.kind !== 'idle' && (
@@ -106,11 +106,11 @@ function ProjectTabs() {
   const working = Object.entries(s.claude).filter(([id, c]) => id && c.status === 'working').length;
   const overview = s.section === 'projets';
   return (
-    <div role="tablist" aria-label="Projets ouverts" className="drag flex h-[42px] shrink-0 items-end gap-0.5 bg-[#070708] pl-3">
-      <span className="mr-2.5 self-center">
+    <div role="tablist" aria-label="Projets ouverts" className="drag flex h-[42px] shrink-0 items-stretch border-b border-line-soft bg-chrome">
+      <span className="flex w-14 shrink-0 items-center justify-center border-r border-line-soft">
         <Mark />
       </span>
-      <div className="flex min-w-0 flex-1 items-end gap-0.5 overflow-hidden">
+      <div className="flex min-w-0 flex-1 items-stretch overflow-hidden">
         {open.map((p, i) => (
           <Tab key={p.id} project={p} index={i} />
         ))}
@@ -118,17 +118,17 @@ function ProjectTabs() {
           onClick={() => useStore.setState({ switcherOpen: true })}
           aria-label="Ouvrir un projet (Ctrl P)"
           title="Ouvrir un projet (Ctrl P)"
-          className="no-drag mb-1 ml-1 flex size-7 shrink-0 items-center justify-center self-center rounded-ui text-lg leading-none text-faint hover:bg-active hover:text-fg"
+          className="no-drag flex w-[42px] shrink-0 items-center justify-center border-r border-line-soft text-lg leading-none text-faint hover:bg-active hover:text-fg"
         >
           +
         </button>
-        {!open.length && <span className="mb-2.5 ml-1 self-center text-xs text-ghost">Ouvre un projet Vercel ou une adresse locale</span>}
+        {!open.length && <span className="ml-3 self-center text-xs text-ghost">Ouvre un projet Vercel ou une adresse locale</span>}
       </div>
       <button
         onClick={() => s.setSection(overview ? 'apercu' : 'projets')}
         aria-pressed={overview}
         title="Tous les projets (Ctrl Maj A)"
-        className={`no-drag mr-2 flex h-7 shrink-0 items-center gap-2 self-center rounded-ui border px-2.5 text-xs whitespace-nowrap ${overview ? 'border-line-strong bg-active text-fg' : 'border-line text-muted hover:border-line-strong hover:text-fg'}`}
+        className={`no-drag flex shrink-0 items-center gap-2 border-x border-line-soft px-3.5 text-xs whitespace-nowrap ${overview ? 'bg-card text-fg shadow-[inset_0_1px_0_#ededef]' : 'text-muted hover:bg-active hover:text-fg'}`}
       >
         <svg width="13" height="13" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z" stroke="currentColor" strokeWidth="1.8" fill="none" /></svg>
         <span className="hidden lg:inline">Tous les projets</span>
@@ -139,9 +139,7 @@ function ProjectTabs() {
           </span>
         )}
       </button>
-      <span className="self-stretch">
-        <WindowControls />
-      </span>
+      <WindowControls />
     </div>
   );
 }
