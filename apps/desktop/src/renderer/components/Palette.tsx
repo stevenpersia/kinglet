@@ -1,3 +1,4 @@
+import { t } from '@parakeet/core';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { api, projectVercel, useStore, type Section } from '../store';
 import { Icon, Kbd } from './Icons';
@@ -30,18 +31,18 @@ export function Palette() {
   const close = () => useStore.setState({ paletteOpen: false });
 
   const commands = useMemo<Command[]>(() => {
-    const go = (s: Section, label: string): Command => ({ id: `go-${s}`, label: `Aller à ${label}`, run: () => setSection(s) });
+    const go = (s: Section, label: string): Command => ({ id: `go-${s}`, label: t(`Go to ${label}`, `Aller à ${label}`), run: () => setSection(s) });
     return [
-      { id: 'reload', label: 'Recharger les appareils', hint: 'Ctrl R', run: () => void api().reload() },
-      { id: 'phone', label: 'Ouvrir sur mon téléphone (QR code)', run: () => useStore.setState({ phoneOpen: true }) },
-      { id: 'url', label: 'Changer d’adresse', hint: 'Ctrl L', run: () => useStore.setState((s) => ({ urlFocusTick: s.urlFocusTick + 1 })) },
-      { id: 'landscape', label: settings.landscape ? 'Passer en portrait' : 'Passer en paysage', hint: 'Ctrl Maj O', run: () => void updateSettings({ landscape: !settings.landscape }) },
-      { id: 'sync', label: settings.scrollSync ? 'Désactiver la synchro' : 'Activer la synchro', hint: 'Ctrl Maj S', run: () => void updateSettings({ scrollSync: !settings.scrollSync }) },
+      { id: 'reload', label: t('Reload devices', 'Recharger les appareils'), hint: 'Ctrl R', run: () => void api().reload() },
+      { id: 'phone', label: t('Open on my phone (QR code)', 'Ouvrir sur mon téléphone (QR code)'), run: () => useStore.setState({ phoneOpen: true }) },
+      { id: 'url', label: t('Change address', 'Changer d’adresse'), hint: 'Ctrl L', run: () => useStore.setState((s) => ({ urlFocusTick: s.urlFocusTick + 1 })) },
+      { id: 'landscape', label: settings.landscape ? t('Switch to portrait', 'Passer en portrait') : t('Switch to landscape', 'Passer en paysage'), hint: t('Ctrl Shift O', 'Ctrl Maj O'), run: () => void updateSettings({ landscape: !settings.landscape }) },
+      { id: 'sync', label: settings.scrollSync ? t('Turn off scroll sync', 'Désactiver la synchro') : t('Turn on scroll sync', 'Activer la synchro'), hint: t('Ctrl Shift S', 'Ctrl Maj S'), run: () => void updateSettings({ scrollSync: !settings.scrollSync }) },
       ...presets.map((p) => {
         const on = settings.active.includes(p.id);
         return {
           id: `device-${p.id}`,
-          label: `${on ? 'Retirer' : 'Ajouter'} ${p.label}`,
+          label: `${on ? t('Remove', 'Retirer') : t('Add', 'Ajouter')} ${p.label}`,
           hint: `${p.width} px`,
           run: () => {
             const next = on ? settings.active.filter((x) => x !== p.id) : [...settings.active, p.id];
@@ -51,23 +52,23 @@ export function Palette() {
       }),
       ...(linked
         ? [
-            { id: 'env-local', label: 'Voir cette page en local', run: () => void switchEnv('local') },
-            { id: 'env-preview', label: 'Voir cette page sur la dernière preview', run: () => void switchEnv('preview') },
-            { id: 'env-prod', label: 'Voir cette page en production', run: () => void switchEnv('prod') },
+            { id: 'env-local', label: t('View this page locally', 'Voir cette page en local'), run: () => void switchEnv('local') },
+            { id: 'env-preview', label: t('View this page on the latest preview', 'Voir cette page sur la dernière preview'), run: () => void switchEnv('preview') },
+            { id: 'env-prod', label: t('View this page in production', 'Voir cette page en production'), run: () => void switchEnv('prod') },
           ]
         : []),
-      { id: 'switcher', label: 'Changer de projet…', hint: 'Ctrl P', run: () => useStore.setState({ switcherOpen: true }) },
+      { id: 'switcher', label: t('Switch project…', 'Changer de projet…'), hint: 'Ctrl P', run: () => useStore.setState({ switcherOpen: true }) },
       ...settings.openIds.map((id, i) => {
         const p = settings.projects.find((x) => x.id === id);
-        return { id: `tab-${id}`, label: `Aller au projet ${p?.name ?? id}`, hint: i < 9 ? `Ctrl ${i + 1}` : undefined, run: () => void useStore.getState().selectProject(id) };
+        return { id: `tab-${id}`, label: t(`Go to project ${p?.name ?? id}`, `Aller au projet ${p?.name ?? id}`), hint: i < 9 ? `Ctrl ${i + 1}` : undefined, run: () => void useStore.getState().selectProject(id) };
       }),
-      go('projets', 'tous les projets'),
-      go('apercu', 'l’aperçu'),
-      go('deploiements', 'Déploiements'),
-      go('comparer', 'Comparer'),
-      go('partage', 'Partage'),
-      go('reglages', 'Réglages'),
-      ...settings.recentUrls.map((u) => ({ id: `open-${u}`, label: `Ouvrir ${u}`, run: () => void useStore.getState().navigate(u) })),
+      go('projets', t('all projects', 'tous les projets')),
+      go('apercu', t('Devices', 'l’aperçu')),
+      go('deploiements', t('Deployments', 'Déploiements')),
+      go('comparer', t('Compare', 'Comparer')),
+      go('partage', t('Share', 'Partage')),
+      go('reglages', t('Settings', 'Réglages')),
+      ...settings.recentUrls.map((u) => ({ id: `open-${u}`, label: t(`Open ${u}`, `Ouvrir ${u}`), run: () => void useStore.getState().navigate(u) })),
     ];
   }, [presets, settings, updateSettings, setSection, linked, switchEnv]);
 
@@ -84,7 +85,7 @@ export function Palette() {
 
   return (
     <div className="fixed inset-0 z-50 flex justify-center bg-black/40 pt-[14vh]" onMouseDown={close}>
-      <div role="dialog" aria-label="Commandes" className="h-fit w-[560px] overflow-hidden rounded-xl border border-line bg-card shadow-2xl shadow-black/70" onMouseDown={(e) => e.stopPropagation()}>
+      <div role="dialog" aria-label={t('Commands', 'Commandes')} className="h-fit w-[560px] overflow-hidden rounded-xl border border-line bg-card shadow-2xl shadow-black/70" onMouseDown={(e) => e.stopPropagation()}>
         <div className="flex items-center gap-2.5 border-b border-line-soft px-3.5">
           <Icon name="search" size={15} className="text-faint" />
           <input
@@ -104,14 +105,14 @@ export function Palette() {
                 setIndex((i) => Math.max(i - 1, 0));
               } else if (e.key === 'Enter') runAt(selected);
             }}
-            aria-label="Rechercher une commande"
-            placeholder="Rechercher une commande, un appareil, un site…"
+            aria-label={t('Search commands', 'Rechercher une commande')}
+            placeholder={t('Search commands, devices, sites…', 'Rechercher une commande, un appareil, un site…')}
             className="h-11 flex-1 bg-transparent text-sm text-fg outline-none placeholder:text-ghost"
           />
-          <Kbd>Échap</Kbd>
+          <Kbd>{t('Esc', 'Échap')}</Kbd>
         </div>
         <ul role="listbox" className="max-h-[360px] overflow-y-auto p-1">
-          {results.length === 0 && <li className="px-3 py-2.5 text-faint">Aucun résultat.</li>}
+          {results.length === 0 && <li className="px-3 py-2.5 text-faint">{t('No results.', 'Aucun résultat.')}</li>}
           {results.map((c, i) => (
             <li
               key={c.id}

@@ -1,3 +1,4 @@
+import { locale, t } from '@parakeet/core';
 import type { ClaudeEvent, Project } from '../../shared/types';
 import { ENV_DOT, envOf, timeAgo } from '../lib/env';
 import { projectStatus, type ProjectStatus } from '../lib/status';
@@ -19,7 +20,10 @@ const host = (u: string | null | undefined) => {
 
 /** Prompt to paste in Claude Code when a Vercel build fails. */
 const buildErrorPrompt = (name: string, branch: string | null, inspector: string | null) =>
-  `Le build Vercel du projet ${name}${branch ? ` (branche ${branch})` : ''} a échoué.${inspector ? ` Log : ${inspector}` : ''} Lance le build en local (pnpm build ou npm run build), trouve l’erreur et corrige-la.`;
+  t(
+    `The Vercel build of project ${name}${branch ? ` (branch ${branch})` : ''} failed.${inspector ? ` Log: ${inspector}` : ''} Run the build locally (pnpm build or npm run build), find the error and fix it.`,
+    `Le build Vercel du projet ${name}${branch ? ` (branche ${branch})` : ''} a échoué.${inspector ? ` Log : ${inspector}` : ''} Lance le build en local (pnpm build ou npm run build), trouve l’erreur et corrige-la.`,
+  );
 
 function Card({ project, index, st }: { project: Project; index: number; st: ProjectStatus }) {
   const s = useStore();
@@ -37,15 +41,19 @@ function Card({ project, index, st }: { project: Project; index: number; st: Pro
   const seen = () => api().claude.markSeen(project.id);
 
   const tint = { working: 'rgba(217,119,87,0.09)', waiting: 'rgba(230,192,123,0.08)', review: 'rgba(237,237,239,0.05)', error: 'rgba(242,139,130,0.08)', building: 'rgba(230,192,123,0.06)', idle: 'transparent' }[st.kind];
-  const idleDetail = claude?.prompt ? `Dernière demande ${timeAgo(claude.lastAt)} : « ${claude.prompt} »` : project.folder ? 'Aucune session Claude Code suivie pour l’instant.' : 'Choisis le dossier du projet pour suivre Claude Code.';
+  const idleDetail = claude?.prompt
+    ? t(`Last request ${timeAgo(claude.lastAt)}: “${claude.prompt}”`, `Dernière demande ${timeAgo(claude.lastAt)} : « ${claude.prompt} »`)
+    : project.folder
+      ? t('No Claude Code session tracked yet.', 'Aucune session Claude Code suivie pour l’instant.')
+      : t('Choose the project folder to track Claude Code.', 'Choisis le dossier du projet pour suivre Claude Code.');
 
   return (
     <article className={`flex gap-4 rounded-xl border bg-card p-4 ${st.kind === 'working' ? 'border-[rgba(217,119,87,0.45)]' : 'border-line'}`}>
-      <button onClick={open} aria-label={`Ouvrir ${project.name}`} className="h-[236px] w-[118px] shrink-0 rounded-[18px] bg-black p-[3px] shadow-[0_0_0_1px_#2e2e33]">
+      <button onClick={open} aria-label={t(`Open ${project.name}`, `Ouvrir ${project.name}`)} className="h-[236px] w-[118px] shrink-0 rounded-[18px] bg-black p-[3px] shadow-[0_0_0_1px_#2e2e33]">
         {thumb ? (
           <img src={thumb} alt="" className="h-full w-full rounded-[15px] object-cover object-top" />
         ) : (
-          <span className="flex h-full w-full items-center justify-center rounded-[15px] bg-active text-[11px] text-ghost">{active ? 'chargement…' : 'pas encore vu'}</span>
+          <span className="flex h-full w-full items-center justify-center rounded-[15px] bg-active text-[11px] text-ghost">{active ? t('loading…', 'chargement…') : t('not seen yet', 'pas encore vu')}</span>
         )}
       </button>
       <div className="flex min-w-0 flex-1 flex-col gap-2.5">
@@ -63,20 +71,20 @@ function Card({ project, index, st }: { project: Project; index: number; st: Pro
         </div>
         <dl className="m-0 flex flex-col gap-1 text-xs">
           <div className="flex gap-2">
-            <dt className="w-[74px] shrink-0 text-faint">Affiché</dt>
+            <dt className="w-[74px] shrink-0 text-faint">{t('Showing', 'Affiché')}</dt>
             <dd className="m-0 flex min-w-0 items-center gap-1.5">
               <Dot className={env ? ENV_DOT[env] : 'bg-ghost'} />
               <span className="truncate font-mono text-[11.5px]">{host(shown) ?? '—'}</span>
             </dd>
           </div>
           <div className="flex gap-2">
-            <dt className="w-[74px] shrink-0 text-faint">Déploiement</dt>
+            <dt className="w-[74px] shrink-0 text-faint">{t('Deployment', 'Déploiement')}</dt>
             <dd className={`m-0 truncate ${latest?.state === 'ERROR' ? 'text-err' : ''}`}>
-              {!vp ? <span className="text-ghost">pas relié à Vercel</span> : latest ? `${latest.production ? 'Prod' : 'Preview'} ${latest.state === 'READY' ? 'prête' : latest.state === 'ERROR' ? 'en erreur' : 'en cours'} · ${timeAgo(latest.createdAt)}` : '—'}
+              {!vp ? <span className="text-ghost">{t('not linked to Vercel', 'pas relié à Vercel')}</span> : latest ? `${latest.production ? 'Prod' : 'Preview'} ${latest.state === 'READY' ? t('ready', 'prête') : latest.state === 'ERROR' ? t('failed', 'en erreur') : t('building', 'en cours')} · ${timeAgo(latest.createdAt)}` : '—'}
             </dd>
           </div>
           <div className="flex gap-2">
-            <dt className="w-[74px] shrink-0 text-faint">Dossier</dt>
+            <dt className="w-[74px] shrink-0 text-faint">{t('Folder', 'Dossier')}</dt>
             <dd className="m-0 truncate font-mono text-[11.5px] text-muted">{project.folder?.replace(/^\/home\/[^/]+/, '~') ?? '—'}</dd>
           </div>
         </dl>
@@ -90,29 +98,29 @@ function Card({ project, index, st }: { project: Project; index: number; st: Pro
                   open();
                 }}
               >
-                Voir le résultat
+                {t('See the result', 'Voir le résultat')}
               </button>
               <button className={btn()} onClick={seen}>
-                Marquer comme vu
+                {t('Mark as seen', 'Marquer comme vu')}
               </button>
             </>
           ) : st.kind === 'error' && latest ? (
             <>
-              <button className={btn(true)} onClick={() => api().copy(buildErrorPrompt(project.name, latest.branch, latest.inspectorUrl))} title="Copie une demande à coller dans Claude Code">
-                Copier pour Claude
+              <button className={btn(true)} onClick={() => api().copy(buildErrorPrompt(project.name, latest.branch, latest.inspectorUrl))} title={t('Copies a request to paste into Claude Code', 'Copie une demande à coller dans Claude Code')}>
+                {t('Copy for Claude', 'Copier pour Claude')}
               </button>
               {latest.inspectorUrl && (
                 <button className={btn()} onClick={() => api().openExternal(latest.inspectorUrl!)}>
-                  Log Vercel
+                  {t('Vercel log', 'Log Vercel')}
                 </button>
               )}
               <button className={btn()} onClick={open}>
-                Ouvrir
+                {t('Open', 'Ouvrir')}
               </button>
             </>
           ) : (
             <button className={btn(true)} onClick={open}>
-              {active ? 'Revenir' : 'Ouvrir'}
+              {active ? t('Go back', 'Revenir') : t('Open', 'Ouvrir')}
             </button>
           )}
         </div>
@@ -126,19 +134,19 @@ const feedText = (e: ClaudeEvent) => {
   const file = e.file?.split('/').slice(-2).join('/');
   switch (e.kind) {
     case 'start':
-      return 'Session Claude Code ouverte';
+      return t('Claude Code session started', 'Session Claude Code ouverte');
     case 'prompt':
-      return `« ${e.text ?? ''} »`;
+      return t(`“${e.text ?? ''}”`, `« ${e.text ?? ''} »`);
     case 'tool':
-      return file ? `${e.tool === 'Write' ? 'Crée' : 'Modifie'} ${file}` : `${e.tool}${e.text ? ` · ${e.text}` : ''}`;
+      return file ? `${e.tool === 'Write' ? t('Creates', 'Crée') : t('Edits', 'Modifie')} ${file}` : `${e.tool}${e.text ? ` · ${e.text}` : ''}`;
     case 'waiting':
-      return e.text ?? 'Attend ta réponse';
+      return e.text ?? t('Waiting for you', 'Attend ta réponse');
     case 'stop':
-      return 'Tâche terminée';
+      return t('Task done', 'Tâche terminée');
     case 'error':
-      return `Erreur${e.text ? ` : ${e.text}` : ''}`;
+      return t(`Error${e.text ? `: ${e.text}` : ''}`, `Erreur${e.text ? ` : ${e.text}` : ''}`);
     case 'end':
-      return 'Session fermée';
+      return t('Session ended', 'Session fermée');
   }
 };
 
@@ -150,13 +158,13 @@ export function ProjectsPage() {
   const statuses = open.map((p) => projectStatus(s.claude[p.id], projectVercel(s, p.id).deployments, now));
   const count = (k: ProjectStatus['kind']) => statuses.filter((x) => x.kind === k).length;
   const summary = [
-    count('working') && `Claude actif sur ${count('working')}`,
-    count('waiting') && `${count('waiting')} en attente de ta réponse`,
-    count('review') && `${count('review')} à vérifier`,
-    count('building') && `${count('building')} build${count('building') > 1 ? 's' : ''} en cours`,
-    count('error') && `${count('error')} build${count('error') > 1 ? 's' : ''} en erreur`,
+    count('working') && t(`Claude active on ${count('working')}`, `Claude actif sur ${count('working')}`),
+    count('waiting') && t(`${count('waiting')} waiting for you`, `${count('waiting')} en attente de ta réponse`),
+    count('review') && t(`${count('review')} to review`, `${count('review')} à vérifier`),
+    count('building') && t(`${count('building')} build${count('building') > 1 ? 's' : ''} running`, `${count('building')} build${count('building') > 1 ? 's' : ''} en cours`),
+    count('error') && t(`${count('error')} failed build${count('error') > 1 ? 's' : ''}`, `${count('error')} build${count('error') > 1 ? 's' : ''} en erreur`),
   ].filter(Boolean);
-  const name = (id: string | null) => s.settings.projects.find((p) => p.id === id)?.name ?? 'Hors projet';
+  const name = (id: string | null) => s.settings.projects.find((p) => p.id === id)?.name ?? t('No project', 'Hors projet');
   const feed = Object.values(s.claude)
     .flatMap((c) => c.events)
     .filter((e) => e.kind !== 'tool' || e.file)
@@ -168,9 +176,9 @@ export function ProjectsPage() {
       <main className="flex min-w-0 flex-1 flex-col gap-4 overflow-y-auto px-6 py-[22px]">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h1 className="m-0 text-xl font-semibold tracking-[-0.02em]">
-            {open.length} projet{open.length > 1 ? 's' : ''} ouvert{open.length > 1 ? 's' : ''}
+            {t(`${open.length} open project${open.length > 1 ? 's' : ''}`, `${open.length} projet${open.length > 1 ? 's' : ''} ouvert${open.length > 1 ? 's' : ''}`)}
           </h1>
-          <span className="text-[12.5px] text-muted">{summary.length ? summary.join(' · ') : 'Rien en cours.'}</span>
+          <span className="text-[12.5px] text-muted">{summary.length ? summary.join(' · ') : t('Nothing running.', 'Rien en cours.')}</span>
         </div>
         {open.length ? (
           <div className="grid grid-cols-1 gap-3.5 xl:grid-cols-2">
@@ -179,17 +187,17 @@ export function ProjectsPage() {
             ))}
           </div>
         ) : (
-          <p className="text-faint">Aucun projet ouvert.</p>
+          <p className="text-faint">{t('No open projects.', 'Aucun projet ouvert.')}</p>
         )}
         <button onClick={() => useStore.setState({ switcherOpen: true })} className="flex h-11 items-center justify-center gap-2 rounded-xl border border-dashed border-[#2a2a2f] text-muted hover:border-line-strong hover:text-fg">
-          + Ouvrir un projet <span className="font-mono text-[11px] text-ghost">Ctrl P</span>
+          + {t('Open a project', 'Ouvrir un projet')} <span className="font-mono text-[11px] text-ghost">Ctrl P</span>
         </button>
       </main>
-      <aside aria-label="Activité de Claude" className="flex w-[340px] shrink-0 flex-col gap-3.5 overflow-y-auto border-l border-line-soft bg-chrome px-[18px] py-[22px]">
-        <span className="label">Activité de Claude, tous projets</span>
+      <aside aria-label={t('Claude activity', 'Activité de Claude')} className="flex w-[340px] shrink-0 flex-col gap-3.5 overflow-y-auto border-l border-line-soft bg-chrome px-[18px] py-[22px]">
+        <span className="label">{t('Claude activity, all projects', 'Activité de Claude, tous projets')}</span>
         {feed.map((e, i) => (
           <div key={`${e.at}-${i}`} className="flex gap-2.5">
-            <span className="w-11 shrink-0 font-mono text-[11px] text-ghost">{new Date(e.at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</span>
+            <span className="w-11 shrink-0 font-mono text-[11px] text-ghost">{new Date(e.at).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' })}</span>
             <span className="mt-[5px] size-1.5 shrink-0 rounded-full" style={{ background: FEED_COLOR[e.kind] }} />
             <span className="flex min-w-0 flex-col gap-px">
               <span className="text-[11.5px] text-faint">{name(e.projectId)}</span>
@@ -199,14 +207,19 @@ export function ProjectsPage() {
         ))}
         {!feed.length && (
           <p className="m-0 text-xs leading-5 text-faint">
-            {s.claudeHooks?.installed ? 'Rien pour l’instant. L’activité de tes sessions Claude Code apparaîtra ici.' : 'Le suivi de Claude Code n’est pas activé.'}
+            {s.claudeHooks?.installed
+              ? t('Nothing yet. Activity from your Claude Code sessions will show up here.', 'Rien pour l’instant. L’activité de tes sessions Claude Code apparaîtra ici.')
+              : t('Claude Code tracking is off.', 'Le suivi de Claude Code n’est pas activé.')}
           </p>
         )}
         {!s.claudeHooks?.installed && (
           <div className="mt-auto flex flex-col items-start gap-2.5 rounded-[10px] border border-dashed border-[#2a2a2f] p-3 text-xs leading-normal text-muted">
-            Parakeet peut suivre tes sessions Claude Code (début, fichiers modifiés, fin de tâche) grâce aux hooks de Claude Code, et te prévenir quand une tâche se termine.
+            {t(
+              'Parakeet can track your Claude Code sessions (start, changed files, task end) with Claude Code hooks, and let you know when a task finishes.',
+              'Parakeet peut suivre tes sessions Claude Code (début, fichiers modifiés, fin de tâche) grâce aux hooks de Claude Code, et te prévenir quand une tâche se termine.',
+            )}
             <button className={btn()} onClick={() => s.setSection('reglages')}>
-              Activer dans les réglages
+              {t('Turn on in settings', 'Activer dans les réglages')}
             </button>
           </div>
         )}

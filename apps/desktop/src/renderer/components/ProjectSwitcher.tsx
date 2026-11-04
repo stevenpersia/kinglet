@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { t } from '@parakeet/core';
 import type { Project, VercelTeamProject } from '../../shared/types';
 import { timeAgo } from '../lib/env';
 import { projectStatus } from '../lib/status';
@@ -82,14 +83,14 @@ export function ProjectSwitcher() {
     else void s.openAddress(row.url);
   };
 
-  const teams = vercel?.connected ? [{ id: null as string | null, name: 'Personnel' }, ...vercel.teams.map((t) => ({ id: t.id as string | null, name: t.name }))] : [];
+  const teams = vercel?.connected ? [{ id: null as string | null, name: t('Personal', 'Personnel') }, ...vercel.teams.map((t) => ({ id: t.id as string | null, name: t.name }))] : [];
   const sectionStart = (i: number) => {
     const r = rows[i]!;
     const prev = rows[i - 1];
     const label = (x: Row) => (x.kind === 'address' ? 'Adresse' : x.kind === 'vercel' ? 'vercel' : x.key.startsWith('o-') ? 'open' : 'closed');
     if (prev && label(prev) === label(r)) return null;
     const teamName = team === 'all' ? null : teams.find((t) => t.id === team)?.name;
-    return { Adresse: 'Ouvrir une adresse', open: 'Ouverts', vercel: `Autres projets Vercel${teamName ? ` · ${teamName}` : ''}`, closed: 'Sites locaux' }[label(r)];
+    return { Adresse: t('Open an address', 'Ouvrir une adresse'), open: t('Open', 'Ouverts'), vercel: t('Other Vercel projects', 'Autres projets Vercel') + (teamName ? ` · ${teamName}` : ''), closed: t('Local sites', 'Sites locaux') }[label(r)];
   };
 
   const row = (r: Row, i: number) => {
@@ -100,7 +101,7 @@ export function ProjectSwitcher() {
         <div className={base}>
           <span className="flex size-[22px] shrink-0 items-center justify-center rounded-md bg-raised text-faint shadow-[inset_0_0_0_1px_#2a2a2f]">↗</span>
           <span className="min-w-0 flex-1 truncate font-mono text-xs">{r.url}</span>
-          <span className="text-[11.5px] text-faint">nouvel onglet</span>
+          <span className="text-[11.5px] text-faint">{t('new tab', 'nouvel onglet')}</span>
         </div>
       );
     if (r.kind === 'open') {
@@ -112,7 +113,7 @@ export function ProjectSwitcher() {
           <ProjectBadge name={r.project.name} favicon={r.project.favicon} size={22} />
           <span className="flex min-w-0 flex-1 flex-col">
             <span className="font-medium text-fg">{r.project.name}</span>
-            <span className="truncate text-[11.5px] text-faint">{detail || home(r.project.folder) || 'Aucun environnement connu'}</span>
+            <span className="truncate text-[11.5px] text-faint">{detail || home(r.project.folder) || t('No known environment', 'Aucun environnement connu')}</span>
           </span>
           {st.kind !== 'idle' && (
             <span className="flex shrink-0 items-center gap-1.5 text-[11.5px]" style={{ color: st.color }}>
@@ -130,7 +131,7 @@ export function ProjectSwitcher() {
         <span className="flex size-[22px] shrink-0 items-center justify-center rounded-md bg-raised text-[10px] font-semibold text-muted shadow-[inset_0_0_0_1px_#2a2a2f]">{r.vp.name.slice(0, 2).toUpperCase()}</span>
         <span className="flex min-w-0 flex-1 flex-col">
           <span className="font-medium text-fg">{r.vp.name}</span>
-          <span className="truncate text-[11.5px] text-faint">{[r.vp.framework, host(r.vp.productionUrl), latest ? `déployé ${timeAgo(latest.createdAt)}` : null].filter(Boolean).join(' · ')}</span>
+          <span className="truncate text-[11.5px] text-faint">{[r.vp.framework, host(r.vp.productionUrl), latest ? t(`deployed ${timeAgo(latest.createdAt)}`, `déployé ${timeAgo(latest.createdAt)}`) : null].filter(Boolean).join(' · ')}</span>
         </span>
         <span className={`shrink-0 text-[11.5px] whitespace-nowrap ${r.known?.folder ? 'text-faint' : 'text-ghost'}`}>{home(r.known?.folder ?? null) ?? r.vp.repo ?? ''}</span>
       </div>
@@ -139,7 +140,7 @@ export function ProjectSwitcher() {
 
   return (
     <div className="fixed inset-0 z-50 flex justify-center bg-black/55 pt-[52px]" onMouseDown={close}>
-      <div role="dialog" aria-label="Projets" className="flex h-fit max-h-[calc(100vh-104px)] w-[660px] flex-col overflow-hidden rounded-xl border border-line bg-card shadow-2xl shadow-black/70" onMouseDown={(e) => e.stopPropagation()}>
+      <div role="dialog" aria-label={t('Projects', 'Projets')} className="flex h-fit max-h-[calc(100vh-104px)] w-[660px] flex-col overflow-hidden rounded-xl border border-line bg-card shadow-2xl shadow-black/70" onMouseDown={(e) => e.stopPropagation()}>
         <div className="flex h-12 shrink-0 items-center gap-2.5 border-b border-line-soft px-3.5">
           <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true" className="text-faint"><path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4-4" stroke="currentColor" strokeWidth="1.8" fill="none" strokeLinecap="round" /></svg>
           <input
@@ -159,13 +160,13 @@ export function ProjectSwitcher() {
                 setIndex((i) => Math.max(i - 1, 0));
               } else if (e.key === 'Enter') run(rows[selected]);
             }}
-            aria-label="Rechercher un projet"
-            placeholder={vercel?.connected ? 'Rechercher un projet Vercel, ou taper une adresse…' : 'localhost:3000, 5173 ou https://…'}
+            aria-label={t('Search projects', 'Rechercher un projet')}
+            placeholder={vercel?.connected ? t('Search Vercel projects, or type an address…', 'Rechercher un projet Vercel, ou taper une adresse…') : t('localhost:3000, 5173 or https://…', 'localhost:3000, 5173 ou https://…')}
             className="h-11 flex-1 bg-transparent text-sm text-fg outline-none placeholder:text-ghost"
           />
           {teams.length > 1 && (
-            <span role="group" aria-label="Équipe" className="flex gap-1">
-              {[{ id: 'all' as const, name: 'Tous' }, ...teams].map((t) => (
+            <span role="group" aria-label={t('Team', 'Équipe')} className="flex gap-1">
+              {[{ id: 'all' as const, name: t('All', 'Tous') }, ...teams].map((t) => (
                 <button
                   key={String(t.id)}
                   aria-pressed={team === t.id}
@@ -194,10 +195,10 @@ export function ProjectSwitcher() {
               </div>
             );
           })}
-          {!rows.length && <p className="px-2.5 py-3 text-faint">{query ? 'Aucun projet trouvé. Tape une adresse (localhost:3000…) pour l’ouvrir.' : 'Aucun projet.'}</p>}
+          {!rows.length && <p className="px-2.5 py-3 text-faint">{query ? t('No projects found. Type an address (localhost:3000…) to open it.', 'Aucun projet trouvé. Tape une adresse (localhost:3000…) pour l’ouvrir.') : t('No projects.', 'Aucun projet.')}</p>}
           {!vercel?.connected && (
             <p className="mx-2.5 mt-2 mb-1 text-xs leading-5 text-faint">
-              Connecte Vercel dans les{' '}
+              {t('Connect Vercel in', 'Connecte Vercel dans les')}{' '}
               <button
                 className="text-fg underline-offset-2 hover:underline"
                 onClick={() => {
@@ -205,21 +206,21 @@ export function ProjectSwitcher() {
                   s.setSection('reglages');
                 }}
               >
-                réglages
+                {t('settings', 'réglages')}
               </button>{' '}
-              pour retrouver ici tous tes projets.
+              {t('to see all your projects here.', 'pour retrouver ici tous tes projets.')}
             </p>
           )}
         </div>
         <div className="flex h-[38px] shrink-0 items-center gap-4 border-t border-line-soft bg-[#0e0e10] px-3.5 text-[11.5px] text-faint">
           <span className="flex items-center gap-1.5">
-            <Kbd>Entrée</Kbd> ouvrir dans un onglet
+            <Kbd>{t('Enter', 'Entrée')}</Kbd> {t('open in a tab', 'ouvrir dans un onglet')}
           </span>
           <span className="flex items-center gap-1.5">
-            <Kbd>Ctrl 1…9</Kbd> aller à l’onglet
+            <Kbd>Ctrl 1…9</Kbd> {t('go to tab', 'aller à l’onglet')}
           </span>
           <span className="ml-auto flex items-center gap-1.5">
-            <Kbd>Ctrl P</Kbd> depuis n’importe où
+            <Kbd>Ctrl P</Kbd> {t('from anywhere', 'depuis n’importe où')}
           </span>
         </div>
       </div>

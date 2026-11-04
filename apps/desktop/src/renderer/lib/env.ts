@@ -1,4 +1,4 @@
-import { previewsByBranch, samePageOn, type VercelDeployment } from '@parakeet/core';
+import { previewsByBranch, t as tr, samePageOn, type VercelDeployment } from '@parakeet/core';
 import type { EnvId, VercelTeamProject } from '../../shared/types';
 
 /** The Vercel side of one project: the project and its deployments. */
@@ -64,8 +64,8 @@ export const ENV_DOT: Record<EnvId, string> = { local: 'bg-local', preview: 'bg-
 
 export function timeAgo(t: number, now = Date.now()) {
   const m = Math.max(0, Math.floor((now - t) / 60_000));
-  if (m < 1) return 'à l’instant';
-  if (m < 60) return `il y a ${m} min`;
-  if (m < 1440) return `il y a ${Math.round(m / 60)} h`;
-  return `il y a ${Math.round(m / 1440)} j`;
+  if (m < 1) return tr('just now', 'à l’instant');
+  if (m < 60) return tr(`${m} min ago`, `il y a ${m} min`);
+  if (m < 1440) return tr(`${Math.round(m / 60)} h ago`, `il y a ${Math.round(m / 60)} h`);
+  return tr(`${Math.round(m / 1440)} d ago`, `il y a ${Math.round(m / 1440)} j`);
 }

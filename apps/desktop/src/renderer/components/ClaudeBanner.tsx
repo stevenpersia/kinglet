@@ -1,3 +1,4 @@
+import { t } from '@parakeet/core';
 import { activeProject } from '../../shared/projects';
 import { projectStatus } from '../lib/status';
 import { useNow } from '../lib/useNow';
@@ -20,27 +21,27 @@ export function ClaudeBanner() {
   return (
     <div role="status" className="flex h-9 shrink-0 items-center gap-3 border-b border-line-soft px-3.5 text-[12.5px]" style={{ background: bg }}>
       <StatusDot kind={st.kind} color={st.color} size={8} />
-      <span className="shrink-0 font-medium text-fg">{st.kind === 'working' ? 'Claude travaille sur ce projet' : st.label}</span>
-      <span className="min-w-0 flex-1 truncate text-muted">{st.kind === 'working' ? `depuis ${st.short}${st.detail ? ` · ${st.detail}` : ''}` : (st.detail ?? '')}</span>
+      <span className="shrink-0 font-medium text-fg">{st.kind === 'working' ? t('Claude is working on this project', 'Claude travaille sur ce projet') : st.label}</span>
+      <span className="min-w-0 flex-1 truncate text-muted">{st.kind === 'working' ? t(`for ${st.short}`, `depuis ${st.short}`) + (st.detail ? ` · ${st.detail}` : '') : (st.detail ?? '')}</span>
       <span className="flex shrink-0 gap-1.5">
         {st.kind === 'review' && (
           <>
             <button className={action(true)} onClick={() => void api().reload()}>
-              Recharger
+              {t('Reload', 'Recharger')}
             </button>
             <button className={action()} onClick={() => api().claude.markSeen(project.id)}>
-              Marquer comme vu
+              {t('Mark as seen', 'Marquer comme vu')}
             </button>
           </>
         )}
         {st.kind === 'error' && latest?.inspectorUrl && (
           <button className={action()} onClick={() => api().openExternal(latest.inspectorUrl!)}>
-            Log Vercel
+            {t('Vercel log', 'Log Vercel')}
           </button>
         )}
         {(st.kind === 'working' || st.kind === 'waiting') && (
           <button className={action()} onClick={() => s.setSection('projets')}>
-            Voir l’activité
+            {t('See activity', 'Voir l’activité')}
           </button>
         )}
       </span>

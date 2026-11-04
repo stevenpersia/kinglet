@@ -5,10 +5,10 @@ import { BEZEL, fitScale, viewportOf } from '../lib/layout';
 import { activePresets, api, useStore } from '../store';
 import { Icon } from './Icons';
 
-const GROUPS: { kind: DevicePreset['kind']; label: string }[] = [
-  { kind: 'phone', label: 'Téléphones' },
-  { kind: 'tablet', label: 'Tablettes' },
-  { kind: 'desktop', label: 'Écrans' },
+const groups = (): { kind: DevicePreset['kind']; label: string }[] => [
+  { kind: 'phone', label: t('Phones', 'Téléphones') },
+  { kind: 'tablet', label: t('Tablets', 'Tablettes') },
+  { kind: 'desktop', label: t('Screens', 'Écrans') },
 ];
 
 function DeviceToolbar({ scale }: { scale: number }) {
@@ -25,7 +25,7 @@ function DeviceToolbar({ scale }: { scale: number }) {
 
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
-      {GROUPS.map((g) => (
+      {groups().map((g) => (
         <div key={g.kind} role="group" aria-label={g.label} className="flex flex-wrap items-center gap-1.5">
           {presets
             .filter((p) => p.kind === g.kind)
@@ -42,15 +42,15 @@ function DeviceToolbar({ scale }: { scale: number }) {
       ))}
       <div className="ml-auto flex items-center gap-1.5">
         <ThrottleMenu />
-        <button aria-pressed={settings.landscape} onClick={() => void updateSettings({ landscape: !settings.landscape })} title="Paysage (Ctrl+Maj+O)" className={chip(settings.landscape)}>
+        <button aria-pressed={settings.landscape} onClick={() => void updateSettings({ landscape: !settings.landscape })} title={t('Landscape (Ctrl+Shift+O)', 'Paysage (Ctrl+Maj+O)')} className={chip(settings.landscape)}>
           <Icon name="rotate" size={13} />
-          Paysage
+          {t('Landscape', 'Paysage')}
         </button>
-        <button aria-pressed={settings.scrollSync} onClick={() => void updateSettings({ scrollSync: !settings.scrollSync })} title="Synchroniser scroll et navigation (Ctrl+Maj+S)" className={chip(settings.scrollSync)}>
+        <button aria-pressed={settings.scrollSync} onClick={() => void updateSettings({ scrollSync: !settings.scrollSync })} title={t('Sync scrolling and navigation (Ctrl+Shift+S)', 'Synchroniser scroll et navigation (Ctrl+Maj+S)')} className={chip(settings.scrollSync)}>
           <span aria-hidden="true" className={`size-1.5 rounded-full ${settings.scrollSync ? 'bg-ok' : 'bg-ghost'}`} />
-          Synchro
+          {t('Sync', 'Synchro')}
         </button>
-        <span className="inline-flex h-[26px] items-center rounded-md border border-line px-2.5 font-mono text-xs text-muted">{Math.round(scale * 100)} %</span>
+        <span className="inline-flex h-[26px] items-center rounded-md border border-line px-2.5 font-mono text-xs text-muted">{Math.round(scale * 100)}{t('%', ' %')}</span>
       </div>
     </div>
   );
@@ -58,7 +58,7 @@ function DeviceToolbar({ scale }: { scale: number }) {
 
 const NETWORK: { id: Throttle['network']; label: () => string; hint: () => string }[] = [
   { id: 'off', label: () => t('Fast', 'Rapide'), hint: () => t('Your connection', 'Ta connexion') },
-  { id: '4g', label: () => t('Slow 4G', '4G lente'), hint: () => '1,6 Mb/s · 150 ms' },
+  { id: '4g', label: () => t('Slow 4G', '4G lente'), hint: () => t('1.6 Mb/s · 150 ms', '1,6 Mb/s · 150 ms') },
   { id: '3g', label: () => t('Slow 3G', '3G lente'), hint: () => '400 kb/s · 2 s' },
 ];
 const CPU: { id: Throttle['cpu']; label: () => string; hint: () => string }[] = [

@@ -1,3 +1,4 @@
+import { t as tr } from '@parakeet/core';
 import { useState } from 'react';
 import type { EnvId } from '../../shared/types';
 import { ENV_DOT, ENV_LABEL, envOf, envTargets, timeAgo } from '../lib/env';
@@ -16,9 +17,9 @@ export function EnvSwitch() {
   const linked = !!vercel.project;
 
   const why: Record<EnvId, string | null> = {
-    local: t.local ? null : 'Aucun serveur local ouvert pour l’instant',
-    preview: !linked ? 'Relie ce projet à Vercel dans les réglages' : t.preview ? null : 'Aucune preview prête',
-    prod: !linked ? 'Relie ce projet à Vercel dans les réglages' : t.prod ? null : 'Pas de déploiement de production',
+    local: t.local ? null : tr('No local server open yet', 'Aucun serveur local ouvert pour l’instant'),
+    preview: !linked ? tr('Link this project to Vercel in settings', 'Relie ce projet à Vercel dans les réglages') : t.preview ? null : tr('No preview ready', 'Aucune preview prête'),
+    prod: !linked ? tr('Link this project to Vercel in settings', 'Relie ce projet à Vercel dans les réglages') : t.prod ? null : tr('No production deployment', 'Pas de déploiement de production'),
   };
 
   const toggleMenu = async () => {
@@ -57,11 +58,11 @@ export function EnvSwitch() {
 
   return (
     <div className="no-drag relative shrink-0">
-      <div role="group" aria-label="Environnement" className="flex gap-0.5 rounded-lg border border-line bg-bg p-0.5">
+      <div role="group" aria-label={tr('Environment', 'Environnement')} className="flex gap-0.5 rounded-lg border border-line bg-bg p-0.5">
         {button('local')}
         {button('preview')}
         {linked && t.previews.length > 0 && (
-          <button onClick={toggleMenu} aria-label="Choisir la preview" aria-expanded={menu} className="flex h-6 w-5 items-center justify-center rounded-md text-faint hover:text-fg">
+          <button onClick={toggleMenu} aria-label={tr('Choose the preview', 'Choisir la preview')} aria-expanded={menu} className="flex h-6 w-5 items-center justify-center rounded-md text-faint hover:text-fg">
             <Icon name="chevrons" size={10} />
           </button>
         )}
@@ -71,7 +72,7 @@ export function EnvSwitch() {
         <>
           <div className="fixed inset-0 z-40" onClick={toggleMenu} />
           <div role="menu" className="absolute top-9 left-0 z-50 w-[380px] rounded-[10px] border border-line bg-card p-1 shadow-2xl shadow-black/60">
-            <div className="label px-2.5 pt-2 pb-1.5">Previews prêtes, par branche</div>
+            <div className="label px-2.5 pt-2 pb-1.5">{tr('Ready previews, by branch', 'Previews prêtes, par branche')}</div>
             {t.previews.map((d) => (
               <button key={d.id} role="menuitem" onClick={() => pick(d.id)} className={`flex w-full flex-col gap-0.5 rounded-md px-2.5 py-2 text-left hover:bg-active ${d.id === t.preview?.id ? 'bg-active' : ''}`}>
                 <span className="flex items-center justify-between gap-2">

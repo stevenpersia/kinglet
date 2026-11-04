@@ -9,7 +9,7 @@ describe('projectStatus', () => {
   it('Claude first, then builds', () => {
     expect(projectStatus(claude({ status: 'working', since: 0 }), [dep('ERROR')], 3 * 60_000)).toMatchObject({ kind: 'working', short: '3 min' });
     expect(projectStatus(claude({ status: 'waiting' }), []).kind).toBe('waiting');
-    expect(projectStatus(claude({ status: 'done', seen: false, files: ['a/b/c.tsx', 'd.ts'] }), [], 0)).toMatchObject({ kind: 'review', detail: '2 fichiers modifiés : b/c.tsx, d.ts' });
+    expect(projectStatus(claude({ status: 'done', seen: false, files: ['a/b/c.tsx', 'd.ts'] }), [], 0)).toMatchObject({ kind: 'review', detail: '2 files changed: b/c.tsx, d.ts' });
     expect(projectStatus(claude({ status: 'done', seen: true }), [dep('ERROR')]).kind).toBe('error');
     expect(projectStatus(undefined, [dep('BUILDING')]).kind).toBe('building');
     expect(projectStatus(undefined, [dep('READY'), dep('ERROR')]).kind).toBe('idle');

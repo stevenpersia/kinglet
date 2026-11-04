@@ -1,11 +1,12 @@
+import { t } from '@parakeet/core';
 import { useStore, type Section } from '../store';
 import { Icon, type IconName } from './Icons';
 
-const ITEMS: { id: Section; label: string; icon: IconName }[] = [
-  { id: 'apercu', label: 'Aperçu', icon: 'eye' },
-  { id: 'partage', label: 'Partage', icon: 'share' },
-  { id: 'comparer', label: 'Comparer', icon: 'cols' },
-  { id: 'deploiements', label: 'Déploiements', icon: 'tri' },
+const items = (): { id: Section; label: string; icon: IconName }[] => [
+  { id: 'apercu', label: t('Devices', 'Aperçu'), icon: 'eye' },
+  { id: 'partage', label: t('Share', 'Partage'), icon: 'share' },
+  { id: 'comparer', label: t('Compare', 'Comparer'), icon: 'cols' },
+  { id: 'deploiements', label: t('Deployments', 'Déploiements'), icon: 'tri' },
   { id: 'checks', label: 'Checks', icon: 'check' },
 ];
 
@@ -39,9 +40,9 @@ export function Rail() {
 
   return (
     <nav aria-label="Sections" className="flex w-14 shrink-0 flex-col items-center gap-1 border-r border-line-soft bg-chrome py-2.5">
-      {ITEMS.map((it) => item(it))}
+      {items().map((it) => item(it))}
       <span className="flex-1" />
-      {item({ id: 'reglages', label: 'Réglages', icon: 'gear' }, 'Ctrl ,')}
+      {item({ id: 'reglages', label: t('Settings', 'Réglages'), icon: 'gear' }, 'Ctrl ,')}
     </nav>
   );
 }

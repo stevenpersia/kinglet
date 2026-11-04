@@ -1,4 +1,4 @@
-import type { VercelDeployment } from '@parakeet/core';
+import { t, type VercelDeployment } from '@parakeet/core';
 import type { ClaudeProjectState } from '../../shared/types';
 
 export type ProjectStatusKind = 'working' | 'waiting' | 'review' | 'building' | 'error' | 'idle';
@@ -27,23 +27,25 @@ const base = (path: string) => path.split('/').slice(-2).join('/');
  */
 export function projectStatus(claude: ClaudeProjectState | undefined, deployments: VercelDeployment[], now = Date.now()): ProjectStatus {
   if (claude?.status === 'working')
-    return { kind: 'working', short: minutes(claude.since, now), label: `Claude travaille · ${minutes(claude.since, now)}`, detail: claude.lastAction ?? claude.prompt, color: CLAY };
-  if (claude?.status === 'waiting') return { kind: 'waiting', short: 'attend', label: 'Claude attend ta réponse', detail: claude.lastAction, color: '#e6c07b' };
+    return { kind: 'working', short: minutes(claude.since, now), label: t(`Claude is working · ${minutes(claude.since, now)}`, `Claude travaille · ${minutes(claude.since, now)}`), detail: claude.lastAction ?? claude.prompt, color: CLAY };
+  if (claude?.status === 'waiting') return { kind: 'waiting', short: t('waiting', 'attend'), label: t('Claude is waiting for you', 'Claude attend ta réponse'), detail: claude.lastAction, color: '#e6c07b' };
   if (claude?.status === 'done' && !claude.seen) {
     const n = claude.files.length;
     return {
       kind: 'review',
-      short: 'à voir',
-      label: `Claude a terminé il y a ${minutes(claude.lastAt, now)}`,
-      detail: n ? `${n} fichier${n > 1 ? 's' : ''} modifié${n > 1 ? 's' : ''} : ${claude.files.slice(0, 3).map(base).join(', ')}${n > 3 ? '…' : ''}` : null,
+      short: t('to review', 'à voir'),
+      label: t(`Claude finished ${minutes(claude.lastAt, now)} ago`, `Claude a terminé il y a ${minutes(claude.lastAt, now)}`),
+      detail: n
+        ? t(`${n} file${n > 1 ? 's' : ''} changed: `, `${n} fichier${n > 1 ? 's' : ''} modifié${n > 1 ? 's' : ''} : `) + `${claude.files.slice(0, 3).map(base).join(', ')}${n > 3 ? '…' : ''}`
+        : null,
       color: '#ededef',
     };
   }
   const latest = deployments[0];
   if (latest && (latest.state === 'BUILDING' || latest.state === 'QUEUED' || latest.state === 'INITIALIZING'))
-    return { kind: 'building', short: 'build', label: `Build en cours · ${latest.branch ?? ''}`, detail: latest.commitMessage, color: '#e6c07b' };
-  if (latest?.state === 'ERROR') return { kind: 'error', short: 'erreur', label: `Build en erreur · ${latest.branch ?? ''}`, detail: latest.commitMessage, color: '#f28b82' };
-  return { kind: 'idle', short: '', label: 'Au repos', detail: null, color: '#6e6e77' };
+    return { kind: 'building', short: 'build', label: t(`Building · ${latest.branch ?? ''}`, `Build en cours · ${latest.branch ?? ''}`), detail: latest.commitMessage, color: '#e6c07b' };
+  if (latest?.state === 'ERROR') return { kind: 'error', short: t('error', 'erreur'), label: t(`Build failed · ${latest.branch ?? ''}`, `Build en erreur · ${latest.branch ?? ''}`), detail: latest.commitMessage, color: '#f28b82' };
+  return { kind: 'idle', short: '', label: t('Idle', 'Au repos'), detail: null, color: '#6e6e77' };
 }
 
 /** A stable colour for a project's initials. */

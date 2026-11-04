@@ -1,3 +1,4 @@
+import { t } from '@parakeet/core';
 import { useState } from 'react';
 import { api, useStore } from '../store';
 
@@ -19,18 +20,22 @@ export function ClaudeSettings() {
       <div className="flex items-start gap-3">
         <span className={`mt-1.5 size-2 shrink-0 rounded-full ${hooks?.installed ? 'claude-dot bg-[#d97757]' : 'bg-ghost'}`} aria-hidden="true" />
         <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <span className="font-medium">{hooks?.installed ? 'Suivi activé' : 'Suivi désactivé'}</span>
+          <span className="font-medium">{hooks?.installed ? t('Tracking on', 'Suivi activé') : t('Tracking off', 'Suivi désactivé')}</span>
           <span className="text-xs leading-5 text-muted">
-            Parakeet ajoute des hooks à <span className="font-mono text-fg">{file}</span> (une copie de sauvegarde est gardée à côté). À chaque demande, fichier modifié ou fin de tâche, Claude Code envoie l’évènement à Parakeet, sur ta machine uniquement. Chaque session est rattachée au projet dont le dossier la contient. Les sessions déjà ouvertes doivent être relancées.
+            {t('Parakeet adds hooks to', 'Parakeet ajoute des hooks à')} <span className="font-mono text-fg">{file}</span>{' '}
+            {t(
+              '(a backup copy is kept next to it). On each request, changed file or task end, Claude Code sends the event to Parakeet, on your machine only. Each session is attached to the project whose folder contains it. Sessions already open must be restarted.',
+              '(une copie de sauvegarde est gardée à côté). À chaque demande, fichier modifié ou fin de tâche, Claude Code envoie l’évènement à Parakeet, sur ta machine uniquement. Chaque session est rattachée au projet dont le dossier la contient. Les sessions déjà ouvertes doivent être relancées.',
+            )}
           </span>
         </div>
         {hooks?.installed ? (
           <button disabled={busy} onClick={() => void run(() => api().claude.uninstall())} className={btn}>
-            Désactiver
+            {t('Turn off', 'Désactiver')}
           </button>
         ) : (
           <button disabled={busy} onClick={() => void run(() => api().claude.install())} className={primary}>
-            Activer
+            {t('Turn on', 'Activer')}
           </button>
         )}
       </div>

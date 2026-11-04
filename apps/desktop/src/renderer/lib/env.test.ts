@@ -1,4 +1,4 @@
-import type { VercelDeployment } from '@parakeet/core';
+import { setLanguage, type VercelDeployment } from '@parakeet/core';
 import { describe, expect, it } from 'vitest';
 import { envOf, envTargets, timeAgo, urlOnEnv } from './env';
 
@@ -60,7 +60,10 @@ describe('envTargets + urlOnEnv', () => {
 });
 
 it('timeAgo', () => {
-  expect(timeAgo(0, 30_000)).toBe('à l’instant');
+  expect(timeAgo(0, 30_000)).toBe('just now');
+  expect(timeAgo(0, 5 * 60_000)).toBe('5 min ago');
+  expect(timeAgo(0, 3 * 3_600_000)).toBe('3 h ago');
+  setLanguage('fr');
   expect(timeAgo(0, 5 * 60_000)).toBe('il y a 5 min');
-  expect(timeAgo(0, 3 * 3_600_000)).toBe('il y a 3 h');
+  setLanguage('en');
 });
