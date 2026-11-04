@@ -608,6 +608,30 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     await js(`window.parakeet.updateSettings({ media: { colorScheme: 'auto', reducedMotion: false, moreContrast: false } })`);
     criteria.push({ id: 'media', ok: mediaOn && mediaOff, detail: `sombre + animations réduites + contraste : ${mediaOn ? 'vus par les pages' : 'absents'} · clair : ${mediaOff ? 'ok' : 'échec'}` });
 
+    // 26-network. Simulated API responses and offline mode, on every device.
+    await js(`window.parakeet.updateSettings({ mocks: [{ id: 'm1', enabled: true, method: 'GET', pattern: '*/api/plans*', status: 503, contentType: 'application/json', body: '{"down":true}', delayMs: 300 }] })`);
+    await sleep(600);
+    const probeApi = `fetch('/api/plans?x=1').then(async (r) => r.status + ' ' + (await r.text())).catch((e) => 'failed ' + e.message)`;
+    const mocked = (await Promise.all(devices.entries().map((d) => d.view.webContents.executeJavaScript(probeApi) as Promise<string>))) as string[];
+    await clickText('main button', 'simulated'); // the network menu (its button says "1 simulated")
+    await sleep(400);
+    await clickText('[role=menu] button', 'Simulated API responses');
+    await waitFor(() => js<boolean>(`!!document.querySelector('[role=dialog][aria-label="Simulated API responses"]')`), 3000);
+    await sleep(400);
+    await shot('33-reponses-simulees');
+    await js(`document.querySelector('[role=dialog][aria-label="Simulated API responses"] button[aria-label=Close]')?.click()`);
+    await js(`window.parakeet.updateSettings({ mocks: [], offline: true })`);
+    await sleep(600);
+    const offline = (await Promise.all(devices.entries().map((d) => d.view.webContents.executeJavaScript(probeApi) as Promise<string>))) as string[];
+    await js(`window.parakeet.updateSettings({ offline: false })`);
+    await sleep(600);
+    const online = (await devices.entries()[0]!.view.webContents.executeJavaScript(`fetch('/').then((r) => r.status).catch(() => 0)`)) as number;
+    criteria.push({
+      id: 'network-mocks',
+      ok: mocked.every((m) => m === '503 {"down":true}') && offline.every((m) => m.startsWith('failed')) && online === 200,
+      detail: `simulée : ${mocked.join(' / ')} · hors ligne : ${offline.join(' / ')} · retour : ${online}`,
+    });
+
     // 26-inspect. Inspector: hover the title on one device, it is measured on all of them.
     await clickText('main button', 'Inspect');
     await waitFor(() => js<boolean>(`!!document.querySelector('[aria-label=Inspector]')`), 3000);

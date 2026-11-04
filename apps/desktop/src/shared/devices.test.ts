@@ -21,6 +21,8 @@ const base: Settings = {
   deviceOrder: [],
   devicesPerProject: false,
   media: { colorScheme: 'auto', reducedMotion: false, moreContrast: false },
+  offline: false,
+  mocks: [],
   onboarded: true,
   claudePanel: true,
   claudeAllowCommands: false,

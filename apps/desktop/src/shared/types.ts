@@ -84,6 +84,10 @@ export interface Settings {
   devicesPerProject: boolean;
   /** Dark mode, reduced motion, high contrast, on every device. */
   media: MediaPrefs;
+  /** Every device without network. */
+  offline: boolean;
+  /** Simulated API responses. */
+  mocks: ApiMock[];
   /** The first-run window was shown (done or skipped). */
   onboarded: boolean;
   /** Claude panel in the left bar. */
@@ -93,6 +97,20 @@ export interface Settings {
 }
 
 export type Language = 'system' | 'en' | 'fr';
+
+/** A simulated API response: requests matching `pattern` get this answer instead of the real one. */
+export interface ApiMock {
+  id: string;
+  enabled: boolean;
+  /** "*" for any method. */
+  method: string;
+  /** URL with * wildcards, e.g. "*\/api/plans*". */
+  pattern: string;
+  status: number;
+  contentType: string;
+  body: string;
+  delayMs: number;
+}
 
 /** User preferences the devices pretend to have (CSS media features). */
 export interface MediaPrefs {

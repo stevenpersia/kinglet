@@ -9,6 +9,7 @@ import { OldProdBanner } from './EnvSwitch';
 import { Icon } from './Icons';
 import { Welcome } from './Welcome';
 import { InspectBar } from './InspectBar';
+import { MocksDialog } from './MocksDialog';
 import type { Viewport } from '../lib/layout';
 
 const groups = (): { kind: DevicePreset['kind']; label: string }[] => [
@@ -157,7 +158,9 @@ function ThrottleMenu() {
   const { settings, updateSettings, openOverlay, closeOverlay } = useStore();
   const [open, setOpen] = useState(false);
   const th = settings.throttle;
-  const on = th.network !== 'off' || th.cpu > 1;
+  const mocksOn = settings.mocks.filter((m) => m.enabled).length;
+  const on = th.network !== 'off' || th.cpu > 1 || settings.offline || mocksOn > 0;
+  const [mocksOpen, setMocksOpen] = useState(false);
   const toggle = async () => {
     if (open) {
       setOpen(false);
@@ -176,10 +179,14 @@ function ThrottleMenu() {
         aria-expanded={open}
         onClick={toggle}
         title={t('Slow network and CPU (phones and tablets)', 'Réseau et CPU ralentis (téléphones et tablettes)')}
-        className={`inline-flex h-[26px] items-center gap-1.5 rounded-md border px-2.5 text-xs ${on ? 'border-[#5c4a26] bg-[rgba(230,192,123,0.08)] font-medium text-warn' : 'border-line text-muted hover:border-line-strong'}`}
+        className={`inline-flex h-[26px] items-center gap-1.5 rounded-md border px-2.5 text-xs ${settings.offline ? 'border-[#5c3330] bg-[rgba(242,139,130,0.08)] font-medium text-err' : on ? 'border-[#5c4a26] bg-[rgba(230,192,123,0.08)] font-medium text-warn' : 'border-line text-muted hover:border-line-strong'}`}
       >
         <svg width="13" height="13" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20a8 8 0 1 1 8-8M12 12l4-4" stroke="currentColor" strokeWidth="1.8" fill="none" strokeLinecap="round" /></svg>
-        {on ? [th.network !== 'off' ? NETWORK.find((n) => n.id === th.network)!.label() : null, th.cpu > 1 ? `CPU ×${th.cpu}` : null].filter(Boolean).join(' · ') : t('Full speed', 'Pleine vitesse')}
+        {settings.offline
+          ? t('Offline', 'Hors ligne')
+          : on
+            ? [th.network !== 'off' ? NETWORK.find((n) => n.id === th.network)!.label() : null, th.cpu > 1 ? `CPU ×${th.cpu}` : null, mocksOn ? t(`${mocksOn} simulated`, `${mocksOn} simulée${mocksOn > 1 ? 's' : ''}`) : null].filter(Boolean).join(' · ')
+            : t('Full speed', 'Pleine vitesse')}
       </button>
       {open && (
         <>
@@ -202,8 +209,32 @@ function ThrottleMenu() {
             <p className="m-0 px-2.5 pt-2.5 pb-2 text-[11.5px] leading-normal text-faint">
               {t('Applies to phones and tablets; screens stay at full speed. Reload to see the page load again.', 'S’applique aux téléphones et tablettes ; les écrans restent à pleine vitesse. Recharge pour revoir le chargement.')}
             </p>
+            <div className="mx-1.5 my-1 h-px bg-line-soft" />
+            <button role="menuitemcheckbox" aria-checked={settings.offline} onClick={() => void updateSettings({ offline: !settings.offline })} className={row(settings.offline)}>
+              {t('Offline', 'Hors ligne')}
+              <span className={`font-mono text-[10.5px] ${settings.offline ? 'text-err' : 'text-ghost'}`}>{settings.offline ? t('on · every device', 'activé · tous') : t('every device', 'tous les appareils')}</span>
+            </button>
+            <button
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                setMocksOpen(true);
+              }}
+              className={row(false)}
+            >
+              {t('Simulated API responses…', 'Réponses d’API simulées…')}
+              <span className="font-mono text-[10.5px] text-ghost">{t(`${mocksOn} on`, `${mocksOn} active${mocksOn > 1 ? 's' : ''}`)}</span>
+            </button>
           </div>
         </>
+      )}
+      {mocksOpen && (
+        <MocksDialog
+          onClose={() => {
+            setMocksOpen(false);
+            closeOverlay();
+          }}
+        />
       )}
     </div>
   );

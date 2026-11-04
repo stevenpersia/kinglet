@@ -22,6 +22,8 @@ export const DEFAULTS: Settings = {
   deviceOrder: [],
   devicesPerProject: false,
   media: { colorScheme: 'auto', reducedMotion: false, moreContrast: false },
+  offline: false,
+  mocks: [],
   onboarded: false,
   claudePanel: true,
   claudeAllowCommands: false,

@@ -1,7 +1,8 @@
 import { join } from 'node:path';
 import { BaseWindow, WebContentsView, ipcMain, screen, session, type Input, type Session } from 'electron';
 import { HEAVY_IMAGE_BYTES, getLanguage, t, type RenderedDevice } from '@parakeet/core';
-import type { DeviceLog, DevicePreset, DeviceSlot, ElementInfo, ElementMetrics, InspectState, MediaPrefs, PreviewEvent, ShortcutAction, Throttle } from '../shared/types';
+import { globMatch } from '../shared/mocks';
+import type { ApiMock, DeviceLog, DevicePreset, DeviceSlot, ElementInfo, ElementMetrics, InspectState, MediaPrefs, PreviewEvent, ShortcutAction, Throttle } from '../shared/types';
 
 export const PREVIEW_PARTITION = 'persist:parakeet-preview';
 
@@ -172,6 +173,8 @@ export class DeviceManager {
   private visible = true;
   private frozen = false;
   private throttle: Throttle = { network: 'off', cpu: 1 };
+  private offline = false;
+  private mocks: ApiMock[] = [];
   private media: MediaPrefs = { colorScheme: 'auto', reducedMotion: false, moreContrast: false };
   private logSeq = 0;
   private pendingLogs: DeviceLog[] = [];
@@ -382,9 +385,10 @@ export class DeviceManager {
   private watchNetwork(entry: DeviceEntry) {
     const dbg = entry.view.webContents.debugger;
     if (!dbg.isAttached()) return;
-    void dbg.sendCommand('Network.enable').then(() => Promise.all([this.applyThrottle(entry), this.applyMedia(entry)])).catch(() => undefined);
+    void dbg.sendCommand('Network.enable').then(() => Promise.all([this.applyThrottle(entry), this.applyMedia(entry), this.applyMocks(entry)])).catch(() => undefined);
     dbg.on('message', (_e, method, params) => {
-      if (method === 'Network.requestWillBeSent') {
+      if (method === 'Fetch.requestPaused') void this.answerPaused(entry, params);
+      else if (method === 'Network.requestWillBeSent') {
         if (entry.requests.size > 2000) entry.requests.clear();
         entry.requests.set(params.requestId, { url: params.request.url, method: params.request.method, type: params.type ?? '' });
       } else if (method === 'Network.responseReceived') {
@@ -477,6 +481,49 @@ export class DeviceManager {
     });
   }
 
+  setOffline(on: boolean) {
+    this.offline = on;
+    for (const d of this.devices.values()) void this.applyThrottle(d);
+  }
+
+  /** Simulated API responses: matching requests are answered by Parakeet (Fetch domain). */
+  setMocks(mocks: ApiMock[]) {
+    this.mocks = mocks;
+    for (const d of this.devices.values()) void this.applyMocks(d);
+  }
+
+  private applyMocks(d: DeviceEntry) {
+    return serial(d, async () => {
+      const dbg = d.view.webContents.debugger;
+      if (!dbg.isAttached()) return;
+      const on = this.mocks.filter((m) => m.enabled && m.pattern.trim());
+      if (on.length) await dbg.sendCommand('Fetch.enable', { patterns: on.map((m) => ({ urlPattern: m.pattern.trim(), requestStage: 'Request' })) }).catch((e: Error) => console.error(`[${d.preset.id}] mocks`, e.message));
+      else await dbg.sendCommand('Fetch.disable').catch(() => undefined);
+    });
+  }
+
+  private async answerPaused(d: DeviceEntry, params: { requestId: string; request: { url: string; method: string }; resourceType?: string }) {
+    const dbg = d.view.webContents.debugger;
+    const mock = this.mocks.find((m) => m.enabled && (m.method === '*' || m.method.toUpperCase() === params.request.method) && globMatch(m.pattern.trim(), params.request.url));
+    try {
+      if (!mock) return void (await dbg.sendCommand('Fetch.continueRequest', { requestId: params.requestId }));
+      if (mock.delayMs > 0) await new Promise((r) => setTimeout(r, Math.min(mock.delayMs, 60_000)));
+      await dbg.sendCommand('Fetch.fulfillRequest', {
+        requestId: params.requestId,
+        responseCode: mock.status,
+        responseHeaders: [
+          { name: 'content-type', value: mock.contentType || 'application/json' },
+          { name: 'access-control-allow-origin', value: '*' },
+          { name: 'x-parakeet-mock', value: mock.id },
+        ],
+        body: Buffer.from(mock.body, 'utf8').toString('base64'),
+      });
+      this.log(d, { source: 'network', level: 'info', text: t(`simulated → ${mock.status}`, `simulée → ${mock.status}`), url: params.request.url, status: mock.status, method: params.request.method, resourceType: params.resourceType });
+    } catch {
+      /* the page went away */
+    }
+  }
+
   get throttling() {
     return this.throttle;
   }
@@ -489,7 +536,11 @@ export class DeviceManager {
       const on = d.preset.kind !== 'desktop';
       const net = on && this.throttle.network !== 'off' ? NETWORK_PROFILES[this.throttle.network] : null;
       await dbg
-        .sendCommand('Network.emulateNetworkConditions', net ? { offline: false, ...net } : { offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1 })
+        .sendCommand(
+          'Network.emulateNetworkConditions',
+          // Offline: every device, screens included (to test the offline page or the error states).
+          this.offline ? { offline: true, latency: 0, downloadThroughput: 0, uploadThroughput: 0 } : net ? { offline: false, ...net } : { offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1 },
+        )
         .catch((e: Error) => console.error(`[${d.preset.id}] throttle network`, e.message));
       await dbg.sendCommand('Emulation.setCPUThrottlingRate', { rate: on ? this.throttle.cpu : 1 }).catch((e: Error) => console.error(`[${d.preset.id}] throttle cpu`, e.message));
     });

@@ -117,7 +117,7 @@ let overlays = 0;
 export const useStore = create<State>((set, get) => ({
   ready: false,
   presets: [],
-  settings: { projects: [], openIds: [], activeId: null, recentUrls: [], active: [], scrollSync: true, landscape: false, throttle: { network: 'off', cpu: 1 }, language: 'en', startup: 'restore', defaultSection: 'apercu', autoAnalyze: true, customDevices: [], deviceOrder: [], devicesPerProject: false, media: { colorScheme: 'auto', reducedMotion: false, moreContrast: false }, onboarded: true, claudePanel: true, claudeAllowCommands: false },
+  settings: { projects: [], openIds: [], activeId: null, recentUrls: [], active: [], scrollSync: true, landscape: false, throttle: { network: 'off', cpu: 1 }, language: 'en', startup: 'restore', defaultSection: 'apercu', autoAnalyze: true, customDevices: [], deviceOrder: [], devicesPerProject: false, media: { colorScheme: 'auto', reducedMotion: false, moreContrast: false }, offline: false, mocks: [], onboarded: true, claudePanel: true, claudeAllowCommands: false },
   platform: null,
   url: null,
   detectedFrom: null,

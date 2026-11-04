@@ -110,6 +110,8 @@ async function createWindow() {
   };
   devices.setThrottle(settings.value.throttle);
   devices.setMedia(settings.value.media);
+  devices.setOffline(settings.value.offline);
+  devices.setMocks(settings.value.mocks);
   devices.setScrollSync(settings.value.scrollSync);
   /** The site's favicon, kept on the project for its tab (also when closed). */
   async function saveFavicon(url: string, pageUrl: string) {
@@ -266,6 +268,8 @@ async function createWindow() {
     if (patch.landscape !== undefined) devices.setLandscape(patch.landscape);
     if (patch.throttle) devices.setThrottle(patch.throttle);
     if (patch.media) devices.setMedia(patch.media);
+    if (patch.offline !== undefined) devices.setOffline(patch.offline);
+    if (patch.mocks) devices.setMocks(patch.mocks);
     if (patch.openIds || patch.projects) watchOpenProjects();
     emit({ type: 'settings', settings: next });
     return next;
