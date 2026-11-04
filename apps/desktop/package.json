@@ -2,14 +2,15 @@
   "name": "@parakeet/desktop",
   "version": "0.0.1",
   "private": true,
-  "description": "Parakeet — preview your site on every screen",
+  "description": "Parakeet \u2014 preview your site on every screen",
   "main": "out/main/index.js",
   "scripts": {
-    "dev": "electron-vite dev",
+    "postinstall": "install-electron",
+    "dev": "install-electron && electron-vite dev",
     "build": "electron-vite build",
-    "start": "electron-vite preview",
+    "start": "install-electron && electron-vite preview",
     "typecheck": "tsc -p tsconfig.json",
-    "selftest": "electron-vite build && node scripts/selftest.mjs"
+    "selftest": "install-electron && electron-vite build && node scripts/selftest.mjs"
   },
   "dependencies": {
     "@parakeet/core": "workspace:*"
