@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Parakeet — ton site, sur tous les écrans</title>
+  <meta name="description" content="App de bureau Linux : ton site sur iPhone, Android et iPad, en local, preview et prod, avec aperçus de partage et serveur MCP pour Claude Code.">
+  <link rel="canonical" href="{{SITE}}/">
+  <meta name="theme-color" content="#0a0a0b">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Parakeet">
+  <meta property="og:title" content="Parakeet — ton site, sur tous les écrans">
+  <meta property="og:description" content="Ton site sur iPhone, Android et iPad, en local, preview et prod.">
+  <meta property="og:url" content="{{SITE}}/">
+  <meta property="og:image" content="{{SITE}}/og.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:locale" content="fr_FR">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <style>
+    :root { --bg:#0a0a0b; --chrome:#0e0e10; --card:#111113; --line:#232327; --soft:#1e1e22; --faint:#8a8a93; --muted:#a1a1aa; --fg:#ededef; --ok:#7dd3a8; --local:#8ab4f8; --preview:#e6c07b; }
+    * { box-sizing: border-box; }
+    html { color-scheme: dark; }
+    body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.6 "Geist", "Inter", system-ui, -apple-system, "Segoe UI", sans-serif; -webkit-font-smoothing: antialiased; }
+    a { color: inherit; }
+    code, .mono { font-family: "Geist Mono", ui-monospace, "JetBrains Mono", monospace; }
+    .wrap { max-width: 1160px; margin: 0 auto; padding: 0 24px; }
+    .label { font-size: 12px; color: var(--faint); text-transform: uppercase; letter-spacing: .1em; font-weight: 500; }
+    h1, h2 { margin: 0; font-weight: 600; letter-spacing: -0.04em; line-height: 1.04; }
+    h2 { font-size: clamp(30px, 4vw, 44px); }
+    p { margin: 0; color: var(--muted); }
+    .mark { position: relative; display: inline-block; width: 22px; height: 22px; border: 2px solid var(--fg); border-radius: 6px; }
+    .mark::after { content: ""; position: absolute; right: 2px; bottom: 2px; width: 6px; height: 10px; border-radius: 2px; background: var(--fg); }
+    nav { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; justify-content: space-between; padding-top: 20px; padding-bottom: 20px; }
+    .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; font-weight: 600; font-size: 19px; letter-spacing: -0.05em; }
+    .links { display: flex; flex-wrap: wrap; gap: 24px; align-items: center; font-size: 14px; }
+    .links a { color: var(--muted); text-decoration: none; }
+    .links a:hover { color: var(--fg); }
+    .btn { display: inline-flex; align-items: center; gap: 10px; height: 44px; padding: 0 18px; border-radius: 9px; font-weight: 600; text-decoration: none; }
+    .btn.primary { background: var(--fg); color: var(--bg); }
+    .btn.ghost { border: 1px solid #2a2a2f; background: var(--card); color: var(--fg); font-weight: 500; }
+    .btn.small { height: 34px; padding: 0 14px; border-radius: 8px; }
+    .hero { padding-top: 72px; text-align: center; background: radial-gradient(ellipse 50% 40% at 50% 70%, rgba(255,255,255,.06), transparent 70%); }
+    .hero h1 { font-size: clamp(42px, 7vw, 84px); letter-spacing: -0.055em; line-height: .98; max-width: 900px; margin: 22px auto 0; }
+    .hero p { max-width: 640px; margin: 22px auto 0; font-size: 19px; }
+    .pill { display: inline-flex; align-items: center; gap: 8px; height: 28px; padding: 0 12px; border-radius: 99px; border: 1px solid var(--line); font-size: 12px; color: var(--muted); }
+    .dot { width: 6px; height: 6px; border-radius: 9px; background: var(--ok); display: inline-block; }
+    .cta { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 30px; }
+    .fine { margin-top: 14px; font-size: 13px; color: var(--faint); }
+    .shot { margin: 56px auto 0; max-width: 1152px; border-radius: 12px; overflow: hidden; box-shadow: 0 0 0 1px #26262b, 0 40px 120px rgba(0,0,0,.7); }
+    .shot img { display: block; width: 100%; height: auto; }
+    section { padding-top: 120px; }
+    .split { display: flex; flex-wrap: wrap; gap: 48px; align-items: center; }
+    .split > * { flex: 1 1 380px; min-width: 0; }
+    .stack { display: flex; flex-direction: column; gap: 18px; }
+    .grid { margin-top: 36px; display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); border-top: 1px solid var(--soft); border-left: 1px solid var(--soft); }
+    .grid > div { padding: 26px; border-right: 1px solid var(--soft); border-bottom: 1px solid var(--soft); }
+    .grid h3 { margin: 0 0 8px; font-size: 16px; letter-spacing: -0.01em; }
+    .grid p { font-size: 15px; }
+    .term { background: var(--chrome); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+    .term-bar { display: flex; gap: 8px; align-items: center; height: 36px; padding: 0 14px; border-bottom: 1px solid var(--soft); font-size: 12px; color: var(--faint); }
+    .term-bar i { width: 10px; height: 10px; border-radius: 99px; background: #2a2a2f; }
+    .term pre { margin: 0; padding: 18px; font-size: 13px; line-height: 1.85; color: var(--muted); white-space: pre-wrap; }
+    .term b { color: var(--fg); font-weight: 500; }
+    .term .ok { color: var(--ok); }
+    .cmd { display: inline-block; padding: 10px 14px; border-radius: 8px; border: 1px solid #2a2a2f; background: var(--card); font-size: 13px; overflow-wrap: anywhere; }
+    .checks { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); column-gap: 32px; }
+    .checks div { display: flex; justify-content: space-between; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--soft); font-size: 14px; }
+    .checks span:last-child { color: var(--faint); font-size: 12px; }
+    @media (max-width: 640px) {
+      .links a:not(.btn) { display: none; }
+      .hero { padding-top: 40px; }
+      section { padding-top: 88px; }
+    }
+    footer { margin-top: 140px; border-top: 1px solid var(--soft); padding: 24px 0 32px; display: flex; flex-wrap: wrap; gap: 16px; justify-content: space-between; font-size: 13px; color: var(--faint); }
+  </style>
+</head>
+<body>
+  <nav class="wrap" aria-label="Navigation">
+    <a class="brand" href="/"><span class="mark" aria-hidden="true"></span>parakeet</a>
+    <div class="links">
+      <a href="#fonctionnalites">Fonctionnalités</a>
+      <a href="#mcp">Claude Code</a>
+      <a href="#checks">Checks</a>
+      <a class="btn primary small" href="#telecharger">Télécharger</a>
+    </div>
+  </nav>
+
+  <main>
+    <div class="hero">
+      <div class="wrap">
+        <span class="pill mono"><span class="dot"></span>Serveur MCP pour Claude Code inclus</span>
+        <h1>Ton site, sur tous les écrans.</h1>
+        <p>Une app de bureau pour voir ce que tu construis avec Claude : iPhone, Android et iPad côte à côte, local, preview et prod en un clic, et l’aperçu exact de ton lien avant de l’envoyer.</p>
+        <div class="cta" id="telecharger">
+          <a class="btn primary" href="{{REPO}}/releases/latest">Télécharger pour Linux</a>
+          <a class="btn ghost mono" href="{{REPO}}">Code source</a>
+        </div>
+        <p class="fine">AppImage et paquet pacman (Arch, CachyOS) · mises à jour automatiques</p>
+        <div class="shot">
+          <img src="/app.jpg" width="1440" height="900" alt="Parakeet : un site affiché sur un iPhone 16 et un iPad Air émulés, avec l’inspecteur des balises à droite">
+        </div>
+      </div>
+    </div>
+
+    <section class="wrap split">
+      <div class="stack">
+        <span class="label">Aperçus de lien</span>
+        <h2>Ton lien sur WhatsApp n’affiche que l’URL ?</h2>
+        <p>Parakeet lit ta page comme les robots de WhatsApp, iMessage, Slack, Discord, LinkedIn, X et Google, montre le rendu de chacun, et propose le correctif pour ton framework (Next.js, Nuxt, Astro, SvelteKit, Vite).</p>
+      </div>
+      <div class="stack">
+        <span class="label">Local · Preview · Prod</span>
+        <h2>La même page, sur chaque environnement.</h2>
+        <p>Connecte Vercel : un clic affiche la même page en preview (au choix par branche) ou en prod. Comparer met les balises côte à côte, différences surlignées.</p>
+      </div>
+    </section>
+
+    <section id="mcp" class="wrap split">
+      <div class="term">
+        <div class="term-bar"><i></i><i></i><i></i><span class="mono">claude — ~/dev/mon-site</span></div>
+        <pre class="mono"><b>›</b> <b>Corrige l’aperçu WhatsApp de la home</b>
+
+<span class="ok">●</span> parakeet · <b>get_share_preview</b>("/")
+  ⎿ og:site_name absent · og:image 800×420
+<b>●</b> Édition de <b>app/layout.tsx</b> <span class="ok">+4</span>
+<span class="ok">●</span> parakeet · <b>screenshot</b>("iphone-16")
+<span class="ok">●</span> parakeet · <b>run_checks</b>() → 24/24
+
+<b>C’est corrigé et vérifié sur iPhone.</b></pre>
+      </div>
+      <div class="stack">
+        <span class="label">Serveur MCP</span>
+        <h2>Claude vérifie lui-même son travail.</h2>
+        <p>Branche Parakeet à Claude Code une fois. Il capture les appareils, lit les balises, lance les checks et confirme que sa correction marche avant de te rendre la main.</p>
+        <code class="cmd">claude mcp add --scope user parakeet -- parakeet --mcp --ozone-platform=headless</code>
+      </div>
+    </section>
+
+    <section id="fonctionnalites" class="wrap">
+      <span class="label">Fonctionnalités</span>
+      <h2 style="margin-top:14px;max-width:700px">Tout ce que tu vérifies à la main, au même endroit.</h2>
+      <div class="grid">
+        <div><h3>Mobile et tablette d’abord</h3><p>10 appareils émulés (largeur, densité, tactile), portrait ou paysage, scroll et navigation synchronisés.</p></div>
+        <div><h3>Sur ton vrai téléphone</h3><p>Un QR code ouvre ton localhost sur ton téléphone, en Wi-Fi, avec le rechargement à chaud.</p></div>
+        <div><h3>Branché sur Vercel</h3><p>Déploiements, branches, previews protégées ouvertes sans te reconnecter.</p></div>
+        <div><h3>Aperçus de partage</h3><p>7 plateformes, chacune avec ses règles : textes coupés, recadrage, nom du site.</p></div>
+        <div><h3>24 checks</h3><p>SEO, partage, mobile, technique. Débordement et erreurs JavaScript mesurés dans les appareils.</p></div>
+        <div><h3>Prompts prêts pour Claude</h3><p>Chaque problème vient avec le correctif et une commande à lancer dans Claude Code.</p></div>
+      </div>
+    </section>
+
+    <section id="checks" class="wrap split" style="align-items:flex-start">
+      <div class="stack" style="flex:1 1 300px">
+        <span class="label">Checks</span>
+        <h2>24 vérifications à chaque rendu.</h2>
+        <p>Cette page les passe toutes : elle est vérifiée par Parakeet à chaque build.</p>
+      </div>
+      <div class="checks" style="flex:2 1 520px">
+        <div><span>Titre et description</span><span class="mono">title · description</span></div>
+        <div><span>Nom du site</span><span class="mono">og:site_name</span></div>
+        <div><span>Image de partage</span><span class="mono">og:image 1200×630</span></div>
+        <div><span>Carte X</span><span class="mono">twitter:card</span></div>
+        <div><span>Affichage mobile</span><span class="mono">viewport</span></div>
+        <div><span>Débordement horizontal</span><span class="mono">mesuré</span></div>
+        <div><span>Icônes</span><span class="mono">favicon · apple-touch</span></div>
+        <div><span>Indexation</span><span class="mono">robots · sitemap</span></div>
+        <div><span>Application</span><span class="mono">manifest</span></div>
+        <div><span>Erreurs JavaScript</span><span class="mono">console</span></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="wrap">
+    <span>Parakeet · fait pour les sites construits avec Claude</span>
+    <a class="mono" href="{{REPO}}">GitHub</a>
+  </footer>
+</body>
+</html>

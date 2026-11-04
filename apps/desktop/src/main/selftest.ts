@@ -424,6 +424,23 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     await clickText('[aria-label=Environnement] button', 'Local');
     await sleep(1000);
 
+    // ---- Phase 7 ----
+    // 21. Updates: packaged app → finds 9.9.9 on the fake feed, downloads and verifies it (no install);
+    //     dev build → updates disabled
+    type Upd = { status: string; latest: string | null; kind: string };
+    let upd = (await js(`window.parakeet.update.state()`)) as Upd;
+    if (app.isPackaged) {
+      await waitFor(async () => ['ready', 'error'].includes((upd = (await js(`window.parakeet.update.state()`)) as Upd).status), 30_000, 500);
+      criteria.push({ id: 'update', ok: upd.status === 'ready' && upd.latest === '9.9.9', detail: `${upd.kind} : ${upd.status} ${upd.latest ?? ''} (téléchargée et vérifiée, non installée)` });
+    } else {
+      criteria.push({ id: 'update', ok: upd.status === 'unsupported', detail: `version de dev : mises à jour ${upd.status === 'unsupported' ? 'désactivées' : upd.status}` });
+    }
+    await clickText('nav button', 'Réglages');
+    await sleep(800);
+    await shot('19-mises-a-jour');
+    await clickText('nav button', 'Aperçu');
+    await sleep(500);
+
     // 10. Partage section
     ui({ type: 'shortcut', action: 'focus-url' });
     await win.webContents.executeJavaScript(`[...document.querySelectorAll('nav button')].find((b) => b.textContent.includes('Partage'))?.click()`);

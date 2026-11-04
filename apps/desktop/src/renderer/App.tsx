@@ -54,6 +54,9 @@ export function App() {
         case 'phone':
           useStore.setState({ phone: e.state });
           break;
+        case 'update':
+          useStore.setState({ update: e.state });
+          break;
         case 'shortcut':
           if (e.action === 'reload') void api().reload();
           else if (e.action === 'focus-url') useStore.setState({ urlFocusTick: s.urlFocusTick + 1 });
@@ -66,7 +69,7 @@ export function App() {
     });
     void store.init().then(async () => {
       await store.loadMcp();
-      useStore.setState({ vercel: await api().vercel.state() });
+      useStore.setState({ vercel: await api().vercel.state(), update: await api().update.state() });
     });
     return off;
   }, []);

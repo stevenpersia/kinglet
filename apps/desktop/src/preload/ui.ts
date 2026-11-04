@@ -27,6 +27,11 @@ const api: ParakeetApi = {
   },
   compare: (targets) => ipcRenderer.invoke('compare:run', targets),
   openExternal: (url) => ipcRenderer.send('shell:open', url),
+  update: {
+    state: () => ipcRenderer.invoke('update:state'),
+    check: () => ipcRenderer.invoke('update:check'),
+    install: () => ipcRenderer.send('update:install'),
+  },
   phone: {
     state: () => ipcRenderer.invoke('phone:state'),
     start: () => ipcRenderer.invoke('phone:start'),

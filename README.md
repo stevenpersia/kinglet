@@ -2,7 +2,7 @@
 
 Voir son site sur tous les écrans (iPhone, Android, iPad, desktop), en local, en preview et en prod, et vérifier l'aperçu de ses liens (WhatsApp, LinkedIn, Slack…) avant de les partager. Pensé pour les sites construits avec Claude.
 
-> Nom provisoire. État actuel : **phase 6**. Aperçu multi-appareils, ton site sur ton vrai téléphone, local / preview / prod via Vercel, aperçus de partage sur 7 plateformes avec correctif, 24 checks, exploration des pages et serveur MCP pour Claude Code. Packaging Linux et intégration continue en place.
+> Nom provisoire. État actuel : **phase 7**, version 0.1.0. Aperçu multi-appareils, ton site sur ton vrai téléphone, local / preview / prod via Vercel, aperçus de partage sur 7 plateformes avec correctif, 24 checks, exploration des pages et serveur MCP pour Claude Code. Releases GitHub avec mises à jour automatiques, landing page, intégration continue.
 
 ## Ce que fait Parakeet
 
@@ -101,15 +101,50 @@ Le serveur MCP marche app fermée, sur une URL donnée. Avec l'app ouverte, il u
 
 ## Installer l'app (Arch / CachyOS)
 
-```bash
-pnpm dist
-```
+Télécharge le paquet pacman (ou l'AppImage) de la [dernière release](https://github.com/stevenpersia/parakeet/releases/latest), puis :
 
 ```bash
-sudo pacman -U apps/desktop/dist/Parakeet-*.pacman
+sudo pacman -U Parakeet-*.pacman
 ```
 
-`pnpm dist` produit aussi un AppImage (`apps/desktop/dist/Parakeet-*.AppImage`), utilisable sur toute distribution. Le CI GitHub publie ces deux fichiers en artefacts à chaque push. Sur une machine Arch, le paquet pacman demande `bsdtar` (paquet `libarchive`, déjà présent sur Arch).
+Ou construis-le toi-même :
+
+```bash
+pnpm dist && sudo pacman -U apps/desktop/dist/Parakeet-*.pacman
+```
+
+### Mises à jour
+
+L'app installée (paquet pacman ou AppImage) cherche une nouvelle version au démarrage puis toutes les 6 heures, la télécharge en arrière-plan et la vérifie (SHA-512). Elle ne l'installe que lorsque tu cliques **Installer et redémarrer** (Réglages, ou la barre d'état). Pour le paquet pacman, l'installation demande le mot de passe administrateur.
+
+Tant que le dépôt est **privé**, les releases ne sont lisibles qu'avec un jeton GitHub (droit de lecture sur le dépôt) :
+
+```bash
+PARAKEET_GH_TOKEN=<jeton> parakeet
+```
+
+Sans jeton, Réglages affiche « dépôt privé ». Si le dépôt devient public, aucun jeton n'est nécessaire.
+
+### Publier une version
+
+1. Monte la version dans `apps/desktop/package.json`.
+2. Pousse un tag `v<version>` :
+
+```bash
+git tag v0.1.0 && git push origin v0.1.0
+```
+
+Le workflow `release.yml` refait les tests, construit, teste l'app packagée (mise à jour comprise), puis crée la release avec l'AppImage, le paquet pacman et `latest-linux.yml` (le fichier que lit l'outil de mise à jour).
+
+## Landing page
+
+`apps/web` est un site statique : une page HTML, sans framework. Pour le déployer sur Vercel, importe le dépôt avec `apps/web` comme *Root Directory* ; `vercel.json` s'occupe du reste. Le build reprend le domaine de production Vercel pour les URL absolues (canonical, og:image, sitemap).
+
+```bash
+pnpm --filter @parakeet/web preview    # http://localhost:4173
+```
+
+Ses tests la passent aux 24 checks et aux 7 aperçus de partage de Parakeet : tout doit être vert.
 
 ## Tests
 
@@ -135,6 +170,8 @@ L'autotest lance le site de démo et Parakeet, puis vérifie :
 - les 7 aperçus de partage et le correctif pour le framework détecté ;
 - le serveur MCP lancé comme le ferait Claude Code (`parakeet --mcp`), avec capture et checks via l'app ;
 - Vercel contre une fausse API : connexion, projet, bascule local → prod → preview → local sur le même chemin, secret de contournement du projet, comparaison des trois environnements, preview protégée (appareils et robots) ;
+- la barre du haut à 1600, 1280 et 960 px de large ;
+- les mises à jour : sur l'app packagée, une 9.9.9 trouvée sur un faux flux, téléchargée et vérifiée (sans installation) ;
 - le téléphone, joué par une fenêtre Chromium cachée : refus sans appairage, page via le QR code, rechargement à chaud à travers le relais, suivi de la navigation, QR code de preview protégée.
 
 Sans écran, il utilise Xvfb et prend des captures avec ImageMagick dans `apps/desktop/selftest-output/`. Pour tester l'app packagée : `PARAKEET_BIN=dist/linux-unpacked/parakeet node scripts/selftest.mjs` depuis `apps/desktop`.
@@ -148,6 +185,7 @@ apps/desktop        app Electron (electron-vite)
   src/renderer      interface React + Tailwind (design « Graphite »)
 packages/mcp        serveur MCP (stdio) pour Claude Code, client du serveur de contrôle de l'app
 packages/core       lecture des balises comme les robots, aperçus des 7 plateformes, correctifs, fichiers du site, exploration, 24 checks
+apps/web            landing page statique (Vercel)
 fixtures/demo-site  site de test (Vite)
 fixtures/vercel-mock  fausse API Vercel pour les tests
 ```

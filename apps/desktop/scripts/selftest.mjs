@@ -83,6 +83,24 @@ await new Promise((r) => preview.listen(5176, '127.0.0.1', r));
 await new Promise((r) => prod.listen(5175, '127.0.0.1', r));
 const vercelMock = await startVercelMock({ previewUrl: 'http://127.0.0.1:5176', previewUrl2: 'http://127.0.0.1:5176', prodUrl: 'http://127.0.0.1:5175' });
 
+// 2c. Phase 7: a fake update feed (generic provider) announcing 9.9.9 with a real sha512
+const { createHash } = await import('node:crypto');
+const fakePkg = Buffer.from('not a real package, only downloaded and verified');
+const sha512 = createHash('sha512').update(fakePkg).digest('base64');
+const feed = createServer((req, res) => {
+  if (req.url.startsWith('/latest-linux.yml')) {
+    res.writeHead(200, { 'content-type': 'text/yaml' });
+    return res.end(`version: 9.9.9\nfiles:\n  - url: Parakeet-9.9.9-x64.pacman\n    sha512: ${sha512}\n    size: ${fakePkg.length}\n  - url: Parakeet-9.9.9-x86_64.AppImage\n    sha512: ${sha512}\n    size: ${fakePkg.length}\npath: Parakeet-9.9.9-x86_64.AppImage\nsha512: ${sha512}\nreleaseDate: '2026-11-04T00:00:00.000Z'\n`);
+  }
+  if (req.url.startsWith('/Parakeet-9.9.9')) {
+    res.writeHead(200, { 'content-type': 'application/octet-stream', 'content-length': fakePkg.length });
+    return res.end(fakePkg);
+  }
+  res.writeHead(404);
+  res.end();
+});
+await new Promise((r) => feed.listen(5198, '127.0.0.1', r));
+
 // 3. Display
 let display = process.env.DISPLAY;
 if (!display && !process.env.WAYLAND_DISPLAY) {
@@ -109,6 +127,7 @@ const app = spawn(packaged ?? electronBin, args, {
     PARAKEET_BYPASS_HOSTS: '127.0.0.1',  // the fake deployments and the echo server
     PARAKEET_ECHO_URL: 'http://127.0.0.1:5199/',
     PARAKEET_VERCEL_API: vercelMock.url,
+    PARAKEET_UPDATE_URL: 'http://127.0.0.1:5198/',
     PARAKEET_VERCEL_TEST_TOKEN: VERCEL_TOKEN,
   },
   stdio: ['ignore', 'pipe', 'inherit'],
@@ -139,6 +158,7 @@ console.log('\nCritères phase 0');
 for (const c of report.criteria) console.log(`  ${c.ok === true ? '✔' : c.ok === false ? '✘' : '…'} ${c.id.padEnd(22)} ${c.detail}`);
 if (report.error) console.log(`\nErreur : ${report.error}`);
 echo.close();
+feed.close();
 preview.close();
 prod.close();
 await vercelMock.close();

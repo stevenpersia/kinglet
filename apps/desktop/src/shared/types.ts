@@ -85,6 +85,16 @@ export interface PhoneState {
   clients: { id: number; userAgent: string; since: number }[];
 }
 
+export interface UpdateState {
+  current: string;
+  kind: 'appimage' | 'pacman' | 'other' | 'unknown';
+  status: 'unsupported' | 'idle' | 'checking' | 'none' | 'available' | 'downloading' | 'ready' | 'error';
+  latest: string | null;
+  percent: number | null;
+  error: string | null;
+  checkedAt: number | null;
+}
+
 export interface PhoneQr {
   url: string;
   svg: string;
@@ -136,7 +146,8 @@ export type PreviewEvent =
   | { type: 'settings'; settings: Settings }
   | { type: 'mcp'; activity: McpActivity }
   | { type: 'vercel'; state: VercelState }
-  | { type: 'phone'; state: PhoneState };
+  | { type: 'phone'; state: PhoneState }
+  | { type: 'update'; state: UpdateState };
 
 export interface ParakeetApi {
   init(): Promise<InitState>;
@@ -173,6 +184,11 @@ export interface ParakeetApi {
   /** The same path on each environment: tags side by side and checks score. */
   compare(targets: { env: EnvId; label: string; url: string }[]): Promise<CompareColumn[]>;
   openExternal(url: string): void;
+  update: {
+    state(): Promise<UpdateState>;
+    check(): Promise<UpdateState>;
+    install(): void;
+  };
   phone: {
     state(): Promise<PhoneState>;
     start(): Promise<PhoneState>;

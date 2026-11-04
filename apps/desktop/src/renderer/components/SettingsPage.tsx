@@ -1,4 +1,5 @@
-import { useStore } from '../store';
+import { useState } from 'react';
+import { api, useStore } from '../store';
 import { Icon } from './Icons';
 import { ActivityList, CopyButton, SLASH } from './Mcp';
 import { VercelSettings } from './VercelSettings';
@@ -24,6 +25,52 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
+function UpdateSettings() {
+  const update = useStore((s) => s.update);
+  const [checking, setChecking] = useState(false);
+  if (!update) return null;
+  const KIND = { appimage: 'AppImage', pacman: 'paquet pacman', other: 'paquet', unknown: 'version de développement' } as const;
+  const text: Record<typeof update.status, string> = {
+    unsupported: update.kind === 'unknown' ? 'Les mises à jour automatiques concernent l’app installée (AppImage ou paquet pacman), pas la version de développement.' : 'Mises à jour automatiques non disponibles pour ce type d’installation.',
+    idle: 'Vérification au démarrage, puis toutes les 6 heures.',
+    checking: 'Vérification…',
+    none: 'Parakeet est à jour.',
+    available: `Version ${update.latest} disponible, téléchargement…`,
+    downloading: `Téléchargement de la version ${update.latest} : ${update.percent ?? 0} %`,
+    ready: `Version ${update.latest} prête.${update.kind === 'pacman' ? ' L’installation demandera ton mot de passe administrateur.' : ''}`,
+    error: update.error ?? 'Erreur',
+  };
+  return (
+    <div className="flex flex-wrap items-center gap-3 rounded-[10px] border border-line bg-card p-3.5">
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span className="font-medium">
+          Parakeet {update.current} <span className="font-normal text-muted">· {KIND[update.kind]}</span>
+        </span>
+        <span className={`text-xs ${update.status === 'error' ? 'text-err' : 'text-muted'}`}>{text[update.status]}</span>
+      </div>
+      {update.status === 'ready' ? (
+        <button onClick={() => api().update.install()} className="h-8 rounded-ui bg-fg px-3 font-semibold text-bg">
+          Installer et redémarrer
+        </button>
+      ) : (
+        update.status !== 'unsupported' && (
+          <button
+            disabled={checking || update.status === 'checking' || update.status === 'downloading'}
+            onClick={async () => {
+              setChecking(true);
+              useStore.setState({ update: await api().update.check() });
+              setChecking(false);
+            }}
+            className="h-8 rounded-ui border border-[#2a2a2f] bg-active px-3 font-medium text-fg hover:border-line-strong disabled:opacity-60"
+          >
+            Vérifier maintenant
+          </button>
+        )
+      )}
+    </div>
+  );
+}
+
 export function SettingsPage() {
   const mcp = useStore((s) => s.mcp);
   const platform = useStore((s) => s.platform);
@@ -36,6 +83,10 @@ export function SettingsPage() {
           <h1 className="m-0 text-xl font-semibold tracking-[-0.02em]">Réglages</h1>
           <p className="m-0 mt-1 text-muted">Parakeet {platform?.version} · réglages enregistrés dans ~/.config/Parakeet</p>
         </div>
+
+        <Section title="Mises à jour">
+          <UpdateSettings />
+        </Section>
 
         <Section title="Serveur MCP pour Claude Code">
           <div className="overflow-hidden rounded-[10px] border border-line bg-card">

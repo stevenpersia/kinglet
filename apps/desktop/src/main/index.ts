@@ -8,6 +8,7 @@ import { startControlServer } from './control';
 import { mcpLaunch } from './mcp-launch';
 import { VercelService } from './vercel';
 import { lanAddresses, LanProxy } from './lan';
+import { Updater } from './updater';
 import { detectLocalServer } from './detect';
 import { DeviceManager, shortcutFor } from './devices';
 import { PRESETS } from './presets';
@@ -234,6 +235,14 @@ async function createWindow() {
   ipcMain.on('shell:open', (_e, url: string) => {
     if (/^https:\/\//.test(url)) void shell.openExternal(url);
   });
+
+  // Updates (GitHub Releases)
+  const updater = new Updater((state) => emit({ type: 'update', state }));
+  updater.start(process.env.PARAKEET_UPDATE_URL ? 1500 : 10_000);
+  app.on('will-quit', () => updater.stop());
+  ipcMain.handle('update:state', () => updater.state);
+  ipcMain.handle('update:check', () => updater.check());
+  ipcMain.on('update:install', () => updater.install());
 
   // On my phone
   ipcMain.handle('phone:state', () => phoneState());

@@ -26,7 +26,12 @@ linux:
     entry:
       StartupWMClass: parakeet
       Keywords: preview;responsive;mobile;opengraph;
-publish: null
+# Releases (and updates) come from GitHub Releases of this repository.
+publish:
+  provider: github
+  owner: stevenpersia
+  repo: parakeet
+  releaseType: release
 pacman:
   packageName: parakeet
   # electron-builder's defaults name packages that are gone from Arch (http-parser, libappindicator-gtk3…).
