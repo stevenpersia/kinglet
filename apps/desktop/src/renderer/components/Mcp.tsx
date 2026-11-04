@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { locale, t } from '@parakeet/core';
 import type { McpActivity } from '../../shared/types';
 import { api, useStore } from '../store';
 import { Dot } from './Icons';
@@ -6,7 +7,7 @@ import { Dot } from './Icons';
 export const SLASH = { share: '/mcp__parakeet__fix_share', checks: '/mcp__parakeet__fix_checks' } as const;
 
 /** A button that copies a text and says so for a moment. */
-export function CopyButton({ text, label, done = 'Copié ✓', primary = false, className = '' }: { text: string; label: string; done?: string; primary?: boolean; className?: string }) {
+export function CopyButton({ text, label, done = t('Copied ✓', 'Copié ✓'), primary = false, className = '' }: { text: string; label: string; done?: string; primary?: boolean; className?: string }) {
   const [copied, setCopied] = useState(false);
   return (
     <button
@@ -22,10 +23,10 @@ export function CopyButton({ text, label, done = 'Copié ✓', primary = false, 
   );
 }
 
-const time = (t: number) => new Date(t).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+const time = (ms: number) => new Date(ms).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
 export function ActivityList({ items, limit = 50 }: { items: McpActivity[]; limit?: number }) {
-  if (!items.length) return <p className="m-0 text-faint">Aucun appel pour l’instant.</p>;
+  if (!items.length) return <p className="m-0 text-faint">{t('No calls yet.', 'Aucun appel pour l’instant.')}</p>;
   return (
     <ul className="m-0 flex list-none flex-col gap-2 p-0 font-mono text-[11.5px]">
       {items.slice(0, limit).map((a) => (
@@ -49,15 +50,20 @@ export function McpTab() {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-1.5">
-        <span className="label">Activité de Claude Code</span>
+        <span className="label">{t('Claude Code activity', 'Activité de Claude Code')}</span>
         <ActivityList items={mcp.activity} limit={30} />
       </div>
       {!mcp.activity.length && (
         <div className="flex flex-col gap-2 rounded-[10px] border border-line bg-card p-3">
-          <span className="text-xs leading-relaxed text-muted">Branche Parakeet à Claude Code une fois pour toutes, puis demande-lui par exemple « vérifie la page sur mobile avec Parakeet ».</span>
-          <CopyButton text={mcp.command} label="Copier la commande d’installation" primary />
+          <span className="text-xs leading-relaxed text-muted">
+            {t(
+              'Connect Parakeet to Claude Code once, then ask it, for example, “check the page on mobile with Parakeet”.',
+              'Branche Parakeet à Claude Code une fois pour toutes, puis demande-lui par exemple « vérifie la page sur mobile avec Parakeet ».',
+            )}
+          </span>
+          <CopyButton text={mcp.command} label={t('Copy the install command', 'Copier la commande d’installation')} primary />
           <button onClick={() => setSection('reglages')} className="text-xs text-muted hover:text-fg">
-            Détails dans les réglages →
+            {t('Details in Settings →', 'Détails dans les réglages →')}
           </button>
         </div>
       )}

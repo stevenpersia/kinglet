@@ -1,11 +1,11 @@
-import type { Issue } from '@parakeet/core';
+import { t, type Issue } from '@parakeet/core';
 import { useStore, type InspectorTab } from '../store';
 import { CheckGroups } from './Checks';
 import { McpTab } from './Mcp';
 import { ConsoleTab } from './Console';
 import { Dot } from './Icons';
 
-const formatBytes = (b: number) => (b < 1024 ? `${b} o` : `${Math.round(b / 1024)} Ko`);
+const formatBytes = (b: number) => (b < 1024 ? t(`${b} B`, `${b} o`) : t(`${Math.round(b / 1024)} KB`, `${Math.round(b / 1024)} Ko`));
 const sevColor = { error: 'bg-err', warning: 'bg-warn' } as const;
 
 export function IssueList({ issues }: { issues: Issue[] }) {
@@ -13,7 +13,7 @@ export function IssueList({ issues }: { issues: Issue[] }) {
     return (
       <li className="flex gap-2.5 px-3 py-2.5">
         <Dot className="mt-1.5 bg-ok" />
-        <span className="text-xs text-muted">Toutes les balises de partage sont en place.</span>
+        <span className="text-xs text-muted">{t('All share tags are in place.', 'Toutes les balises de partage sont en place.')}</span>
       </li>
     );
   return (
@@ -55,7 +55,7 @@ function Row({ k, v }: { k: string; v: string | null }) {
   return (
     <div className="flex gap-3 border-t border-line-soft px-3 py-2 first:border-t-0">
       <span className="w-24 shrink-0 font-mono text-[11.5px] text-faint">{k}</span>
-      <span className={`min-w-0 text-xs break-all ${v ? 'text-fg' : 'text-err'}`}>{v ?? 'absent'}</span>
+      <span className={`min-w-0 text-xs break-all ${v ? 'text-fg' : 'text-err'}`}>{v ?? t('missing', 'absent')}</span>
     </div>
   );
 }
@@ -73,19 +73,19 @@ function PageTab() {
           <span className="label">Title</span>
           <Count n={title.length} max={60} />
         </div>
-        <span className="text-[15px] leading-snug font-semibold tracking-[-0.01em]">{title || '— absent —'}</span>
+        <span className="text-[15px] leading-snug font-semibold tracking-[-0.01em]">{title || t('— missing —', '— absent —')}</span>
         <div className="mt-1.5 flex items-baseline justify-between">
           <span className="label">Description</span>
           <Count n={desc.length} max={160} />
         </div>
-        <span className="leading-relaxed text-muted">{desc || '— absente —'}</span>
+        <span className="leading-relaxed text-muted">{desc || t('— missing —', '— absente —')}</span>
       </div>
       <div className="overflow-hidden rounded-[10px] border border-line bg-card">
         <Row k="lang" v={meta.lang} />
         <Row k="viewport" v={meta.viewport} />
         <Row k="canonical" v={meta.canonical} />
         <Row k="theme-color" v={meta.themeColor} />
-        <Row k="icônes" v={meta.icons.length ? meta.icons.map((u) => u.split('/').pop()).join(', ') : null} />
+        <Row k={t('icons', 'icônes')} v={meta.icons.length ? meta.icons.map((u) => u.split('/').pop()).join(', ') : null} />
       </div>
     </div>
   );
@@ -100,9 +100,14 @@ function ShareTab() {
     <div className="flex flex-col gap-4">
       <div className="overflow-hidden rounded-[10px] border border-line bg-card">
         <div className="flex justify-between px-3 py-2.5 font-semibold">
-          <span>Partage</span>
+          <span>{t('Share', 'Partage')}</span>
           <span className="font-mono text-xs font-normal text-muted">
-            {issues.length ? `${errors} erreur${errors > 1 ? 's' : ''} · ${issues.length - errors} alerte${issues.length - errors > 1 ? 's' : ''}` : 'tout est bon'}
+            {issues.length
+              ? t(
+                  `${errors} error${errors > 1 ? 's' : ''} · ${issues.length - errors} warning${issues.length - errors > 1 ? 's' : ''}`,
+                  `${errors} erreur${errors > 1 ? 's' : ''} · ${issues.length - errors} alerte${issues.length - errors > 1 ? 's' : ''}`,
+                )
+              : t('all good', 'tout est bon')}
           </span>
         </div>
         <ul className="border-t border-line-soft">
@@ -110,10 +115,10 @@ function ShareTab() {
         </ul>
       </div>
       <div className="flex flex-col gap-2">
-        <span className="label">Aperçu du lien · WhatsApp</span>
+        <span className="label">{t('Link preview · WhatsApp', 'Aperçu du lien · WhatsApp')}</span>
         <LinkCard />
         <span className="font-mono text-[11px] leading-relaxed text-faint">
-          Lu comme {meta.fetchedAs} · HTTP {meta.status} · {meta.durationMs} ms
+          {t('Fetched as', 'Lu comme')} {meta.fetchedAs} · HTTP {meta.status} · {meta.durationMs} ms
           {image?.ok ? ` · image ${image.width}×${image.height}, ${formatBytes(image.bytes ?? 0)}` : ''}
         </span>
       </div>
@@ -121,9 +126,9 @@ function ShareTab() {
   );
 }
 
-const TABS: { id: InspectorTab; label: string }[] = [
+const tabs = (): { id: InspectorTab; label: string }[] => [
   { id: 'page', label: 'Page' },
-  { id: 'partage', label: 'Partage' },
+  { id: 'partage', label: t('Share', 'Partage') },
   { id: 'checks', label: 'Checks' },
   { id: 'console', label: 'Console' },
   { id: 'mcp', label: 'MCP' },
@@ -142,27 +147,27 @@ export function Inspector() {
   let body;
   if (inspectorTab === 'mcp') body = <McpTab />; // does not depend on the page
   else if (inspectorTab === 'console') body = <ConsoleTab />;
-  else if (!url) body = <p className="text-faint">Saisis l’adresse de ton serveur de dev en haut, ou juste son port (ex. 3000).</p>;
+  else if (!url) body = <p className="text-faint">{t('Enter your dev server’s address at the top, or just its port (e.g. 3000).', 'Saisis l’adresse de ton serveur de dev en haut, ou juste son port (ex. 3000).')}</p>;
   else if (status === 'failed') body = <p className="text-faint">{error}</p>;
-  else if (shareError) body = <p className="text-faint">Lecture des balises impossible : {shareError}</p>;
-  else if (!share) body = <p className="text-faint">Lecture des balises…</p>;
+  else if (shareError) body = <p className="text-faint">{t('Couldn’t read the tags:', 'Lecture des balises impossible :')} {shareError}</p>;
+  else if (!share) body = <p className="text-faint">{t('Reading tags…', 'Lecture des balises…')}</p>;
   else body = inspectorTab === 'page' ? <PageTab /> : inspectorTab === 'partage' ? <ShareTab /> : <ChecksTab />;
 
   return (
-    <aside aria-label="Inspecteur" className="flex w-[340px] shrink-0 flex-col border-l border-line-soft bg-chrome">
+    <aside aria-label={t('Inspector', 'Inspecteur')} className="flex w-[340px] shrink-0 flex-col border-l border-line-soft bg-chrome">
       <div role="tablist" className="flex gap-0.5 border-b border-line-soft px-2.5 py-2">
-        {TABS.map((t) => (
+        {tabs().map((tab) => (
           <button
-            key={t.id}
+            key={tab.id}
             role="tab"
-            aria-selected={inspectorTab === t.id}
-            onClick={() => setInspectorTab(t.id)}
-            className={`inline-flex h-[26px] items-center gap-1.5 rounded-md border px-2.5 text-xs ${inspectorTab === t.id ? 'border-line-strong bg-active font-medium text-fg' : 'border-transparent text-muted hover:text-fg'}`}
+            aria-selected={inspectorTab === tab.id}
+            onClick={() => setInspectorTab(tab.id)}
+            className={`inline-flex h-[26px] items-center gap-1.5 rounded-md border px-2.5 text-xs ${inspectorTab === tab.id ? 'border-line-strong bg-active font-medium text-fg' : 'border-transparent text-muted hover:text-fg'}`}
           >
-            {t.label}
-            {t.id === 'partage' && errors > 0 && <span className="font-mono text-err">{errors}</span>}
-            {t.id === 'console' && consoleErrors > 0 && <span className="font-mono text-err">{consoleErrors}</span>}
-            {t.id === 'checks' && report && <span className="font-mono text-ghost">{report.score.passed}/{report.score.total}</span>}
+            {tab.label}
+            {tab.id === 'partage' && errors > 0 && <span className="font-mono text-err">{errors}</span>}
+            {tab.id === 'console' && consoleErrors > 0 && <span className="font-mono text-err">{consoleErrors}</span>}
+            {tab.id === 'checks' && report && <span className="font-mono text-ghost">{report.score.passed}/{report.score.total}</span>}
           </button>
         ))}
       </div>

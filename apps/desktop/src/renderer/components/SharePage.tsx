@@ -1,4 +1,4 @@
-import type { PlatformFamily, ShareCard } from '@parakeet/core';
+import { t, type PlatformFamily, type ShareCard } from '@parakeet/core';
 import { useEffect, useState } from 'react';
 import type { ShareStudio } from '../../shared/types';
 import { api, cleanError, useStore } from '../store';
@@ -112,14 +112,15 @@ function Preview({ c }: { c: ShareCard }) {
   }
 }
 
-const STATUS = {
-  ok: { dot: 'bg-ok', text: 'OK', color: 'text-muted' },
-  warning: { dot: 'bg-warn', text: 'À améliorer', color: 'text-warn' },
-  error: { dot: 'bg-err', text: 'Problème', color: 'text-err' },
-} as const;
+const status = () =>
+  ({
+    ok: { dot: 'bg-ok', text: 'OK', color: 'text-muted' },
+    warning: { dot: 'bg-warn', text: t('Needs work', 'À améliorer'), color: 'text-warn' },
+    error: { dot: 'bg-err', text: t('Problem', 'Problème'), color: 'text-err' },
+  }) as const;
 
 function PlatformCard({ c }: { c: ShareCard }) {
-  const s = STATUS[c.status];
+  const s = status()[c.status];
   return (
     <section aria-label={c.label} className="flex h-fit flex-col gap-2.5 rounded-[10px] border border-line bg-card p-3">
       <div className="flex items-center justify-between">
@@ -149,7 +150,7 @@ function CodeBlock({ code }: { code: string }) {
   return (
     <pre className="m-0 rounded-[10px] border border-line bg-bg p-3 font-mono text-[11.5px] leading-relaxed break-all whitespace-pre-wrap text-muted">
       {code.split('\n').map((line, i) => {
-        const added = line.includes('← ajouté');
+        const added = line.includes('← ajouté') || line.includes('← added');
         return (
           <span key={i} className={`block ${added ? 'bg-ok/10 text-ok' : ''}`}>
             {line || ' '}
@@ -181,25 +182,25 @@ function FixPanel({ studio }: { studio: ShareStudio }) {
   return (
     <aside className="flex w-[400px] shrink-0 flex-col gap-4 overflow-y-auto border-l border-line-soft bg-chrome p-4">
       <div className="flex items-baseline justify-between">
-        <span className="label">Balises lues</span>
-        <span className="font-mono text-[11px] text-faint">{fix.frameworkLabel} détecté</span>
+        <span className="label">{t('Tags read', 'Balises lues')}</span>
+        <span className="font-mono text-[11px] text-faint">{t(`${fix.frameworkLabel} detected`, `${fix.frameworkLabel} détecté`)}</span>
       </div>
       <div className="overflow-hidden rounded-[10px] border border-line bg-card">
         {rows.map(([k, v]) => (
           <div key={k} className="flex items-center gap-2.5 border-t border-line-soft px-3 py-1.5 first:border-t-0">
             <Dot className={v ? 'bg-ok' : 'bg-warn'} />
             <span className="w-28 shrink-0 font-mono text-[11.5px] text-faint">{k}</span>
-            <span className={`min-w-0 truncate text-xs ${v ? 'text-fg' : 'text-warn'}`}>{v ?? 'absent'}</span>
+            <span className={`min-w-0 truncate text-xs ${v ? 'text-fg' : 'text-warn'}`}>{v ?? t('missing', 'absent')}</span>
           </div>
         ))}
       </div>
 
       {fix.changes.length === 0 ? (
-        <p className="m-0 text-muted">Rien à corriger : toutes les balises de partage sont en place.</p>
+        <p className="m-0 text-muted">{t('Nothing to fix: all share tags are in place.', 'Rien à corriger : toutes les balises de partage sont en place.')}</p>
       ) : (
         <>
           <div className="flex items-baseline justify-between">
-            <span className="label">Correctif</span>
+            <span className="label">{t('Fix', 'Correctif')}</span>
             <span className="truncate pl-3 font-mono text-[11px] text-faint">{fix.file}</span>
           </div>
           <ul className="m-0 flex list-none flex-col gap-1 p-0">
@@ -213,17 +214,18 @@ function FixPanel({ studio }: { studio: ShareStudio }) {
           <CodeBlock code={fix.code} />
           <div className="flex gap-1.5">
             <button onClick={() => copy('prompt', fix.prompt)} className="flex h-8 flex-1 items-center justify-center gap-2 rounded-ui bg-fg font-semibold text-bg">
-              {copied === 'prompt' ? 'Prompt copié ✓' : 'Copier le prompt pour Claude'}
+              {copied === 'prompt' ? t('Prompt copied ✓', 'Prompt copié ✓') : t('Copy the prompt for Claude', 'Copier le prompt pour Claude')}
             </button>
             <button onClick={() => copy('code', fix.code)} className="h-8 rounded-ui border border-[#2a2a2f] bg-active px-3 font-medium text-fg hover:border-line-strong">
-              {copied === 'code' ? 'Copié ✓' : 'Code'}
+              {copied === 'code' ? t('Copied ✓', 'Copié ✓') : 'Code'}
             </button>
           </div>
-          <CopyButton text={SLASH.share} label={`Copier ${SLASH.share}`} done="Commande copiée : colle-la dans Claude Code ✓" className="text-xs" />
+          <CopyButton text={SLASH.share} label={t(`Copy ${SLASH.share}`, `Copier ${SLASH.share}`)} done={t('Command copied: paste it into Claude Code ✓', 'Commande copiée : colle-la dans Claude Code ✓')} className="text-xs" />
         </>
       )}
       <p className="m-0 text-xs leading-relaxed text-faint">
-        WhatsApp et LinkedIn gardent l’ancien aperçu en cache plusieurs jours. Pour tester une correction, ajoute <span className="font-mono text-fg">?v=2</span> au lien partagé.
+        {t('WhatsApp and LinkedIn cache the old preview for several days. To test a fix, add', 'WhatsApp et LinkedIn gardent l’ancien aperçu en cache plusieurs jours. Pour tester une correction, ajoute')}{' '}
+        <span className="font-mono text-fg">?v=2</span> {t('to the shared link.', 'au lien partagé.')}
       </p>
     </aside>
   );
@@ -231,11 +233,11 @@ function FixPanel({ studio }: { studio: ShareStudio }) {
 
 /* ---------------- page ---------------- */
 
-const FILTERS: { id: PlatformFamily | 'all'; label: string }[] = [
-  { id: 'all', label: 'Tout' },
-  { id: 'messagerie', label: 'Messageries' },
-  { id: 'reseau', label: 'Réseaux' },
-  { id: 'recherche', label: 'Recherche' },
+const filters = (): { id: PlatformFamily | 'all'; label: string }[] => [
+  { id: 'all', label: t('All', 'Tout') },
+  { id: 'messagerie', label: t('Messaging', 'Messageries') },
+  { id: 'reseau', label: t('Social', 'Réseaux') },
+  { id: 'recherche', label: t('Search', 'Recherche') },
 ];
 
 const cache = new Map<string, ShareStudio>();
@@ -269,7 +271,7 @@ export function SharePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [url, status]);
 
-  if (!url) return <main className="stage-bg flex flex-1 items-center justify-center text-faint">Ouvre un site pour voir ses aperçus de partage.</main>;
+  if (!url) return <main className="stage-bg flex flex-1 items-center justify-center text-faint">{t('Open a site to see its share previews.', 'Ouvre un site pour voir ses aperçus de partage.')}</main>;
   const cards = studio?.previews.cards.filter((c) => filter === 'all' || c.family === filter) ?? [];
   const counts = studio ? { error: studio.previews.cards.filter((c) => c.status === 'error').length, warning: studio.previews.cards.filter((c) => c.status === 'warning').length } : null;
 
@@ -278,25 +280,32 @@ export function SharePage() {
       <main className="flex min-w-0 flex-1 flex-col gap-4 overflow-y-auto p-5">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h1 className="m-0 text-xl font-semibold tracking-[-0.02em]">Aperçus de partage</h1>
+            <h1 className="m-0 text-xl font-semibold tracking-[-0.02em]">{t('Share previews', 'Aperçus de partage')}</h1>
             <p className="m-0 mt-1 text-muted">
-              <span className="font-mono text-xs">{new URL(url).pathname}</span> lue par le robot de chaque plateforme (HTML brut, sans JavaScript). Rendus et limites approximatifs.
+              <span className="font-mono text-xs">{new URL(url).pathname}</span>{' '}
+              {t(
+                'read by each platform’s crawler (raw HTML, no JavaScript). Renderings and limits are approximate.',
+                'lue par le robot de chaque plateforme (HTML brut, sans JavaScript). Rendus et limites approximatifs.',
+              )}
             </p>
           </div>
           <div className="flex items-center gap-3">
             {counts && (
               <span className="text-xs text-muted">
-                {counts.error} problème{counts.error > 1 ? 's' : ''} · {counts.warning} à améliorer
+                {t(
+                  `${counts.error} problem${counts.error > 1 ? 's' : ''} · ${counts.warning} to improve`,
+                  `${counts.error} problème${counts.error > 1 ? 's' : ''} · ${counts.warning} à améliorer`,
+                )}
               </span>
             )}
             <button onClick={() => void load(true)} disabled={loading} className="flex h-8 items-center gap-2 rounded-ui border border-[#2a2a2f] bg-active px-3 font-medium hover:border-line-strong disabled:opacity-60">
               <Icon name="reload" size={13} className={loading ? 'animate-spin' : ''} />
-              {loading ? 'Lecture…' : 'Relire'}
+              {loading ? t('Reading…', 'Lecture…') : t('Re-read', 'Relire')}
             </button>
           </div>
         </div>
-        <div role="group" aria-label="Filtrer" className="flex gap-1.5">
-          {FILTERS.map((f) => (
+        <div role="group" aria-label={t('Filter', 'Filtrer')} className="flex gap-1.5">
+          {filters().map((f) => (
             <button
               key={f.id}
               aria-pressed={filter === f.id}
@@ -307,8 +316,8 @@ export function SharePage() {
             </button>
           ))}
         </div>
-        {error && <p className="m-0 text-err">Lecture impossible : {error}</p>}
-        {!studio && !error && <p className="m-0 text-faint">Lecture par les 7 robots…</p>}
+        {error && <p className="m-0 text-err">{t('Couldn’t read:', 'Lecture impossible :')} {error}</p>}
+        {!studio && !error && <p className="m-0 text-faint">{t('Reading with the 7 crawlers…', 'Lecture par les 7 robots…')}</p>}
         <div className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-3">
           {cards.map((c) => (
             <PlatformCard key={c.platform} c={c} />

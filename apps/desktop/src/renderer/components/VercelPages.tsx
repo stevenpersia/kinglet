@@ -1,4 +1,4 @@
-import { samePageOn, type VercelDeployment } from '@parakeet/core';
+import { samePageOn, t, type VercelDeployment } from '@parakeet/core';
 import { useEffect, useState } from 'react';
 import type { CompareColumn, EnvId } from '../../shared/types';
 import { ENV_DOT, envTargets, timeAgo, urlOnEnv } from '../lib/env';
@@ -6,14 +6,14 @@ import { activeProject } from '../../shared/projects';
 import { api, projectVercel, useStore } from '../store';
 import { Dot, Icon } from './Icons';
 
-const STATE: Record<string, { dot: string; label: string }> = {
-  READY: { dot: 'bg-ok', label: 'Prêt' },
+const stateInfo = (): Record<string, { dot: string; label: string }> => ({
+  READY: { dot: 'bg-ok', label: t('Ready', 'Prêt') },
   BUILDING: { dot: 'bg-warn', label: 'Build' },
-  QUEUED: { dot: 'bg-ghost', label: 'En attente' },
-  INITIALIZING: { dot: 'bg-ghost', label: 'Démarrage' },
-  ERROR: { dot: 'bg-err', label: 'Erreur' },
-  CANCELED: { dot: 'bg-ghost', label: 'Annulé' },
-};
+  QUEUED: { dot: 'bg-ghost', label: t('Queued', 'En attente') },
+  INITIALIZING: { dot: 'bg-ghost', label: t('Initializing', 'Démarrage') },
+  ERROR: { dot: 'bg-err', label: t('Error', 'Erreur') },
+  CANCELED: { dot: 'bg-ghost', label: t('Canceled', 'Annulé') },
+});
 
 function NotLinked({ what }: { what: string }) {
   const setSection = useStore((s) => s.setSection);
@@ -21,9 +21,14 @@ function NotLinked({ what }: { what: string }) {
     <main className="stage-bg flex flex-1 items-center justify-center p-6">
       <div className="flex max-w-md flex-col items-center gap-3 text-center">
         <h1 className="m-0 text-xl font-semibold tracking-[-0.02em]">{what}</h1>
-        <p className="m-0 leading-relaxed text-muted">Connecte ton compte Vercel et choisis le projet de ce site pour voir ses déploiements et comparer local, preview et prod.</p>
+        <p className="m-0 leading-relaxed text-muted">
+          {t(
+            'Connect your Vercel account and pick this site’s project to see its deployments and compare local, preview and prod.',
+            'Connecte ton compte Vercel et choisis le projet de ce site pour voir ses déploiements et comparer local, preview et prod.',
+          )}
+        </p>
         <button onClick={() => setSection('reglages')} className="mt-1 h-8 rounded-ui bg-fg px-3 font-semibold text-bg">
-          Connecter Vercel
+          {t('Connect Vercel', 'Connecter Vercel')}
         </button>
       </div>
     </main>
@@ -38,7 +43,7 @@ export function DeploymentsPage() {
   const vercel = { ...projectVercel(s), syncedAt: s.vercel?.syncedAt ?? null, error: s.vercel?.error ?? null };
   const [filter, setFilter] = useState<'all' | 'prod' | 'preview'>('all');
   const [refreshing, setRefreshing] = useState(false);
-  if (!vercel.project) return <NotLinked what="Déploiements" />;
+  if (!vercel.project) return <NotLinked what={t('Deployments', 'Déploiements')} />;
 
   const list = vercel.deployments.filter((d) => filter === 'all' || (filter === 'prod' ? d.production : !d.production));
   // Open exactly this deployment (even an older one of a branch), on the same page.
@@ -57,28 +62,29 @@ export function DeploymentsPage() {
     <main className="flex min-w-0 flex-1 flex-col gap-4 overflow-y-auto p-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="m-0 text-xl font-semibold tracking-[-0.02em]">Déploiements</h1>
+          <h1 className="m-0 text-xl font-semibold tracking-[-0.02em]">{t('Deployments', 'Déploiements')}</h1>
           <p className="m-0 mt-1 text-muted">
             {vercel.project.name}
-            {vercel.project.repo ? ` · ${vercel.project.repo}` : ''} · synchronisé {vercel.syncedAt ? timeAgo(vercel.syncedAt) : '—'}
+            {vercel.project.repo ? ` · ${vercel.project.repo}` : ''} · {t('synced', 'synchronisé')} {vercel.syncedAt ? timeAgo(vercel.syncedAt) : '—'}
           </p>
         </div>
         <div className="flex items-center gap-1.5">
           {(['all', 'prod', 'preview'] as const).map((f) => (
             <button key={f} aria-pressed={filter === f} onClick={() => setFilter(f)} className={`inline-flex h-[26px] items-center rounded-md border px-2.5 text-xs ${filter === f ? 'border-line-strong bg-active font-medium text-fg' : 'border-line text-muted hover:border-line-strong'}`}>
-              {f === 'all' ? 'Tout' : f === 'prod' ? 'Production' : 'Previews'}
+              {f === 'all' ? t('All', 'Tout') : f === 'prod' ? 'Production' : 'Previews'}
             </button>
           ))}
-          <button onClick={() => void refresh()} className={btn} aria-label="Rafraîchir">
+          <button onClick={() => void refresh()} className={btn} aria-label={t('Refresh', 'Rafraîchir')}>
             <Icon name="reload" size={12} className={refreshing ? 'animate-spin' : ''} />
           </button>
         </div>
       </div>
       {vercel.error && <p className="m-0 text-err">{vercel.error}</p>}
       <div className="overflow-hidden rounded-[10px] border border-line bg-card">
-        {list.length === 0 && <p className="m-0 p-4 text-faint">Aucun déploiement.</p>}
+        {list.length === 0 && <p className="m-0 p-4 text-faint">{t('No deployments.', 'Aucun déploiement.')}</p>}
         {list.map((d) => {
-          const st = STATE[d.state] ?? STATE.QUEUED!;
+          const states = stateInfo();
+          const st = states[d.state] ?? states.QUEUED!;
           const showing = url ? new URL(url).origin === new URL(d.url).origin : false;
           return (
             <div key={d.id} className={`flex items-center gap-4 border-t border-line-soft px-4 py-3 first:border-t-0 ${showing ? 'bg-active' : ''}`}>
@@ -90,7 +96,7 @@ export function DeploymentsPage() {
                 <span className="flex items-center gap-2">
                   <span className="truncate font-mono text-[12.5px] text-fg">{d.branch ?? d.id}</span>
                   {d.production && <span className="rounded border border-prod/40 px-1.5 text-[10.5px] font-medium text-prod">PROD</span>}
-                  {showing && <span className="text-[11px] text-faint">affiché</span>}
+                  {showing && <span className="text-[11px] text-faint">{t('shown', 'affiché')}</span>}
                 </span>
                 <span className="truncate text-xs text-muted">{d.commitMessage ?? d.url}</span>
               </div>
@@ -103,10 +109,10 @@ export function DeploymentsPage() {
               <span className="flex shrink-0 gap-1.5">
                 <button onClick={() => open(d)} disabled={d.state !== 'READY'} className={`${btn} disabled:opacity-40`}>
                   <Icon name="eye" size={12} />
-                  Ouvrir
+                  {t('Open', 'Ouvrir')}
                 </button>
                 {d.inspectorUrl && (
-                  <button onClick={() => api().openExternal(d.inspectorUrl!)} className={btn} aria-label="Ouvrir dans Vercel" title="Ouvrir dans Vercel">
+                  <button onClick={() => api().openExternal(d.inspectorUrl!)} className={btn} aria-label={t('Open in Vercel', 'Ouvrir dans Vercel')} title={t('Open in Vercel', 'Ouvrir dans Vercel')}>
                     <svg width="11" height="11" viewBox="0 0 24 24" aria-hidden="true">
                       <path d="M12 3 L22 20 H2 Z" fill="currentColor" />
                     </svg>
@@ -129,13 +135,13 @@ export function ComparePage() {
   const vercel = projectVercel(s);
   const [columns, setColumns] = useState<CompareColumn[] | null>(null);
   const [loading, setLoading] = useState(false);
-  const t = envTargets(activeProject(s.settings)?.localOrigin ?? null, vercel, previewId);
+  const envs = envTargets(activeProject(s.settings)?.localOrigin ?? null, vercel, previewId);
   const path = url ? new URL(url).pathname : '/';
 
   const targets = (['local', 'preview', 'prod'] as EnvId[])
-    .map((env) => ({ env, url: urlOnEnv(url, env, t) }))
+    .map((env) => ({ env, url: urlOnEnv(url, env, envs) }))
     .filter((x): x is { env: EnvId; url: string } => !!x.url)
-    .map((x) => ({ ...x, label: x.env === 'local' ? 'Local' : x.env === 'preview' ? `Preview · ${t.preview?.branch ?? ''}` : 'Prod' }));
+    .map((x) => ({ ...x, label: x.env === 'local' ? 'Local' : x.env === 'preview' ? `Preview · ${envs.preview?.branch ?? ''}` : 'Prod' }));
   const key = targets.map((x) => x.url).join('|');
 
   const run = async () => {
@@ -149,24 +155,30 @@ export function ComparePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
 
-  if (!vercel.project) return <NotLinked what="Comparer" />;
+  if (!vercel.project) return <NotLinked what={t('Compare', 'Comparer')} />;
   const rows = columns ? [...new Set(columns.flatMap((c) => Object.keys(c.values)))] : [];
 
   return (
     <main className="flex min-w-0 flex-1 flex-col gap-4 overflow-y-auto p-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="m-0 text-xl font-semibold tracking-[-0.02em]">Comparer</h1>
+          <h1 className="m-0 text-xl font-semibold tracking-[-0.02em]">{t('Compare', 'Comparer')}</h1>
           <p className="m-0 mt-1 text-muted">
-            <span className="font-mono text-xs">{path}</span> sur chaque environnement, lue comme un robot. Les différences sont surlignées.
+            <span className="font-mono text-xs">{path}</span>{' '}
+            {t('on each environment, read as a crawler. Differences are highlighted.', 'sur chaque environnement, lue comme un robot. Les différences sont surlignées.')}
           </p>
         </div>
         <button onClick={() => void run()} disabled={loading} className={btn}>
           <Icon name="reload" size={12} className={loading ? 'animate-spin' : ''} />
-          {loading ? 'Lecture…' : 'Relire'}
+          {loading ? t('Reading…', 'Lecture…') : t('Re-read', 'Relire')}
         </button>
       </div>
-      {targets.length < 2 && <p className="m-0 text-faint">Il faut au moins deux environnements : ouvre ton serveur local, ou attends une preview prête.</p>}
+      {targets.length < 2 && <p className="m-0 text-faint">
+          {t(
+            'You need at least two environments: open your local server, or wait for a preview to be ready.',
+            'Il faut au moins deux environnements : ouvre ton serveur local, ou attends une preview prête.',
+          )}
+        </p>}
       {columns && (
         <div className="overflow-x-auto rounded-[10px] border border-line bg-card">
           <table className="w-full border-collapse text-xs">
@@ -202,7 +214,7 @@ export function ComparePage() {
                     </td>
                     {vals.map((v, i) => (
                       <td key={columns[i]!.env} className={`border-t border-l border-line-soft px-3 py-2 align-top break-words ${v ? 'text-fg' : 'text-ghost'}`}>
-                        {v ?? 'absent'}
+                        {v ?? t('missing', 'absent')}
                       </td>
                     ))}
                   </tr>

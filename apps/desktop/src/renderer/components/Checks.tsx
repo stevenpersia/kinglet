@@ -1,4 +1,4 @@
-import { CHECK_GROUPS, score, type CheckResult, type CheckStatus } from '@parakeet/core';
+import { CHECK_GROUPS, score, t, type CheckResult, type CheckStatus } from '@parakeet/core';
 import { Dot } from './Icons';
 
 export const STATUS_DOT: Record<CheckStatus, string> = {
@@ -8,7 +8,13 @@ export const STATUS_DOT: Record<CheckStatus, string> = {
   error: 'bg-err',
   skip: 'bg-ghost',
 };
-const STATUS_LABEL: Record<CheckStatus, string> = { ok: 'OK', info: 'Normal ici', warning: 'À améliorer', error: 'Problème', skip: 'Non mesuré' };
+const statusLabel = (): Record<CheckStatus, string> => ({
+  ok: 'OK',
+  info: t('Expected here', 'Normal ici'),
+  warning: t('Needs work', 'À améliorer'),
+  error: t('Problem', 'Problème'),
+  skip: t('Not measured', 'Non mesuré'),
+});
 const ORDER: Record<CheckStatus, number> = { error: 0, warning: 1, info: 2, ok: 3, skip: 4 };
 
 /** Checks grouped by family (SEO, Partage, Mobile, Technique), problems first. */
@@ -34,7 +40,7 @@ export function CheckGroups({ checks, compact = false }: { checks: CheckResult[]
                   <div className="flex min-w-0 flex-col gap-0.5">
                     <span className={c.status === 'skip' ? 'text-faint' : 'text-fg'}>
                       {c.label}
-                      <span className="sr-only"> : {STATUS_LABEL[c.status]}</span>
+                      <span className="sr-only"> : {statusLabel()[c.status]}</span>
                     </span>
                     {(!compact || c.status !== 'ok') && <span className="text-xs leading-snug break-words text-muted">{c.detail}</span>}
                   </div>
