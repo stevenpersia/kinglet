@@ -39,7 +39,7 @@ export function LinkCard() {
       <div className="flex min-w-0 flex-col gap-0.5 px-3 py-2.5">
         <span className="truncate text-xs font-semibold">{meta.og['title'] ?? meta.title ?? '—'}</span>
         <span className="truncate text-xs text-muted">{meta.og['description'] ?? meta.description ?? ''}</span>
-        {meta.og['site_name'] ? <span className="font-mono text-[11px] text-faint">{meta.og['site_name']}</span> : <span className="font-mono text-[11px] text-err">og:site_name absent</span>}
+        <span className="font-mono text-[11px] text-faint">{new URL(meta.finalUrl).host}</span>
       </div>
     </div>
   );

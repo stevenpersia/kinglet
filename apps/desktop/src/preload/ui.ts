@@ -13,6 +13,8 @@ const api: ParakeetApi = {
   openDevtools: (id) => ipcRenderer.send('preview:devtools', id),
   analyze: (url, opts) => ipcRenderer.invoke('page:analyze', url, opts ?? {}),
   crawl: (url, opts) => ipcRenderer.invoke('site:crawl', url, opts ?? {}),
+  sharePreviews: (url) => ipcRenderer.invoke('share:previews', url),
+  copy: (text) => ipcRenderer.send('clipboard:write', text),
   windowControl: (action) => ipcRenderer.send('window:control', action),
   onEvent: (cb) => {
     const listener = (_e: unknown, ev: PreviewEvent) => cb(ev);

@@ -18,3 +18,6 @@ export {
 } from './checks.ts';
 export { readSiteFiles, parseRobots, parseSitemap, type SiteFiles } from './site.ts';
 export { crawl, type CrawledPage } from './crawl.ts';
+export { detectFramework, type Framework } from './meta.ts';
+export { PLATFORMS, buildCard, readSharePreviews, type Platform, type PlatformFamily, type ShareCard, type CardStatus, type SharePreviews } from './share.ts';
+export { buildShareFix, guessSiteName, type ShareFix } from './fix.ts';

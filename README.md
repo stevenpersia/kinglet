@@ -2,12 +2,15 @@
 
 Voir son site sur tous les écrans (iPhone, Android, iPad, desktop), en local, en preview et en prod, et vérifier l'aperçu de ses liens (WhatsApp, LinkedIn, Slack…) avant de les partager. Pensé pour les sites construits avec Claude.
 
-> Nom provisoire. État actuel : **phase 2**. Aperçu multi-appareils, balises de partage, 24 checks et exploration des pages. Packaging Linux et intégration continue en place.
+> Nom provisoire. État actuel : **phase 3**. Aperçu multi-appareils, aperçus de partage sur 7 plateformes avec correctif, 24 checks et exploration des pages. Packaging Linux et intégration continue en place.
 
 ## Ce que fait Parakeet
 
 - **Aperçu** : ton site sur 10 appareils émulés (largeur, densité, tactile, user agent), en portrait ou paysage. Le scroll et la navigation sont synchronisés entre appareils, et chacun a ses DevTools.
-- **Partage** : tes balises lues comme les lit le robot de WhatsApp (HTML brut, sans JavaScript), avec un aperçu du lien et les problèmes trouvés.
+- **Partage** : l'aperçu de ton lien sur WhatsApp, iMessage, Slack, Discord, LinkedIn, X et Google.
+  - La page est lue par le robot de chaque plateforme, avec son user agent et sans JavaScript.
+  - Chaque rendu suit les règles de sa plateforme : textes coupés, recadrage en 1,91:1, carte X selon `twitter:card`, bordure Discord selon `theme-color`. Les rendus et les limites restent approximatifs.
+  - Parakeet détecte le framework (Next.js, Nuxt, Astro, SvelteKit, Vite/HTML) et propose le correctif à coller au bon endroit, avec un prompt prêt pour Claude.
 - **Checks** : 24 vérifications en 4 familles.
   - **SEO** : titre, description, lang, canonical, h1, indexation, robots.txt, sitemap.
   - **Partage** : og:title, og:description, og:site_name, image, format de l'image, twitter:card.
@@ -90,7 +93,8 @@ L'autotest lance le site de démo et Parakeet, puis vérifie :
 - le gel des aperçus sous la palette ;
 - la synchro de navigation ;
 - les 24 checks sur une page aux défauts connus (débordement, erreur JavaScript) ;
-- l'exploration des pages.
+- l'exploration des pages ;
+- les 7 aperçus de partage et le correctif pour le framework détecté.
 
 Sans écran, il utilise Xvfb et prend des captures avec ImageMagick dans `apps/desktop/selftest-output/`. Pour tester l'app packagée : `PARAKEET_BIN=dist/linux-unpacked/parakeet node scripts/selftest.mjs` depuis `apps/desktop`.
 
@@ -101,7 +105,7 @@ apps/desktop        app Electron (electron-vite)
   src/main          fenêtre, appareils émulés, réglages, raccourcis
   src/preload       ponts sécurisés vers l'interface et les pages émulées
   src/renderer      interface React + Tailwind (design « Graphite »)
-packages/core       lecture des balises comme les robots, fichiers du site, exploration, 24 checks
+packages/core       lecture des balises comme les robots, aperçus des 7 plateformes, correctifs, fichiers du site, exploration, 24 checks
 fixtures/demo-site  site de test (Vite)
 ```
 

@@ -1,4 +1,4 @@
-import type { CheckResult, CrawledPage, ImageProbe, Issue, PageMeta, SiteFiles } from '@parakeet/core';
+import type { CheckResult, CrawledPage, ImageProbe, Issue, PageMeta, ShareFix, SharePreviews, SiteFiles } from '@parakeet/core';
 
 export interface DevicePreset {
   id: string;
@@ -56,7 +56,12 @@ export interface AnalyzeReport {
   score: { passed: number; total: number };
 }
 
-export type { CheckResult, CrawledPage };
+export type { CheckResult, CrawledPage, ShareFix, SharePreviews };
+
+export interface ShareStudio {
+  previews: SharePreviews;
+  fix: ShareFix;
+}
 
 export type ShortcutAction = 'reload' | 'focus-url' | 'palette' | 'toggle-scroll-sync' | 'toggle-landscape' | 'settings';
 
@@ -87,6 +92,9 @@ export interface ParakeetApi {
   analyze(url: string, opts?: { refreshSite?: boolean }): Promise<AnalyzeReport>;
   /** Pages of the site (crawl + sitemap + links of the rendered page). Cached per origin. */
   crawl(url: string, opts?: { force?: boolean }): Promise<CrawledPage[]>;
+  /** The 7 platform previews (one fetch per bot) and the suggested fix. */
+  sharePreviews(url: string): Promise<ShareStudio>;
+  copy(text: string): void;
   windowControl(action: 'minimize' | 'maximize' | 'close'): void;
   onEvent(cb: (e: PreviewEvent) => void): () => void;
 }

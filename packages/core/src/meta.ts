@@ -1,6 +1,19 @@
 import { parse } from 'node-html-parser';
 import { BOTS, type BotId } from './bots.ts';
 
+export type Framework = 'next' | 'nuxt' | 'astro' | 'sveltekit' | 'remix' | 'vite' | 'html';
+
+/** Guess the framework from the HTML it produced. */
+export function detectFramework(html: string): Framework {
+  if (/__NEXT_DATA__|\/_next\/static|self\.__next_f|next-route-announcer/.test(html)) return 'next';
+  if (/__NUXT__|\/_nuxt\//.test(html)) return 'nuxt';
+  if (/<meta[^>]+generator[^>]+Astro|astro-island|\/_astro\//.test(html)) return 'astro';
+  if (/__sveltekit|data-sveltekit/.test(html)) return 'sveltekit';
+  if (/__remixContext|__reactRouterContext/.test(html)) return 'remix';
+  if (/\/@vite\/client|<script[^>]+type="module"[^>]+src="\/src\//.test(html)) return 'vite';
+  return 'html';
+}
+
 export interface PageMeta {
   requestedUrl: string;
   finalUrl: string;
@@ -26,6 +39,7 @@ export interface PageMeta {
   imgMissingAlt: number;
   /** Same-origin links found in the raw HTML. */
   links: string[];
+  framework: Framework;
   /** og:* properties, keys without the "og:" prefix. */
   og: Record<string, string>;
   /** twitter:* properties, keys without the "twitter:" prefix. */
@@ -128,6 +142,7 @@ export function parseMeta(html: string, baseUrl: string): Omit<PageMeta, 'reques
     imgCount: imgs.length,
     imgMissingAlt: imgs.filter((i) => i.getAttribute('alt') == null).length,
     links,
+    framework: detectFramework(html),
     og,
     twitter,
     ogImageUrl: resolve(rawImage),

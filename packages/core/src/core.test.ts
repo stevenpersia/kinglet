@@ -199,7 +199,7 @@ describe('runChecks', () => {
     const results = runChecks({ meta, image, site, rendered });
     expect(results).toHaveLength(24);
     const by = Object.fromEntries(results.map((r) => [r.id, r.status]));
-    expect(by).toMatchObject({ h1: 'ok', robots: 'ok', sitemap: 'ok', manifest: 'ok', 'og-site-name': 'error', overflow: 'error', console: 'error', 'img-alt': 'warning', 'heavy-images': 'ok' });
+    expect(by).toMatchObject({ h1: 'ok', robots: 'ok', sitemap: 'ok', manifest: 'ok', 'og-site-name': 'warning', overflow: 'error', console: 'error', 'img-alt': 'warning', 'heavy-images': 'ok' });
     expect(score(results).total).toBe(24);
     expect(runChecks({ meta, image, site: null }).filter((r) => r.status === 'skip').map((r) => r.id)).toEqual(
       expect.arrayContaining(['robots', 'sitemap', 'overflow', 'console', 'heavy-images', 'favicon']),

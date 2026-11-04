@@ -1,7 +1,8 @@
 import { useEffect } from 'react';
 import { Inspector } from './components/Inspector';
 import { Palette } from './components/Palette';
-import { ChecksPage, SharePage, SoonPage } from './components/Sections';
+import { ChecksPage, SoonPage } from './components/Sections';
+import { SharePage } from './components/SharePage';
 import { Sidebar } from './components/Sidebar';
 import { Stage } from './components/Stage';
 import { StatusBar } from './components/StatusBar';

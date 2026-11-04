@@ -1,7 +1,7 @@
 import { join } from 'node:path';
-import { app, BrowserWindow, ipcMain, Menu, shell } from 'electron';
-import { checkShare, crawl, probeImage, readPageMeta, readSiteFiles, runChecks, score, type CrawledPage, type SiteFiles } from '@parakeet/core';
-import type { AnalyzeReport, DeviceSlot, InitState, PreviewEvent, Settings } from '../shared/types';
+import { app, BrowserWindow, clipboard, ipcMain, Menu, shell } from 'electron';
+import { buildShareFix, checkShare, crawl, probeImage, readPageMeta, readSharePreviews, readSiteFiles, runChecks, score, type CrawledPage, type SiteFiles } from '@parakeet/core';
+import type { AnalyzeReport, DeviceSlot, InitState, PreviewEvent, Settings, ShareStudio } from '../shared/types';
 import { detectLocalServer } from './detect';
 import { DeviceManager, shortcutFor } from './devices';
 import { PRESETS } from './presets';
@@ -125,6 +125,12 @@ async function createWindow() {
     const checks = runChecks({ meta, image, site, rendered: rendered.devices });
     return { url, share: { meta, image, issues: checkShare(meta, image) }, site, checks, score: score(checks) };
   });
+
+  ipcMain.handle('share:previews', async (_e, url: string): Promise<ShareStudio> => {
+    const previews = await readSharePreviews(url, { headers: bypassHeaders(url) });
+    return { previews, fix: buildShareFix(previews.meta, previews.image) };
+  });
+  ipcMain.on('clipboard:write', (_e, text: string) => clipboard.writeText(text));
 
   ipcMain.handle('site:crawl', async (_e, url: string, opts: { force?: boolean }) => {
     const key = origin(url);

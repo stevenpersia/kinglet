@@ -29,7 +29,7 @@ export function checkShare(meta: PageMeta, image?: ImageProbe | null): Issue[] {
 
   if (!meta.og['title']) add('og-title-missing', 'warning', 'og:title', 'Absent : les apps se rabattent sur <title>.');
   if (!meta.og['description']) add('og-description-missing', 'warning', 'og:description', 'Absent : certaines apps n’affichent aucun texte.');
-  if (!meta.og['site_name']) add('og-site-name-missing', 'error', 'og:site_name', 'Absent : WhatsApp et Slack n’affichent pas le nom du site.');
+  if (!meta.og['site_name']) add('og-site-name-missing', 'warning', 'og:site_name', 'Absent : Slack, Discord et Facebook affichent le domaine au lieu du nom du site.');
 
   if (!meta.ogImageUrl) {
     add('og-image-missing', 'error', 'og:image', 'Pas d’image de partage : l’aperçu sera du texte seul.');
@@ -134,7 +134,7 @@ export function runChecks({ meta, image, site, rendered }: CheckInput): CheckRes
   // Partage
   add('og-title', 'partage', 'og:title', meta.og['title'] ? 'ok' : 'warning', meta.og['title'] ?? 'Absent : les apps se rabattent sur <title>.');
   add('og-description', 'partage', 'og:description', meta.og['description'] ? 'ok' : 'warning', meta.og['description'] ?? 'Absent.');
-  add('og-site-name', 'partage', 'og:site_name', meta.og['site_name'] ? 'ok' : 'error', meta.og['site_name'] ?? 'Absent : WhatsApp et Slack n’affichent pas le nom du site.');
+  add('og-site-name', 'partage', 'og:site_name', meta.og['site_name'] ? 'ok' : 'warning', meta.og['site_name'] ?? 'Absent : Slack, Discord et Facebook affichent le domaine au lieu du nom du site.');
   if (!meta.ogImageUrl) add('og-image', 'partage', 'Image de partage', 'error', 'Pas d’og:image.');
   else if (meta.ogImageIsRelative) add('og-image', 'partage', 'Image de partage', 'error', 'URL relative : les robots exigent une URL absolue.');
   else if (image && !image.ok) add('og-image', 'partage', 'Image de partage', 'error', `Inaccessible (${image.error ?? 'erreur'}).`);

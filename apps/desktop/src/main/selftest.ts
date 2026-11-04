@@ -184,7 +184,7 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     const st = Object.fromEntries(atelier.checks.map((c) => [c.id, c.status]));
     criteria.push({
       id: 'checks-24',
-      ok: atelier.checks.length === 24 && st['overflow'] === 'error' && st['console'] === 'error' && st['og-site-name'] === 'error' && st['robots'] === 'warning',
+      ok: atelier.checks.length === 24 && st['overflow'] === 'error' && st['console'] === 'error' && st['og-site-name'] === 'warning' && st['robots'] === 'warning',
       detail: `${atelier.checks.length} checks, ${atelier.score.passed}/${atelier.score.total} · débordement ${st['overflow']}, erreurs JS ${st['console']}, robots.txt ${st['robots']} (le serveur Vite renvoie sa page HTML)`,
     });
     report['checks-atelier'] = atelier.checks;
@@ -202,6 +202,16 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     await win.webContents.executeJavaScript(`[...document.querySelectorAll('nav button')].find((b) => b.textContent.includes('Checks'))?.click()`);
     await sleep(1200);
     await shot('10-section-checks');
+
+    // ---- Phase 3 ----
+    // 13. Share previews: 7 platforms, each fetched by its own bot, and a fix for the detected framework
+    type Studio = { previews: { framework: string; cards: { platform: string; status: string; layout: string }[] }; fix: { code: string; changes: string[]; prompt: string } };
+    const studio = (await win.webContents.executeJavaScript(`window.parakeet.sharePreviews('http://localhost:5173/')`)) as Studio;
+    criteria.push({
+      id: 'share-previews',
+      ok: studio.previews.cards.length === 7 && studio.previews.framework === 'vite' && studio.fix.code.includes('og:site_name') && studio.fix.prompt.includes('index.html'),
+      detail: `${studio.previews.framework} · ${studio.previews.cards.map((c) => `${c.platform}:${c.status}`).join(' ')} · ${studio.fix.changes.length} correction(s)`,
+    });
 
     // 10. Partage section
     ui({ type: 'shortcut', action: 'focus-url' });
