@@ -5,7 +5,23 @@ import { migrateSettings } from '../shared/projects';
 import type { Settings } from '../shared/types';
 import { DEFAULT_ACTIVE, PRESETS } from './presets';
 
-const DEFAULTS: Settings = { projects: [], openIds: [], activeId: null, recentUrls: [], active: DEFAULT_ACTIVE, scrollSync: true, landscape: false, throttle: { network: 'off', cpu: 1 }, language: 'en' };
+export const DEFAULTS: Settings = {
+  projects: [],
+  openIds: [],
+  activeId: null,
+  recentUrls: [],
+  active: DEFAULT_ACTIVE,
+  scrollSync: true,
+  landscape: false,
+  throttle: { network: 'off', cpu: 1 },
+  language: 'en',
+  startup: 'restore',
+  defaultSection: 'apercu',
+  autoAnalyze: true,
+  customDevices: [],
+  deviceOrder: [],
+  devicesPerProject: false,
+};
 
 /** Small JSON file in the user data folder (~/.config/Parakeet on Linux). */
 export class SettingsStore {
@@ -21,7 +37,7 @@ export class SettingsStore {
     } catch {
       /* first run or unreadable: defaults */
     }
-    const known = new Set(PRESETS.map((p) => p.id));
+    const known = new Set([...PRESETS.map((p) => p.id), ...(stored.customDevices ?? []).map((d) => d.id)]);
     const active = (stored.active ?? DEFAULTS.active).filter((id) => known.has(id));
     this.value = { ...DEFAULTS, ...stored, active: active.length ? active : DEFAULTS.active };
   }

@@ -218,7 +218,7 @@ export function ProjectsPage() {
               'Parakeet can track your Claude Code sessions (start, changed files, task end) with Claude Code hooks, and let you know when a task finishes.',
               'Parakeet peut suivre tes sessions Claude Code (début, fichiers modifiés, fin de tâche) grâce aux hooks de Claude Code, et te prévenir quand une tâche se termine.',
             )}
-            <button className={btn()} onClick={() => s.setSection('reglages')}>
+            <button className={btn()} onClick={() => s.openSettings('claude')}>
               {t('Turn on in settings', 'Activer dans les réglages')}
             </button>
           </div>

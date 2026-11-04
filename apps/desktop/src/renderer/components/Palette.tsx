@@ -1,6 +1,7 @@
 import { t } from '@parakeet/core';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { api, projectVercel, useStore, type Section } from '../store';
+import { activePresets, api, devicePresets, projectVercel, useStore, type Section } from '../store';
+import { setActiveIds } from '../../shared/devices';
 import { Icon, Kbd } from './Icons';
 
 interface Command {
@@ -38,15 +39,16 @@ export function Palette() {
       { id: 'url', label: t('Change address', 'Changer d’adresse'), hint: 'Ctrl L', run: () => useStore.setState((s) => ({ urlFocusTick: s.urlFocusTick + 1 })) },
       { id: 'landscape', label: settings.landscape ? t('Switch to portrait', 'Passer en portrait') : t('Switch to landscape', 'Passer en paysage'), hint: t('Ctrl Shift O', 'Ctrl Maj O'), run: () => void updateSettings({ landscape: !settings.landscape }) },
       { id: 'sync', label: settings.scrollSync ? t('Turn off scroll sync', 'Désactiver la synchro') : t('Turn on scroll sync', 'Activer la synchro'), hint: t('Ctrl Shift S', 'Ctrl Maj S'), run: () => void updateSettings({ scrollSync: !settings.scrollSync }) },
-      ...presets.map((p) => {
-        const on = settings.active.includes(p.id);
+      ...devicePresets(st).map((p) => {
+        const active = activePresets(st).map((x) => x.id);
+        const on = active.includes(p.id);
         return {
           id: `device-${p.id}`,
           label: `${on ? t('Remove', 'Retirer') : t('Add', 'Ajouter')} ${p.label}`,
           hint: `${p.width} px`,
           run: () => {
-            const next = on ? settings.active.filter((x) => x !== p.id) : [...settings.active, p.id];
-            if (next.length) void updateSettings({ active: presets.filter((x) => next.includes(x.id)).map((x) => x.id) });
+            const next = on ? active.filter((x) => x !== p.id) : [...active, p.id];
+            if (next.length) void updateSettings(setActiveIds(presets, settings, next));
           },
         };
       }),
@@ -67,6 +69,9 @@ export function Palette() {
       go('deploiements', t('Deployments', 'Déploiements')),
       go('comparer', t('Compare', 'Comparer')),
       go('partage', t('Share', 'Partage')),
+      { id: 'console', label: t('Show or hide the console', 'Afficher ou masquer la console'), run: () => useStore.getState().toggleConsole() },
+      { id: 'panel-page', label: t('Show or hide the Page panel', 'Afficher ou masquer le panneau Page'), run: () => useStore.getState().togglePanel('page') },
+      { id: 'panel-checks', label: t('Show or hide the Checks panel', 'Afficher ou masquer le panneau Checks'), run: () => useStore.getState().togglePanel('checks') },
       go('reglages', t('Settings', 'Réglages')),
       ...settings.recentUrls.map((u) => ({ id: `open-${u}`, label: t(`Open ${u}`, `Ouvrir ${u}`), run: () => void useStore.getState().navigate(u) })),
     ];

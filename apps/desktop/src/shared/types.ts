@@ -13,6 +13,18 @@ export interface DevicePreset {
   /** Screen corner radius in CSS px (0 for desktop). */
   radius: number;
   kind: 'phone' | 'tablet' | 'desktop';
+  /** Added by the user in the settings. */
+  custom?: boolean;
+}
+
+/** A device added in the settings. */
+export interface CustomDevice {
+  id: string;
+  label: string;
+  width: number;
+  height: number;
+  dpr: number;
+  kind: DevicePreset['kind'];
 }
 
 /** Where a device view must be drawn, in window coordinates (CSS px). */
@@ -40,6 +52,8 @@ export interface Project {
   lastUrl: string | null;
   /** The site's favicon (data URL), seen the last time the project was shown. */
   favicon?: string | null;
+  /** Devices of this project, when the settings keep one list per project. */
+  active?: string[];
 }
 
 export interface Settings {
@@ -53,10 +67,22 @@ export interface Settings {
   landscape: boolean;
   /** Slow network and CPU, applied to phones and tablets (screens stay at full speed). */
   throttle: Throttle;
+  /** Interface language; "system" follows the computer's. */
   language: Language;
+  /** At launch: reopen the open projects, or show the projects page. */
+  startup: 'restore' | 'projects';
+  /** What a project opens on. */
+  defaultSection: 'apercu' | 'partage' | 'checks' | 'deploiements';
+  /** Read tags and run the checks after each page load. */
+  autoAnalyze: boolean;
+  customDevices: CustomDevice[];
+  /** Order of the devices (ids); devices missing from it come after, in their own order. */
+  deviceOrder: string[];
+  /** One device list per project instead of one for all. */
+  devicesPerProject: boolean;
 }
 
-export type Language = 'en' | 'fr';
+export type Language = 'system' | 'en' | 'fr';
 
 export interface Throttle {
   network: 'off' | '4g' | '3g';

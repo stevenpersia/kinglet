@@ -28,6 +28,8 @@ export interface VercelProject {
   repo: string | null;
   /** https:// URL of the production domain, when Vercel reports one. */
   productionUrl: string | null;
+  /** Deployment the production domain serves now (Vercel's targets.production), when reported. */
+  productionDeploymentId?: string | null;
   /** "Protection Bypass for Automation" secrets defined on the project. */
   bypassSecrets: string[];
 }
@@ -74,6 +76,7 @@ export function parseProject(p: Json): VercelProject {
     framework: str(p.framework),
     repo,
     productionUrl: domain ? withScheme(domain) : null,
+    productionDeploymentId: str(production.id),
     bypassSecrets: Object.entries((p.protectionBypass ?? {}) as Record<string, Json>)
       .filter(([, v]) => v?.scope === 'automation-bypass')
       .map(([k]) => k),

@@ -16,7 +16,6 @@ const stateInfo = (): Record<string, { dot: string; label: string }> => ({
 });
 
 function NotLinked({ what }: { what: string }) {
-  const setSection = useStore((s) => s.setSection);
   return (
     <main className="stage-bg flex flex-1 items-center justify-center p-6">
       <div className="flex max-w-md flex-col items-center gap-3 text-center">
@@ -27,7 +26,7 @@ function NotLinked({ what }: { what: string }) {
             'Connecte ton compte Vercel et choisis le projet de ce site pour voir ses déploiements et comparer local, preview et prod.',
           )}
         </p>
-        <button onClick={() => setSection('reglages')} className="mt-1 h-8 rounded-ui bg-fg px-3 font-semibold text-bg">
+        <button onClick={() => useStore.getState().openSettings('vercel')} className="mt-1 h-8 rounded-ui bg-fg px-3 font-semibold text-bg">
           {t('Connect Vercel', 'Connecter Vercel')}
         </button>
       </div>

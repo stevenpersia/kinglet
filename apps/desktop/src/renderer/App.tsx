@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Inspector } from './components/Inspector';
+import { SidePanel } from './components/Inspector';
 import { Palette } from './components/Palette';
 import { PhoneDialog } from './components/PhoneDialog';
 import { ChecksPage } from './components/Sections';
@@ -15,6 +15,12 @@ import { StatusBar } from './components/StatusBar';
 import { TitleBar } from './components/TitleBar';
 import { api, useStore } from './store';
 
+/** Read tags and run the checks after a load: always, or only when something on screen shows them. */
+function wantsAnalysis() {
+  const s = useStore.getState();
+  return s.settings.autoAnalyze || (s.section === 'apercu' && !!s.panel) || s.section === 'checks';
+}
+
 export function App() {
   const { ready, section } = useStore();
 
@@ -24,13 +30,13 @@ export function App() {
       const s = useStore.getState();
       switch (e.type) {
         case 'loading':
-          useStore.setState({ status: 'loading', error: null, perf: {} });
+          useStore.setState({ status: 'loading', error: null, perf: {}, ...(useStore.getState().settings.autoAnalyze ? {} : { report: null, share: null }) });
           break;
         case 'loaded':
           useStore.setState({ status: 'loaded', url: e.url, error: null });
           // Let late scripts run (and log their errors) before measuring the rendered page.
           setTimeout(() => {
-            if (useStore.getState().url === e.url) void useStore.getState().analyze(e.url);
+            if (useStore.getState().url === e.url && wantsAnalysis()) void useStore.getState().analyze(e.url);
             void useStore.getState().crawlSite();
           }, 700);
           // Thumbnail of the project for the overview.
@@ -46,7 +52,11 @@ export function App() {
         case 'navigated':
           useStore.setState({ url: e.url });
           // Client-side route change (SPA): no new load event, analyse the new route.
-          if (s.status === 'loaded' && e.url !== s.url) setTimeout(() => void useStore.getState().analyze(e.url), 700);
+          if (s.status === 'loaded' && e.url !== s.url) {
+            // The previous route's report no longer applies.
+            if (!wantsAnalysis()) useStore.setState({ report: null, share: null });
+            setTimeout(() => wantsAnalysis() && void useStore.getState().analyze(e.url), 700);
+          }
           break;
         case 'window':
           useStore.setState({ maximized: e.maximized });
@@ -114,7 +124,7 @@ export function App() {
         ) : section === 'apercu' ? (
           <>
             <Stage />
-            <Inspector />
+            <SidePanel />
           </>
         ) : section === 'projets' ? (
           <ProjectsPage />

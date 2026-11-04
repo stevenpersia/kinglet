@@ -235,3 +235,13 @@ describe('runChecks', () => {
     expect(checkShare(meta).find((i) => i.id === 'og-image-missing')!.message).toBe('No share image: the preview will be text only.');
   });
 });
+
+describe('resolveLanguage', () => {
+  it('follows the computer for "system"', async () => {
+    const { resolveLanguage } = await import('./index.ts');
+    expect(resolveLanguage('fr', 'en-US')).toBe('fr');
+    expect(resolveLanguage('system', 'fr-CA')).toBe('fr');
+    expect(resolveLanguage('system', 'de-DE')).toBe('en');
+    expect(resolveLanguage(undefined, null)).toBe('en');
+  });
+});

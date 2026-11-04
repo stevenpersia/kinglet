@@ -203,7 +203,7 @@ export function ProjectSwitcher() {
                 className="text-fg underline-offset-2 hover:underline"
                 onClick={() => {
                   close();
-                  s.setSection('reglages');
+                  s.openSettings('vercel');
                 }}
               >
                 {t('settings', 'réglages')}

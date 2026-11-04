@@ -1,6 +1,6 @@
 import { join } from 'node:path';
 import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, Notification, shell } from 'electron';
-import { setLanguage, t, buildShareFix, checkShare, crawl, probeImage, readPageMeta, readSharePreviews, readSiteFiles, runChecks, score, vercelBypassHeaders, type CrawledPage, type SiteFiles } from '@parakeet/core';
+import { resolveLanguage, setLanguage, t, buildShareFix, checkShare, crawl, probeImage, readPageMeta, readSharePreviews, readSiteFiles, runChecks, score, vercelBypassHeaders, type CrawledPage, type SiteFiles } from '@parakeet/core';
 import { startStdio } from '@parakeet/mcp';
 import QRCode from 'qrcode';
 import type { AnalyzeReport, CompareColumn, DeviceSlot, EnvId, InitState, McpActivity, McpInfo, PhoneQr, PhoneState, PreviewEvent, Settings, ShareStudio } from '../shared/types';
@@ -16,6 +16,7 @@ import { Updater } from './updater';
 import { detectLocalServer } from './detect';
 import { DeviceManager, shortcutFor } from './devices';
 import { PRESETS } from './presets';
+import { activeIds, allPresets, setActiveIds } from '../shared/devices';
 import { runSelftest } from './selftest';
 import { SettingsStore } from './settings';
 
@@ -50,7 +51,8 @@ const bypassHeaders = (url: string, browser = false) => vercelBypassHeaders(url,
 
 async function createWindow() {
   const settings = new SettingsStore();
-  setLanguage(settings.value.language);
+  const applyLanguage = () => setLanguage(resolveLanguage(settings.value.language, app.getLocale()));
+  applyLanguage();
   // Frameless window with our own title bar: no default menu (it would also steal Ctrl+R).
   Menu.setApplicationMenu(null);
 
@@ -97,7 +99,12 @@ async function createWindow() {
     }
     if (!win.isDestroyed()) win.webContents.send('app:event', e);
   };
-  const devices = new DeviceManager(win, PRESETS, emit);
+  const devices = new DeviceManager(win, allPresets(PRESETS, settings.value), emit);
+  /** Devices shown: the global list or the active project's, built-in and custom. */
+  const applyDevices = () => {
+    devices.setPresets(allPresets(PRESETS, settings.value));
+    devices.setActive(activeIds(PRESETS, settings.value));
+  };
   devices.setThrottle(settings.value.throttle);
   devices.setScrollSync(settings.value.scrollSync);
   /** The site's favicon, kept on the project for its tab (also when closed). */
@@ -217,7 +224,7 @@ async function createWindow() {
         openUrlProject(url);
       }
     }
-    devices.setActive(settings.value.active);
+    applyDevices();
     watchOpenProjects();
     if (url) void navigate(url);
     return {
@@ -248,9 +255,9 @@ async function createWindow() {
   ipcMain.handle('preview:reload', () => devices.reload());
   ipcMain.handle('settings:update', (_e, patch: Partial<Settings>) => {
     const next = settings.update(patch);
-    if (patch.language) setLanguage(patch.language);
+    if (patch.language) applyLanguage();
     // New devices load the current page; existing ones keep theirs.
-    if (patch.active) devices.setActive(next.active);
+    if (patch.active || patch.customDevices || patch.deviceOrder || patch.devicesPerProject !== undefined || patch.activeId !== undefined || patch.projects) applyDevices();
     if (patch.scrollSync !== undefined) devices.setScrollSync(patch.scrollSync);
     if (patch.landscape !== undefined) devices.setLandscape(patch.landscape);
     if (patch.throttle) devices.setThrottle(patch.throttle);
@@ -348,10 +355,10 @@ async function createWindow() {
       await new Promise((r) => setTimeout(r, 500)); // late scripts, console errors
     },
     setActive: (ids) => {
-      const known = PRESETS.filter((p) => ids.includes(p.id)).map((p) => p.id);
+      const known = allPresets(PRESETS, settings.value).filter((p) => ids.includes(p.id)).map((p) => p.id);
       if (!known.length) throw new Error(t(`unknown devices: ${ids.join(', ')}`, `appareils inconnus : ${ids.join(', ')}`));
-      const next = settings.update({ active: known });
-      devices.setActive(next.active);
+      const next = settings.update(setActiveIds(PRESETS, settings.value, known));
+      applyDevices();
       emit({ type: 'settings', settings: next });
     },
     deployments: () => {

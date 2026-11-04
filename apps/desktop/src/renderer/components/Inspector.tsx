@@ -1,9 +1,7 @@
 import { t, type Issue } from '@parakeet/core';
-import { useStore, type InspectorTab } from '../store';
+import { useStore } from '../store';
 import { CheckGroups } from './Checks';
-import { McpTab } from './Mcp';
-import { ConsoleTab } from './Console';
-import { Dot } from './Icons';
+import { Dot, Icon } from './Icons';
 
 const formatBytes = (b: number) => (b < 1024 ? t(`${b} B`, `${b} o`) : t(`${Math.round(b / 1024)} KB`, `${Math.round(b / 1024)} Ko`));
 const sevColor = { error: 'bg-err', warning: 'bg-warn' } as const;
@@ -126,50 +124,71 @@ function ShareTab() {
   );
 }
 
-const tabs = (): { id: InspectorTab; label: string }[] => [
-  { id: 'page', label: 'Page' },
-  { id: 'partage', label: t('Share', 'Partage') },
-  { id: 'checks', label: 'Checks' },
-  { id: 'console', label: 'Console' },
-  { id: 'mcp', label: 'MCP' },
-];
-
-function ChecksTab() {
-  const report = useStore((s) => s.report);
+function ChecksBody() {
+  const { report, analyzing, analyze, setSection } = useStore();
   if (!report) return null;
-  return <CheckGroups checks={report.checks} compact />;
+  return (
+    <div className="flex flex-col gap-4">
+      <CheckGroups checks={report.checks} compact />
+      <div className="flex gap-1.5">
+        <button onClick={() => void analyze(report.url, { refreshSite: true })} disabled={analyzing} className="flex h-8 flex-1 items-center justify-center gap-2 rounded-ui border border-[#2a2a2f] bg-active px-3 text-xs font-medium hover:border-line-strong disabled:opacity-60">
+          <Icon name="reload" size={12} className={analyzing ? 'animate-spin' : ''} />
+          {analyzing ? t('Analyzing…', 'Analyse…') : t('Re-run', 'Relancer')}
+        </button>
+        <button onClick={() => setSection('checks')} className="flex h-8 flex-1 items-center justify-center rounded-ui border border-[#2a2a2f] bg-active px-3 text-xs font-medium hover:border-line-strong">
+          {t('Full page', 'En grand')}
+        </button>
+      </div>
+    </div>
+  );
 }
 
-export function Inspector() {
-  const { inspectorTab, setInspectorTab, share, shareError, status, error, url, report, logs } = useStore();
-  const consoleErrors = logs.filter((l) => l.level === 'error').length;
-  const errors = share?.issues.filter((i) => i.severity === 'error').length ?? 0;
+function PageBody() {
+  const setSection = useStore((s) => s.setSection);
+  return (
+    <div className="flex flex-col gap-5">
+      <PageTab />
+      <ShareTab />
+      <button onClick={() => setSection('partage')} className="self-start text-xs text-muted hover:text-fg">
+        {t('See every share preview →', 'Voir tous les aperçus de partage →')}
+      </button>
+    </div>
+  );
+}
+
+/** Page or Checks, next to the devices: opened and closed from the left bar. */
+export function SidePanel() {
+  const { panel, togglePanel, share, shareError, status, error, url, report, analyzing, analyze } = useStore();
+  if (!panel) return null;
   let body;
-  if (inspectorTab === 'mcp') body = <McpTab />; // does not depend on the page
-  else if (inspectorTab === 'console') body = <ConsoleTab />;
-  else if (!url) body = <p className="text-faint">{t('Enter your dev server’s address at the top, or just its port (e.g. 3000).', 'Saisis l’adresse de ton serveur de dev en haut, ou juste son port (ex. 3000).')}</p>;
+  if (!url) body = <p className="text-faint">{t('Enter your dev server’s address at the top, or just its port (e.g. 3000).', 'Saisis l’adresse de ton serveur de dev en haut, ou juste son port (ex. 3000).')}</p>;
   else if (status === 'failed') body = <p className="text-faint">{error}</p>;
   else if (shareError) body = <p className="text-faint">{t('Couldn’t read the tags:', 'Lecture des balises impossible :')} {shareError}</p>;
-  else if (!share) body = <p className="text-faint">{t('Reading tags…', 'Lecture des balises…')}</p>;
-  else body = inspectorTab === 'page' ? <PageTab /> : inspectorTab === 'partage' ? <ShareTab /> : <ChecksTab />;
+  else if (!share || !report)
+    body = analyzing || status !== 'loaded' ? (
+      <p className="text-faint">{t('Reading the page…', 'Lecture de la page…')}</p>
+    ) : (
+      <button onClick={() => void analyze(url)} className="h-8 rounded-ui bg-fg px-3 font-semibold text-bg">
+        {t('Analyze this page', 'Analyser cette page')}
+      </button>
+    );
+  else body = panel === 'page' ? <PageBody /> : <ChecksBody />;
 
   return (
-    <aside aria-label={t('Inspector', 'Inspecteur')} className="flex w-[340px] shrink-0 flex-col border-l border-line-soft bg-chrome">
-      <div role="tablist" className="flex gap-0.5 border-b border-line-soft px-2.5 py-2">
-        {tabs().map((tab) => (
-          <button
-            key={tab.id}
-            role="tab"
-            aria-selected={inspectorTab === tab.id}
-            onClick={() => setInspectorTab(tab.id)}
-            className={`inline-flex h-[26px] items-center gap-1.5 rounded-md border px-2.5 text-xs ${inspectorTab === tab.id ? 'border-line-strong bg-active font-medium text-fg' : 'border-transparent text-muted hover:text-fg'}`}
-          >
-            {tab.label}
-            {tab.id === 'partage' && errors > 0 && <span className="font-mono text-err">{errors}</span>}
-            {tab.id === 'console' && consoleErrors > 0 && <span className="font-mono text-err">{consoleErrors}</span>}
-            {tab.id === 'checks' && report && <span className="font-mono text-ghost">{report.score.passed}/{report.score.total}</span>}
+    <aside aria-label={panel === 'page' ? 'Page' : 'Checks'} className="flex w-[340px] shrink-0 flex-col border-l border-line-soft bg-chrome">
+      <div className="flex h-11 shrink-0 items-center justify-between border-b border-line-soft pr-2 pl-4">
+        <span className="label">{panel === 'page' ? 'Page' : 'Checks'}</span>
+        <span className="flex items-center gap-2">
+          {panel === 'checks' && report && (
+            <span className="font-mono text-xs">
+              {report.score.passed}
+              <span className="text-faint">/{report.score.total}</span>
+            </span>
+          )}
+          <button onClick={() => togglePanel(panel)} aria-label={t('Close', 'Fermer')} title={t('Close', 'Fermer')} className="flex size-7 items-center justify-center rounded-md text-faint hover:bg-active hover:text-fg">
+            <Icon name="close" size={12} />
           </button>
-        ))}
+        </span>
       </div>
       <div className="flex-1 overflow-y-auto p-4">{body}</div>
     </aside>

@@ -1,8 +1,8 @@
 import { locale, t } from '@parakeet/core';
-import type { Language } from '../../shared/types';
 import { useState } from 'react';
-import { api, useStore } from '../store';
-import { Icon } from './Icons';
+import { activePresets, api, useStore, type SettingsTab } from '../store';
+import { Icon, type IconName } from './Icons';
+import { DeviceSettings, GeneralSettings } from './GeneralSettings';
 import { ActivityList, CopyButton, SLASH } from './Mcp';
 import { ProjectSettings, VercelSettings } from './VercelSettings';
 import { ClaudeSettings } from './ClaudeSettings';
@@ -19,38 +19,6 @@ const tools = (): [string, string][] => [
   ['list_pages', t('Site pages', 'Pages du site')],
   ['list_deployments', t('Vercel deployments of the linked project', 'Déploiements Vercel du projet lié')],
 ];
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section className="flex flex-col gap-3">
-      <h2 className="m-0 text-[15px] font-semibold">{title}</h2>
-      {children}
-    </section>
-  );
-}
-
-function LanguageSetting() {
-  const { settings, updateSettings } = useStore();
-  const options: { id: Language; label: string }[] = [
-    { id: 'en', label: 'English' },
-    { id: 'fr', label: 'Français' },
-  ];
-  return (
-    <div role="radiogroup" aria-label={t('Language', 'Langue')} className="flex w-fit gap-0.5 rounded-lg border border-line bg-bg p-0.5">
-      {options.map((o) => (
-        <button
-          key={o.id}
-          role="radio"
-          aria-checked={settings.language === o.id}
-          onClick={() => void updateSettings({ language: o.id })}
-          className={`flex h-7 items-center rounded-md px-3 text-xs font-medium ${settings.language === o.id ? 'bg-raised text-fg shadow-[inset_0_0_0_1px_#2e2e33]' : 'text-faint hover:text-fg'}`}
-        >
-          {o.label}
-        </button>
-      ))}
-    </div>
-  );
-}
 
 function UpdateSettings() {
   const update = useStore((s) => s.update);
@@ -104,36 +72,11 @@ function UpdateSettings() {
   );
 }
 
-export function SettingsPage() {
+function McpSettings() {
   const mcp = useStore((s) => s.mcp);
-  const platform = useStore((s) => s.platform);
   const last = mcp?.activity[0];
-
   return (
-    <main className="flex min-w-0 flex-1 justify-center overflow-y-auto p-6">
-      <div className="flex w-full max-w-[880px] flex-col gap-8">
-        <div>
-          <h1 className="m-0 text-xl font-semibold tracking-[-0.02em]">{t('Settings', 'Réglages')}</h1>
-          <p className="m-0 mt-1 text-muted">Parakeet {platform?.version} · {t('settings saved in', 'réglages enregistrés dans')} ~/.config/Parakeet</p>
-        </div>
-
-        <Section title={t('Language', 'Langue')}>
-          <LanguageSetting />
-        </Section>
-
-        <Section title={`${t('Active project', 'Projet actif')}${activeProject(useStore.getState().settings) ? ` · ${activeProject(useStore.getState().settings)!.name}` : ''}`}>
-          <ProjectSettings />
-        </Section>
-
-        <Section title={t('Claude Code activity', 'Suivi de Claude Code')}>
-          <ClaudeSettings />
-        </Section>
-
-        <Section title={t('Updates', 'Mises à jour')}>
-          <UpdateSettings />
-        </Section>
-
-        <Section title={t('MCP server for Claude Code', 'Serveur MCP pour Claude Code')}>
+    <>
           <div className="overflow-hidden rounded-[10px] border border-line bg-card">
             <div className="flex items-center gap-3 p-3.5">
               <span className="flex size-8 items-center justify-center rounded-lg bg-active shadow-[inset_0_0_0_1px_#2a2a2f]">
@@ -200,12 +143,90 @@ export function SettingsPage() {
             <span className="label">{t('Recent activity', 'Activité récente')}</span>
             <ActivityList items={mcp?.activity ?? []} limit={20} />
           </div>
-        </Section>
+    </>
+  );
+}
 
-        <Section title={t('Vercel account', 'Compte Vercel')}>
-          <VercelSettings />
-        </Section>
-      </div>
-    </main>
+const NAV = (): { group: string; items: { id: SettingsTab; label: string; icon: IconName }[] }[] => {
+  const project = activeProject(useStore.getState().settings);
+  return [
+    {
+      group: 'App',
+      items: [
+        { id: 'general', label: t('General', 'Général'), icon: 'globe' },
+        { id: 'devices', label: t('Devices', 'Appareils'), icon: 'phone' },
+      ],
+    },
+    { group: project ? `${t('Project', 'Projet')} · ${project.name}` : t('Project', 'Projet'), items: [{ id: 'project', label: t('Active project', 'Projet actif'), icon: 'folder' }] },
+    {
+      group: t('Integrations', 'Intégrations'),
+      items: [
+        { id: 'vercel', label: 'Vercel', icon: 'tri' },
+        { id: 'claude', label: 'Claude Code', icon: 'spark' },
+        { id: 'mcp', label: t('MCP server', 'Serveur MCP'), icon: 'terminal' },
+        { id: 'updates', label: t('Updates', 'Mises à jour'), icon: 'download' },
+      ],
+    },
+  ];
+};
+
+export function SettingsPage() {
+  const s = useStore();
+  const { settingsTab, platform } = s;
+  const nav = NAV();
+  const current = nav.flatMap((g) => g.items).find((i) => i.id === settingsTab)!;
+  const sub: Partial<Record<SettingsTab, string>> = {
+    general: t('Applies to every project.', 'Vaut pour tous les projets.'),
+    devices: t('Checked devices are shown side by side, in this order. Drag a row to move it.', 'Les appareils cochés s’affichent côte à côte, dans cet ordre. Glisse une ligne pour la déplacer.'),
+  };
+  return (
+    <div className="flex min-w-0 flex-1">
+      <nav aria-label={t('Settings pages', 'Rubriques des réglages')} className="flex w-[220px] shrink-0 flex-col gap-0.5 overflow-y-auto border-r border-line-soft bg-chrome px-2.5 py-4">
+        {nav.map((g) => (
+          <div key={g.group} className="flex flex-col gap-0.5 pt-4 first:pt-0">
+            <span className="label truncate px-2.5 pb-1.5">{g.group}</span>
+            {g.items.map((it) => (
+              <button
+                key={it.id}
+                aria-current={settingsTab === it.id ? 'page' : undefined}
+                onClick={() => useStore.setState({ settingsTab: it.id })}
+                className={`flex h-[30px] items-center gap-2.5 rounded-[7px] px-2.5 text-left text-[12.5px] ${settingsTab === it.id ? 'bg-active text-fg shadow-[inset_0_0_0_1px_#26262b]' : 'text-muted hover:bg-active/60 hover:text-fg'}`}
+              >
+                <Icon name={it.icon} size={13} />
+                {it.label}
+                {it.id === 'devices' && <span className="ml-auto font-mono text-[10px] text-ghost">{activePresets(s).length}</span>}
+              </button>
+            ))}
+          </div>
+        ))}
+        <span className="flex-1" />
+        <p className="m-0 px-2.5 pt-4 text-[11px] leading-normal text-ghost">
+          Parakeet {platform?.version} · {t('saved in', 'enregistré dans')} ~/.config/Parakeet
+        </p>
+      </nav>
+      <main className="flex min-w-0 flex-1 justify-center overflow-y-auto p-7">
+        <div className="flex w-full max-w-[760px] flex-col gap-6 [&>*]:shrink-0">
+          <div>
+            <h1 className="m-0 text-xl font-semibold tracking-[-0.02em]">{current.label}</h1>
+            {sub[settingsTab] && <p className="m-0 mt-1 text-muted">{sub[settingsTab]}</p>}
+          </div>
+          {settingsTab === 'general' ? (
+            <GeneralSettings />
+          ) : settingsTab === 'devices' ? (
+            <DeviceSettings />
+          ) : settingsTab === 'project' ? (
+            <ProjectSettings />
+          ) : settingsTab === 'vercel' ? (
+            <VercelSettings />
+          ) : settingsTab === 'claude' ? (
+            <ClaudeSettings />
+          ) : settingsTab === 'mcp' ? (
+            <McpSettings />
+          ) : (
+            <UpdateSettings />
+          )}
+        </div>
+      </main>
+    </div>
   );
 }

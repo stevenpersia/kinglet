@@ -29,3 +29,9 @@ export function ago(ms: number, now = Date.now()) {
   const d = Math.round(h / 24);
   return t(`${d} d ago`, `il y a ${d} j`);
 }
+
+/** "system" (or anything unknown) follows the computer's locale: French for fr-*, English otherwise. */
+export function resolveLanguage(pref: string | null | undefined, systemLocale: string | null | undefined): Language {
+  if (pref === 'en' || pref === 'fr') return pref;
+  return systemLocale?.toLowerCase().startsWith('fr') ? 'fr' : 'en';
+}

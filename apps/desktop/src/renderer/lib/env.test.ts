@@ -1,6 +1,6 @@
 import { setLanguage, type VercelDeployment } from '@parakeet/core';
 import { describe, expect, it } from 'vitest';
-import { envOf, envTargets, timeAgo, urlOnEnv } from './env';
+import { envOf, envTargets, oldProdOf, productionsOf, timeAgo, urlOnEnv } from './env';
 
 const dep = (p: Partial<VercelDeployment>): VercelDeployment => ({
   id: 'd',
@@ -66,4 +66,36 @@ it('timeAgo', () => {
   setLanguage('fr');
   expect(timeAgo(0, 5 * 60_000)).toBe('il y a 5 min');
   setLanguage('en');
+});
+
+describe('production deployments', () => {
+  const prods = {
+    ...vercel,
+    project: { ...vercel.project, productionDeploymentId: 'p2' },
+    deployments: [
+      dep({ id: 'p3', url: 'https://ms-p3.vercel.app', production: true, createdAt: 30, state: 'ERROR' }),
+      dep({ id: 'p2', url: 'https://ms-p2.vercel.app', production: true, createdAt: 20 }),
+      dep({ id: 'p1', url: 'https://ms-p1.vercel.app', production: true, createdAt: 10 }),
+      dep({ id: 'p4', url: 'https://ms-p4.vercel.app', production: true, createdAt: 40, state: 'BUILDING' }),
+    ],
+  };
+
+  it('lists ready and failed productions, newest first, and knows the live one', () => {
+    const { prods: list, live } = productionsOf(prods);
+    expect(list.map((d) => d.id)).toEqual(['p3', 'p2', 'p1']);
+    expect(live?.id).toBe('p2'); // what Vercel serves (e.g. after a rollback), not the newest
+    expect(productionsOf({ ...prods, project: { ...prods.project, productionDeploymentId: null } }).live?.id).toBe('p2'); // newest ready
+  });
+
+  it('opens an older production on its own address, and tells it apart from the live one', () => {
+    const t = envTargets(null, prods, null, 'p1');
+    expect(t.oldProd?.id).toBe('p1');
+    expect(urlOnEnv('https://maisonsable.fr/atelier', 'prod', t)).toBe('https://ms-p1.vercel.app/atelier');
+    expect(envTargets(null, prods, null, 'p2').oldProd).toBeNull(); // the live one: back to the domain
+    expect(envTargets(null, prods, null, 'p3').oldProd).toBeNull(); // failed: never served
+    expect(oldProdOf('https://ms-p1.vercel.app/atelier', prods)?.id).toBe('p1');
+    expect(oldProdOf('https://ms-p2.vercel.app/', prods)).toBeNull();
+    expect(oldProdOf('https://maisonsable.fr/', prods)).toBeNull();
+    expect(oldProdOf('https://ms-hero.vercel.app/', prods)).toBeNull();
+  });
 });

@@ -1,11 +1,5 @@
 import type { DevicePreset } from '../shared/types';
-
-const ios = (v = '18_5', ver = '18.5') =>
-  `Mozilla/5.0 (iPhone; CPU iPhone OS ${v} like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/${ver} Mobile/15E148 Safari/604.1`;
-// iPadOS Safari asks for the desktop site by default and announces itself as a Mac (with touch points).
-const IPADOS = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Safari/605.1.15';
-const android = (model: string) =>
-  `Mozilla/5.0 (Linux; Android 15; ${model}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Mobile Safari/537.36`;
+import { androidUA as android, iosUA as ios, IPADOS_UA as IPADOS } from '../shared/devices';
 
 export const PRESETS: DevicePreset[] = [
   { id: 'iphone-se', label: 'iPhone SE', width: 375, height: 667, dpr: 2, mobile: true, touch: true, userAgent: ios(), radius: 0, kind: 'phone' },

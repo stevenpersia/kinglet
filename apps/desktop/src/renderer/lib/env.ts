@@ -34,22 +34,53 @@ export interface EnvTargets {
   local: string | null;
   preview: VercelDeployment | null;
   previews: VercelDeployment[];
+  /** Production domain (or the live deployment's URL). */
   prod: string | null;
+  /** Production deployments, newest first (ready or failed). */
+  prods: VercelDeployment[];
+  /** The deployment production serves now. */
+  liveProd: VercelDeployment | null;
+  /** An older production deployment chosen in the menu (null: the live one). */
+  oldProd: VercelDeployment | null;
+}
+
+/** Production deployments, newest first, and the one the domain serves now. */
+export function productionsOf(vercel: ProjectVercel | null): { prods: VercelDeployment[]; live: VercelDeployment | null } {
+  const prods = (vercel?.deployments ?? []).filter((d) => d.production && (d.state === 'READY' || d.state === 'ERROR')).sort((a, b) => b.createdAt - a.createdAt);
+  const id = vercel?.project?.productionDeploymentId;
+  const live = (id ? prods.find((d) => d.id === id) : null) ?? prods.find((d) => d.state === 'READY') ?? null;
+  return { prods, live };
+}
+
+/** The older production deployment a URL is on (null: live prod, or not production at all). */
+export function oldProdOf(url: string | null, vercel: ProjectVercel | null): VercelDeployment | null {
+  const origin = originOf(url);
+  if (!origin || !vercel) return null;
+  if (vercel.project?.productionUrl && origin === originOf(vercel.project.productionUrl)) return null;
+  const { prods, live } = productionsOf(vercel);
+  const dep = prods.find((d) => originOf(d.url) === origin);
+  return dep && dep.id !== live?.id && originOf(live?.url) !== origin ? dep : null;
 }
 
 /**
  * Where each environment is: the local dev server (remembered), the chosen preview
- * (default: the latest ready one), production (project domain, else the latest production deployment).
+ * (default: the latest ready one), production (project domain, else the live production deployment;
+ * or an older production deployment chosen in the menu).
  */
-export function envTargets(localOrigin: string | null, vercel: ProjectVercel | null, previewId: string | null): EnvTargets {
+export function envTargets(localOrigin: string | null, vercel: ProjectVercel | null, previewId: string | null, prodId: string | null = null): EnvTargets {
   const previews = vercel ? previewsByBranch(vercel.deployments) : [];
   const preview = previews.find((d) => d.id === previewId) ?? previews[0] ?? null;
-  const prodDeployment = vercel?.deployments.find((d) => d.production && d.state === 'READY');
+  const { prods, live } = productionsOf(vercel);
+  const chosen = prodId ? prods.find((d) => d.id === prodId && d.state === 'READY') : null;
+  const oldProd = chosen && chosen.id !== live?.id ? chosen : null;
   return {
     local: localOrigin,
     preview,
     previews,
-    prod: vercel?.project?.productionUrl ?? prodDeployment?.url ?? null,
+    prod: oldProd?.url ?? vercel?.project?.productionUrl ?? live?.url ?? null,
+    prods,
+    liveProd: live,
+    oldProd,
   };
 }
 
