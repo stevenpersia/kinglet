@@ -435,23 +435,28 @@ export class DeviceManager {
     }
   }
 
-  /** Small capture of the first phone (else the first device), for the projects overview. */
-  async thumbnail(): Promise<string | null> {
-    const list = this.entries();
-    const d = list.find((x) => x.preset.kind === 'phone') ?? list[0];
-    if (!d) return null;
-    // What the view shows on screen (already scaled): no emulation change, unlike a DevTools
-    // capture with a clip scale, which could leave the view zoomed after a resize.
+  /**
+   * What a view shows on screen, as a data URL. Unlike a DevTools capture (which re-renders the
+   * page at the requested scale and makes the live view flash zoomed), this changes nothing.
+   */
+  private async displayed(d: DeviceEntry, quality = 85): Promise<string | null> {
     try {
       const full = await d.view.webContents.capturePage();
       if (full.isEmpty()) return null;
       // With the emulation scale, the page is painted in the top-left `scale` part of the view.
       const { width, height } = full.getSize();
       const img = d.scale < 0.999 ? full.crop({ x: 0, y: 0, width: Math.max(1, Math.round(width * d.scale)), height: Math.max(1, Math.round(height * d.scale)) }) : full;
-      return img.isEmpty() ? null : `data:image/jpeg;base64,${img.toJPEG(80).toString('base64')}`;
+      return img.isEmpty() ? null : `data:image/jpeg;base64,${img.toJPEG(quality).toString('base64')}`;
     } catch {
-      return null;
+      return null; // not painted yet
     }
+  }
+
+  /** Small capture of the first phone (else the first device), for the projects overview. */
+  async thumbnail(): Promise<string | null> {
+    const list = this.entries();
+    const d = list.find((x) => x.preset.kind === 'phone') ?? list[0];
+    return d ? this.displayed(d, 80) : null;
   }
 
   async freeze(): Promise<Record<string, string>> {
@@ -459,8 +464,8 @@ export class DeviceManager {
     if (this.visible) {
       await Promise.all(
         this.entries().map(async (d) => {
-          const data = await this.capture(d.preset.id);
-          if (data) shots[d.preset.id] = `data:image/jpeg;base64,${data}`;
+          const data = await this.displayed(d);
+          if (data) shots[d.preset.id] = data;
         }),
       );
     }
