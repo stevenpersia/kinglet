@@ -1,10 +1,12 @@
 name: Release
 
-# Push a tag matching the app version to publish a release:
-#   git tag v0.1.0 && git push origin v0.1.0
+# Publish the version in apps/desktop/package.json, either way:
+#   - push a matching tag:  git tag v0.1.0 && git push origin v0.1.0
+#   - or Actions → Release → Run workflow (the tag is created from the version)
 on:
   push:
     tags: ['v*']
+  workflow_dispatch:
 
 permissions:
   contents: write # create the release and upload its files
@@ -23,13 +25,20 @@ jobs:
           node-version: 22
           cache: pnpm
 
-      - name: The tag must match the app version
+      - name: Version to release
         run: |
-          version="v$(node -p "require('./apps/desktop/package.json').version")"
-          if [ "$version" != "$GITHUB_REF_NAME" ]; then
-            echo "Tag $GITHUB_REF_NAME, but apps/desktop/package.json says $version" >&2
+          tag="v$(node -p "require('./apps/desktop/package.json').version")"
+          if [ "$GITHUB_REF_TYPE" = "tag" ] && [ "$tag" != "$GITHUB_REF_NAME" ]; then
+            echo "Tag $GITHUB_REF_NAME, but apps/desktop/package.json says $tag" >&2
             exit 1
           fi
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "Release $tag already exists: bump the version in apps/desktop/package.json" >&2
+            exit 1
+          fi
+          echo "TAG=$tag" >> "$GITHUB_ENV"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: System packages
         run: |
@@ -56,4 +65,5 @@ jobs:
         working-directory: apps/desktop
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release create "$GITHUB_REF_NAME" dist/*.AppImage dist/*.pacman dist/latest-linux.yml --title "Parakeet ${GITHUB_REF_NAME#v}" --generate-notes
+        # --target creates the tag on this commit when it does not exist yet (manual run).
+        run: gh release create "$TAG" dist/*.AppImage dist/*.pacman dist/latest-linux.yml --target "$GITHUB_SHA" --title "Parakeet ${TAG#v}" --generate-notes

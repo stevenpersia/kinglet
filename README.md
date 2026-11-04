@@ -127,8 +127,10 @@ Sans jeton, Réglages affiche « dépôt privé ». Si le dépôt devient public
 
 ### Publier une version
 
-1. Monte la version dans `apps/desktop/package.json`.
-2. Pousse un tag `v<version>` :
+1. Monte la version dans `apps/desktop/package.json` et pousse sur `main`.
+2. Lance la publication, au choix :
+   - dans GitHub, **Actions → Release → Run workflow** : le tag est créé à partir de la version ;
+   - ou en poussant un tag `v<version>` :
 
 ```bash
 git tag v0.1.0 && git push origin v0.1.0
