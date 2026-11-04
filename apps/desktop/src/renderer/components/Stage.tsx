@@ -287,6 +287,15 @@ async function pointAt(preset: DevicePreset, viewport: Viewport, el: HTMLElement
   const n = (id ? (s.drafts[id]?.attachments.filter((a) => a.kind === 'image').length ?? 0) : 0) + 1;
   const [info, image] = await Promise.all([api().elementAt(preset.id, x, y), shot ? pinned(shot, fx, fy, n).catch(() => null) : Promise.resolve(null)]);
   s.stopPointing();
+  if (s.pointingFor === 'feedback' && id) {
+    // A review pin: numbered after the others of this project, the comment comes next.
+    const pins = s.pins[id] ?? [];
+    const num = Math.max(0, ...pins.map((p) => p.n)) + 1;
+    const img = shot ? await pinned(shot, fx, fy, num).catch(() => null) : null;
+    s.setPins(id, [...pins, { id: `p${Date.now().toString(36)}`, n: num, deviceId: preset.id, deviceLabel: preset.label, url: s.url ?? '', x, y, selector: info?.selector ?? null, elementText: info?.text?.slice(0, 120) || null, comment: '', image: img, createdAt: Date.now(), done: false }]);
+    useStore.setState({ panel: 'feedback' });
+    return;
+  }
   const where = `${preset.label} (${viewport.width}×${viewport.height})`;
   s.askClaude('', [
     ...(image ? [{ kind: 'image' as const, label: t(`${preset.label} · pin ${n}`, `${preset.label} · épingle ${n}`), dataUrl: image }] : []),
@@ -315,7 +324,11 @@ function PointingBar() {
   return (
     <div role="status" className="absolute top-3 right-4 left-4 z-20 flex items-center gap-2.5 rounded-lg border border-[rgba(217,119,87,0.35)] bg-[#1c1513] shadow-xl shadow-black/50 px-3 py-2 text-[12.5px] text-muted">
       <Icon name="target" size={13} className="text-[#d97757]" />
-      <span className="flex-1">{t('Click a spot on a device to show it to Claude.', 'Clique un endroit d’un appareil pour le montrer à Claude.')}</span>
+      <span className="flex-1">
+        {useStore.getState().pointingFor === 'feedback'
+          ? t('Click the spot on a device the comment is about.', 'Clique l’endroit d’un appareil dont parle le retour.')
+          : t('Click a spot on a device to show it to Claude.', 'Clique un endroit d’un appareil pour le montrer à Claude.')}
+      </span>
       <button onClick={stopPointing} className="h-7 rounded-ui border border-[#2a2a2f] bg-active px-2.5 text-xs font-medium text-fg hover:border-line-strong">
         {t('Cancel (Esc)', 'Annuler (Échap)')}
       </button>
@@ -396,7 +409,7 @@ function Devices() {
                   {frozen?.[preset.id] && <img src={frozen[preset.id]} alt="" className="block size-full object-cover object-top" />}
                 </div>
               </div>
-              <div className="flex items-center gap-2 font-mono text-[11px] text-faint">
+              <div style={{ maxWidth: w + pad * 2 + 80 }} className="flex flex-wrap items-center justify-center gap-x-2 gap-y-0.5 font-mono text-[11px] text-faint [&>*]:whitespace-nowrap">
                 <span>
                   {preset.label} · {viewport.width} × {viewport.height}
                 </span>

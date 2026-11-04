@@ -35,6 +35,17 @@ export function Rail() {
       badge: report ? <span className={report.score.passed === report.score.total ? 'text-ok' : 'text-ghost'}>{report.score.total - report.score.passed || '✓'}</span> : null,
     },
     { id: 'comparer', label: t('Compare', 'Comparer'), icon: 'cols', on: section === 'comparer', run: go('comparer') },
+    {
+      id: 'feedback',
+      label: t('Feedback', 'Retours'),
+      icon: 'pin',
+      on: onDevices && panel === 'feedback',
+      run: open('feedback'),
+      badge: (() => {
+        const open = (s.settings.activeId ? (s.pins[s.settings.activeId] ?? []) : []).filter((p) => !p.done).length;
+        return open ? <span className="text-[#d97757]">{open}</span> : null;
+      })(),
+    },
   ];
 
   const button = (it: Item, small = false) => (

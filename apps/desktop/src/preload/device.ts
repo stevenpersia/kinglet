@@ -86,7 +86,8 @@ function metrics(el: Element | null) {
 
 const onMove = (e: MouseEvent) => {
   const el = document.elementFromPoint(e.clientX, e.clientY);
-  if (!el || el === hovered || (el as HTMLElement).hasAttribute?.('data-parakeet-inspector')) return;
+  // The page itself (html, body) is not an element worth inspecting.
+  if (!el || el === hovered || el === document.documentElement || el === document.body || (el as HTMLElement).hasAttribute?.('data-parakeet-inspector')) return;
   hovered = el;
   ipcRenderer.send('device:inspect-hover', pathOf(el));
 };

@@ -1,3 +1,4 @@
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, Notification, shell } from 'electron';
 import { resolveLanguage, setLanguage, t, buildShareFix, checkShare, crawl, probeImage, readPageMeta, readSharePreviews, readSiteFiles, runChecks, score, vercelBypassHeaders, type CrawledPage, type SiteFiles } from '@parakeet/core';
@@ -450,6 +451,20 @@ async function createWindow() {
   ipcMain.handle('github:state', () => github.state);
   ipcMain.handle('github:connect', (_e, token: string) => github.connect(token));
   ipcMain.handle('github:disconnect', () => github.disconnect());
+  ipcMain.handle('github:issue', (_e, repo: string, title: string, body: string) => github.createIssue(repo, title, body));
+  // Review pins, one file per project (captures included).
+  const feedbackFile = (projectId: string) => join(app.getPath('userData'), 'feedback', `${projectId.replace(/[^\w.-]+/g, '_')}.json`);
+  ipcMain.handle('feedback:load', (_e, projectId: string) => {
+    try {
+      return JSON.parse(readFileSync(feedbackFile(projectId), 'utf8'));
+    } catch {
+      return [];
+    }
+  });
+  ipcMain.handle('feedback:save', (_e, projectId: string, pins: unknown[]) => {
+    mkdirSync(join(app.getPath('userData'), 'feedback'), { recursive: true });
+    writeFileSync(feedbackFile(projectId), JSON.stringify(pins));
+  });
   ipcMain.handle('github:prs', (_e, repo: string, branches: string[]) => github.pullRequests(repo, branches));
 
   ipcMain.handle('mcp:info', (): McpInfo => {

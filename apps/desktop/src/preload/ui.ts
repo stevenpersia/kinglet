@@ -56,8 +56,13 @@ const api: ParakeetApi = {
   findFolder: (vercelProjectId) => ipcRenderer.invoke('projects:find-folder', vercelProjectId),
   elementAt: (deviceId, x, y) => ipcRenderer.invoke('preview:element-at', deviceId, x, y),
   setInspect: (on) => ipcRenderer.send('preview:inspect', on),
+  feedback: {
+    load: (projectId) => ipcRenderer.invoke('feedback:load', projectId),
+    save: (projectId, pins) => ipcRenderer.invoke('feedback:save', projectId, pins),
+  },
   github: {
     state: () => ipcRenderer.invoke('github:state'),
+    createIssue: (repo, title, body) => ipcRenderer.invoke('github:issue', repo, title, body),
     pullRequests: (repo, branches) => ipcRenderer.invoke('github:prs', repo, branches),
     connect: (token) => ipcRenderer.invoke('github:connect', token),
     disconnect: () => ipcRenderer.invoke('github:disconnect'),

@@ -118,6 +118,19 @@ export class GitHubService {
     return out;
   }
 
+  async createIssue(repo: string, title: string, body: string): Promise<string> {
+    if (!this.token) throw new Error(t('GitHub not connected', 'GitHub non connecté'));
+    const res = await fetch(`${this.baseUrl}/repos/${repo}/issues`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${this.token}`, accept: 'application/vnd.github+json', 'user-agent': 'Parakeet', 'content-type': 'application/json' },
+      body: JSON.stringify({ title, body }),
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (res.status === 403 || res.status === 404) throw new Error(t('This token can’t open issues in this repository (it needs Issues: write).', 'Ce jeton ne peut pas ouvrir d’issue dans ce dépôt (il faut Issues : écriture).'));
+    if (!res.ok) throw new Error(`GitHub: HTTP ${res.status}`);
+    return ((await res.json()) as { html_url: string }).html_url;
+  }
+
   disconnect() {
     this.token = null;
     rmSync(this.file, { force: true });

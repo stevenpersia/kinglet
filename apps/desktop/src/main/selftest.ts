@@ -645,13 +645,39 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     await sleep(800);
     const inspected0 = devices.entries()[0]!;
     const r = (await inspected0.view.webContents.executeJavaScript(`(() => { const b = document.querySelector('h1').getBoundingClientRect(); return { x: b.left + 8, y: b.top + 8 }; })()`)) as { x: number; y: number };
-    inspected0.view.webContents.sendInputEvent({ type: 'mouseMove', x: Math.round(r.x * inspected0.scale), y: Math.round(r.y * inspected0.scale) });
+    // Move in, twice: the first move can land before the view has its final size.
+    for (const dx of [0, 4]) {
+      inspected0.view.webContents.sendInputEvent({ type: 'mouseMove', x: Math.round((r.x + dx) * inspected0.scale), y: Math.round(r.y * inspected0.scale) });
+      await sleep(300);
+    }
     const rows = await waitFor(() => js<boolean>(`[...document.querySelectorAll('[aria-label=Inspector] tbody tr')].length === ${devices.entries().length} && [...document.querySelectorAll('[aria-label=Inspector] tbody tr')].every((tr) => /[0-9]+ × [0-9]+/.test(tr.textContent))`), 5000);
     const inspectText = await js<string>(`document.querySelector('[aria-label=Inspector]')?.textContent ?? ''`);
     await shot('32-inspecteur');
     await js(`document.querySelector('[aria-label="Stop inspecting"]')?.click()`);
     const inspectOff = await waitFor(() => js<boolean>(`!document.querySelector('[aria-label=Inspector]')`), 3000);
     criteria.push({ id: 'inspector', ok: rows && inspectText.includes('h1') && inspectOff, detail: inspectText.slice(0, 160) });
+
+    // 26-feedback. Review pins: pin a spot with a comment, open a GitHub issue with them.
+    await clickText('nav button', 'Feedback');
+    await clickText('aside[aria-label=Feedback] button', 'Pin a comment');
+    await waitFor(() => js<boolean>(`!!document.querySelector('.cursor-crosshair')`), 4000);
+    await js(`(() => {
+      const el = document.querySelector('.cursor-crosshair');
+      const r = el.getBoundingClientRect();
+      el.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: r.left + r.width * 0.3, clientY: r.top + r.height * 0.15 }));
+    })()`);
+    const pinAdded = await waitFor(() => js<boolean>(`!!document.querySelector('textarea[aria-label="Comment of pin 1"]')`), 5000);
+    await js(`(() => {
+      const ta = document.querySelector('textarea[aria-label="Comment of pin 1"]');
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(ta, 'Le titre est trop gros sur téléphone');
+      ta.dispatchEvent(new Event('input', { bubbles: true }));
+    })()`);
+    await sleep(300);
+    await clickText('aside[aria-label=Feedback] button', 'Open an issue');
+    const issued = await waitFor(() => js<boolean>(`document.querySelector('aside[aria-label=Feedback]')?.textContent.includes('Issue opened') ?? false`), 6000);
+    await shot('34-retours');
+    criteria.push({ id: 'feedback-pins', ok: pinAdded && issued, detail: `épingle ${pinAdded ? 'posée' : 'absente'} · issue ${issued ? 'ouverte (#7)' : 'non ouverte'}` });
+    await clickText('nav button', 'Feedback');
 
     // 26a. Claude panel: Claude Code (a stand-in here) in the project folder, with Parakeet's MCP, a pointed spot joined.
     await js(`(async () => {

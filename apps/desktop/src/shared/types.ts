@@ -384,6 +384,26 @@ export interface ChatApproval {
   input: string;
 }
 
+/** A review comment pinned on a device: for a client's feedback, or your own to-do list. */
+export interface FeedbackPin {
+  id: string;
+  /** Number shown on the pin. */
+  n: number;
+  deviceId: string;
+  deviceLabel: string;
+  url: string;
+  /** CSS px in the device viewport. */
+  x: number;
+  y: number;
+  selector: string | null;
+  elementText: string | null;
+  comment: string;
+  /** Capture with the pin (JPEG data URL). */
+  image: string | null;
+  createdAt: number;
+  done: boolean;
+}
+
 /** How an element looks on one device (inspector). null: not on this device. */
 export interface ElementMetrics {
   tag: string;
@@ -494,8 +514,14 @@ export interface ParakeetApi {
   setInspect(on: boolean): void;
   /** The element under a point (CSS px) of a device's page. */
   elementAt(deviceId: string, x: number, y: number): Promise<ElementInfo | null>;
+  feedback: {
+    load(projectId: string): Promise<FeedbackPin[]>;
+    save(projectId: string, pins: FeedbackPin[]): Promise<void>;
+  };
   github: {
     state(): Promise<GitHubState>;
+    /** Open an issue in a repository ("owner/name"); returns its URL. */
+    createIssue(repo: string, title: string, body: string): Promise<string>;
     /** Pull request of each branch of a repository ("owner/name"), by branch. */
     pullRequests(repo: string, branches: string[]): Promise<Record<string, PullRequest>>;
     connect(token: string): Promise<GitHubState>;
