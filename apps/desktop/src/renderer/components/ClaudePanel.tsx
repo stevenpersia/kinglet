@@ -225,6 +225,25 @@ export function ClaudePanel() {
         )}
       </div>
 
+      {project && chat?.pending && (
+        <div role="alertdialog" aria-label={t('Claude asks', 'Claude demande')} className="m-3 mt-0 flex shrink-0 flex-col gap-2 rounded-[10px] border border-[rgba(217,119,87,0.4)] bg-[rgba(217,119,87,0.07)] p-3">
+          <span className="text-xs font-medium text-fg">
+            {t('Claude wants to run', 'Claude veut lancer')} <span className="font-mono text-[#d97757]">{chat.pending.name}</span>
+          </span>
+          <pre className="m-0 max-h-32 overflow-auto rounded-md border border-line bg-bg p-2 font-mono text-[11px] leading-relaxed break-all whitespace-pre-wrap text-muted">{chat.pending.input}</pre>
+          <div className="flex flex-wrap gap-1.5">
+            <button autoFocus onClick={() => api().chat.approve(project.id, chat.pending!.id, true)} className="h-7 rounded-ui bg-fg px-3 text-xs font-semibold text-bg">
+              {t('Allow', 'Autoriser')}
+            </button>
+            <button onClick={() => api().chat.approve(project.id, chat.pending!.id, false)} className="h-7 rounded-ui border border-[#2a2a2f] bg-active px-3 text-xs font-medium text-fg hover:border-line-strong">
+              {t('Refuse', 'Refuser')}
+            </button>
+            <button onClick={() => api().chat.approve(project.id, chat.pending!.id, true, true)} className="h-7 px-1.5 text-xs text-muted hover:text-fg">
+              {t('Allow everything in this conversation', 'Tout autoriser dans cette conversation')}
+            </button>
+          </div>
+        </div>
+      )}
       {ready && (
         <div className="m-3 mt-0 flex shrink-0 flex-col rounded-[10px] border border-line-strong bg-bg focus-within:border-[#4a4a52]">
           {draft.attachments.length > 0 && (

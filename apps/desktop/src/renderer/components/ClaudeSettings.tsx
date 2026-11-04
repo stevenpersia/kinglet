@@ -44,8 +44,8 @@ export function ClaudePanelSettings() {
           <span className="font-medium">{t('Let Claude run commands', 'Laisser Claude lancer des commandes')}</span>
           <span className="text-xs text-muted">
             {t(
-              'Off: Claude edits files in the project folder and uses Parakeet, but shell commands (npm install, git…) are blocked and shown in the chat. On: everything runs without asking.',
-              'Désactivé : Claude modifie les fichiers du dossier et utilise Parakeet, mais les commandes (npm install, git…) sont bloquées et signalées. Activé : tout s’exécute sans demander.',
+              'Off: Claude edits files in the project folder and uses Parakeet freely, and asks you in the panel before any command (npm install, git…). On: everything runs without asking.',
+              'Désactivé : Claude modifie les fichiers du dossier et utilise Parakeet librement, et te demande dans le panneau avant chaque commande (npm install, git…). Activé : tout s’exécute sans demander.',
             )}
           </span>
         </div>

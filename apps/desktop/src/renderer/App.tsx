@@ -90,6 +90,9 @@ export function App() {
         case 'github':
           useStore.setState({ github: e.state });
           break;
+        case 'inspect':
+          useStore.setState({ inspect: e.state });
+          break;
         case 'chat':
           useStore.setState((st) => ({ chats: { ...st.chats, [e.state.projectId]: e.state } }));
           break;

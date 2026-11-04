@@ -45,11 +45,12 @@ type NewItem = ChatItem extends infer I ? (I extends ChatItem ? Omit<I, 'id'> & 
 export class ClaudeChat {
   private chats = new Map<string, ChatState>();
   private procs = new Map<string, ChildProcess>();
+  private waiting = new Map<string, { id: string; resolve: (r: { allow: boolean; message?: string }) => void }>();
   private seq = 0;
 
   constructor(
     private emit: (state: ChatState) => void,
-    private mcpServer: () => { command: string; args: string[]; env: Record<string, string> },
+    private mcpServer: (projectId: string) => { command: string; args: string[]; env: Record<string, string> },
   ) {}
 
   async cli(): Promise<ClaudeCli> {
@@ -64,7 +65,7 @@ export class ClaudeChat {
   state(projectId: string, sessionId: string | null = null): ChatState {
     let s = this.chats.get(projectId);
     if (!s) {
-      s = { projectId, sessionId, running: false, items: [] };
+      s = { projectId, sessionId, running: false, items: [], pending: null, allowAll: false };
       this.chats.set(projectId, s);
     }
     return s;
@@ -84,12 +85,38 @@ export class ClaudeChat {
 
   clear(projectId: string) {
     this.stop(projectId);
-    this.chats.set(projectId, { projectId, sessionId: null, running: false, items: [] });
+    this.chats.set(projectId, { projectId, sessionId: null, running: false, items: [], pending: null, allowAll: false });
     this.emit({ ...this.state(projectId) });
   }
 
   stop(projectId: string) {
+    this.answer(projectId, this.state(projectId).pending?.id ?? '', false);
     this.procs.get(projectId)?.kill('SIGTERM');
+  }
+
+  /** Claude Code asks (through the MCP approve tool) whether a tool may run: wait for the user. */
+  approve(projectId: string | null, tool: string, input: Record<string, unknown>): Promise<{ allow: boolean; message?: string }> {
+    if (!projectId || !this.chats.has(projectId)) return Promise.resolve({ allow: false, message: 'unknown conversation' });
+    const s = this.state(projectId);
+    if (s.allowAll) return Promise.resolve({ allow: true });
+    // One question at a time: an earlier one still open is refused.
+    if (s.pending) this.answer(projectId, s.pending.id, false);
+    const id = `a${++this.seq}`;
+    const { name, detail } = toolLabel(tool, input);
+    const full = typeof input.command === 'string' ? input.command : JSON.stringify(input, null, 2);
+    this.patch(projectId, { pending: { id, name, detail, input: full.length > 2000 ? `${full.slice(0, 2000)}…` : full } });
+    return new Promise((resolve) => this.waiting.set(projectId, { id, resolve }));
+  }
+
+  answer(projectId: string, id: string, allow: boolean, all = false) {
+    const w = this.waiting.get(projectId);
+    if (!w || w.id !== id) return;
+    this.waiting.delete(projectId);
+    const s = this.state(projectId);
+    const asked = s.pending;
+    this.patch(projectId, { pending: null, allowAll: s.allowAll || (allow && all) });
+    if (asked) this.push(projectId, { kind: 'notice', level: allow ? 'info' : 'warning', text: `${allow ? t('Allowed', 'Autorisé') : t('Refused', 'Refusé')} : ${asked.name} ${asked.detail}`.trim() });
+    w.resolve(allow ? { allow: true } : { allow: false, message: t('The user refused this in Parakeet. Ask them what to do instead.', 'L’utilisateur a refusé dans Parakeet. Demande-lui quoi faire à la place.') });
   }
 
   send(opts: { projectId: string; folder: string; sessionId: string | null; text: string; attachments: ChatAttachment[]; allowCommands: boolean; context: string }) {
@@ -122,11 +149,13 @@ export class ClaudeChat {
       'stream-json',
       '--verbose',
       '--mcp-config',
-      JSON.stringify({ mcpServers: { parakeet: this.mcpServer() } }),
+      JSON.stringify({ mcpServers: { parakeet: this.mcpServer(projectId) } }),
       '--allowedTools',
       'mcp__parakeet',
       '--permission-mode',
       opts.allowCommands ? 'bypassPermissions' : 'acceptEdits',
+      // Anything else (commands, web…): Claude asks, and the panel shows the question.
+      ...(opts.allowCommands ? [] : ['--permission-prompt-tool', 'mcp__parakeet__approve']),
       '--append-system-prompt',
       opts.context,
       ...(s.sessionId ? ['--resume', s.sessionId] : []),
@@ -198,6 +227,7 @@ export class ClaudeChat {
     proc.on('close', (code, signal) => {
       if (buf.trim()) onLine(buf.trim());
       this.procs.delete(projectId);
+      if (this.state(projectId).pending) this.answer(projectId, this.state(projectId).pending!.id, false);
       if (signal) this.push(projectId, { kind: 'notice', level: 'info', text: t('Stopped.', 'Arrêté.') });
       else if (!gotResult && code !== 0) this.push(projectId, { kind: 'notice', level: 'error', text: stderr.trim().split('\n').slice(-3).join('\n') || t(`Claude Code exited (code ${code}).`, `Claude Code s’est arrêté (code ${code}).`) });
       const st = this.state(projectId);

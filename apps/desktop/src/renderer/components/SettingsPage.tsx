@@ -16,7 +16,7 @@ const tools = (): [string, string][] => [
   ['screenshot', t('Captures each device (Claude sees the render)', 'Capture chaque appareil (Claude voit le rendu)')],
   ['get_page_meta', t('Tags as read by a share crawler', 'Balises lues comme un robot de partage')],
   ['get_share_preview', t('Previews on 7 platforms + fix', 'Aperçus sur 7 plateformes + correctif')],
-  ['run_checks', t('All 24 checks, including on-device measurements', 'Les 24 checks, mesures dans les appareils incluses')],
+  ['run_checks', t('All 30 checks, including on-device measurements', 'Les 30 checks, mesures dans les appareils incluses')],
   ['list_pages', t('Site pages', 'Pages du site')],
   ['list_deployments', t('Vercel deployments of the linked project', 'Déploiements Vercel du projet lié')],
 ];

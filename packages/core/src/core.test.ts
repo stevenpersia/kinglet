@@ -191,18 +191,34 @@ describe('crawl', () => {
 });
 
 describe('runChecks', () => {
-  it('produces the 24 checks and scores what can be measured', async () => {
+  it('produces the 30 checks and scores what can be measured', async () => {
     const meta = await readPageMeta(`${base}/`);
     const image = await probeImage(meta.ogImageUrl!);
     const site = await readSiteFiles(meta.finalUrl, { manifest: meta.manifest, favicon: meta.icons[0] ?? null });
-    const rendered = [{ id: 'iphone', label: 'iPhone', overflowPx: 24, consoleErrors: ['TypeError: x is undefined'], heavyImages: [] }];
+    const rendered = [
+      {
+        id: 'iphone',
+        label: 'iPhone',
+        overflowPx: 24,
+        consoleErrors: ['TypeError: x is undefined'],
+        heavyImages: [],
+        touch: true,
+        smallTargets: { count: 2, examples: ['a « ✕ »'] },
+        smallText: { count: 0, minPx: 0, examples: [] },
+        lowContrast: { count: 1, examples: ['« mentions » 2.1:1'] },
+        notchUnsafe: false,
+        vitals: { lcpMs: 3100, cls: 0.02, fcpMs: 900, ttfbMs: 40 },
+      },
+    ];
     const results = runChecks({ meta, image, site, rendered });
-    expect(results).toHaveLength(24);
+    expect(results).toHaveLength(30);
+    expect(Object.fromEntries(results.map((r) => [r.id, r.status]))).toMatchObject({ 'tap-targets': 'warning', 'small-text': 'ok', contrast: 'warning', 'safe-area': 'ok', lcp: 'warning', cls: 'ok' });
+    expect(results.find((r) => r.id === 'lcp')!.detail).toBe('3.1 s on iPhone (good under 2.5 s).');
     const by = Object.fromEntries(results.map((r) => [r.id, r.status]));
     expect(by).toMatchObject({ h1: 'ok', robots: 'ok', sitemap: 'ok', manifest: 'ok', 'og-site-name': 'warning', overflow: 'error', console: 'error', 'img-alt': 'warning', 'heavy-images': 'ok' });
-    expect(score(results).total).toBe(24);
+    expect(score(results).total).toBe(30);
     expect(runChecks({ meta, image, site: null }).filter((r) => r.status === 'skip').map((r) => r.id)).toEqual(
-      expect.arrayContaining(['robots', 'sitemap', 'overflow', 'console', 'heavy-images', 'favicon']),
+      expect.arrayContaining(['robots', 'sitemap', 'overflow', 'console', 'heavy-images', 'favicon', 'tap-targets', 'small-text', 'contrast', 'safe-area', 'lcp', 'cls']),
     );
   });
 

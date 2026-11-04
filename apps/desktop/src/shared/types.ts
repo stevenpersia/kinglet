@@ -1,4 +1,4 @@
-import type { CheckResult, CrawledPage, ImageProbe, Issue, PageMeta, ShareFix, SharePreviews, SiteFiles, VercelDeployment, VercelProject, VercelTeam, VercelUser } from '@parakeet/core';
+import type { Vitals, CheckResult, CrawledPage, ImageProbe, Issue, PageMeta, ShareFix, SharePreviews, SiteFiles, VercelDeployment, VercelProject, VercelTeam, VercelUser } from '@parakeet/core';
 
 export interface DevicePreset {
   id: string;
@@ -82,6 +82,12 @@ export interface Settings {
   deviceOrder: string[];
   /** One device list per project instead of one for all. */
   devicesPerProject: boolean;
+  /** Dark mode, reduced motion, high contrast, on every device. */
+  media: MediaPrefs;
+  /** Every device without network. */
+  offline: boolean;
+  /** Simulated API responses. */
+  mocks: ApiMock[];
   /** The first-run window was shown (done or skipped). */
   onboarded: boolean;
   /** Claude panel in the left bar. */
@@ -91,6 +97,27 @@ export interface Settings {
 }
 
 export type Language = 'system' | 'en' | 'fr';
+
+/** A simulated API response: requests matching `pattern` get this answer instead of the real one. */
+export interface ApiMock {
+  id: string;
+  enabled: boolean;
+  /** "*" for any method. */
+  method: string;
+  /** URL with * wildcards, e.g. "*\/api/plans*". */
+  pattern: string;
+  status: number;
+  contentType: string;
+  body: string;
+  delayMs: number;
+}
+
+/** User preferences the devices pretend to have (CSS media features). */
+export interface MediaPrefs {
+  colorScheme: 'auto' | 'light' | 'dark';
+  reducedMotion: boolean;
+  moreContrast: boolean;
+}
 
 export interface Throttle {
   network: 'off' | '4g' | '3g';
@@ -141,13 +168,15 @@ export interface ShareReport {
   issues: Issue[];
 }
 
-/** Everything known about the current page: share tags, site files, the 24 checks. */
+/** Everything known about the current page: share tags, site files, the 30 checks. */
 export interface AnalyzeReport {
   url: string;
   share: ShareReport;
   site: SiteFiles | null;
   checks: CheckResult[];
   score: { passed: number; total: number };
+  /** Core Web Vitals of each device (by device id). */
+  vitals?: Record<string, Vitals>;
 }
 
 export type { CheckResult, CrawledPage, ShareFix, SharePreviews, VercelDeployment, VercelProject };
@@ -241,6 +270,16 @@ export interface CompareColumn {
   score: { passed: number; total: number } | null;
 }
 
+/** One environment rendered like a device, for the visual comparison. */
+export interface VisualColumn {
+  env: EnvId;
+  label: string;
+  url: string;
+  image: string | null;
+  vitals: Vitals | null;
+  error: string | null;
+}
+
 export interface ShareStudio {
   previews: SharePreviews;
   fix: ShareFix;
@@ -282,7 +321,19 @@ export type PreviewEvent =
   | { type: 'perf'; perf: DevicePerf }
   | { type: 'favicon'; url: string; pageUrl: string }
   | { type: 'github'; state: GitHubState }
-  | { type: 'chat'; state: ChatState };
+  | { type: 'chat'; state: ChatState }
+  | { type: 'inspect'; state: InspectState };
+
+/** The pull request opened from a branch, and the state of its CI. */
+export interface PullRequest {
+  branch: string;
+  number: number;
+  title: string;
+  state: 'open' | 'draft' | 'merged' | 'closed';
+  url: string;
+  /** Check runs of the PR's last commit (null: none). */
+  checks: { state: 'success' | 'failure' | 'pending'; passed: number; total: number } | null;
+}
 
 export interface GitHubState {
   connected: boolean;
@@ -319,6 +370,63 @@ export interface ChatState {
   sessionId: string | null;
   running: boolean;
   items: ChatItem[];
+  /** Claude waits for the user's go-ahead to run a tool. */
+  pending: ChatApproval | null;
+  /** Every tool allowed for the rest of this conversation. */
+  allowAll: boolean;
+}
+
+export interface ChatApproval {
+  id: string;
+  name: string;
+  detail: string;
+  /** The full input, readable (command, file, …). */
+  input: string;
+}
+
+/** A review comment pinned on a device: for a client's feedback, or your own to-do list. */
+export interface FeedbackPin {
+  id: string;
+  /** Number shown on the pin. */
+  n: number;
+  deviceId: string;
+  deviceLabel: string;
+  url: string;
+  /** CSS px in the device viewport. */
+  x: number;
+  y: number;
+  selector: string | null;
+  elementText: string | null;
+  comment: string;
+  /** Capture with the pin (JPEG data URL). */
+  image: string | null;
+  createdAt: number;
+  done: boolean;
+}
+
+/** How an element looks on one device (inspector). null: not on this device. */
+export interface ElementMetrics {
+  tag: string;
+  text: string;
+  shown: boolean;
+  width: number;
+  height: number;
+  x: number;
+  y: number;
+  margin: string;
+  padding: string;
+  font: string;
+  lineHeight: string;
+  color: string;
+  background: string;
+  display: string;
+}
+
+/** The element hovered (or picked) in inspector mode, measured on every device. */
+export interface InspectState {
+  selector: string;
+  picked: boolean;
+  devices: Record<string, ElementMetrics | null>;
 }
 
 /** What is under a point of a device's page. */
@@ -368,6 +476,8 @@ export interface ParakeetApi {
   };
   /** The same path on each environment: tags side by side and checks score. */
   compare(targets: { env: EnvId; label: string; url: string }[]): Promise<CompareColumn[]>;
+  /** The same page on each environment, rendered off screen like one device (PNG + Web Vitals). */
+  compareVisual(targets: { env: EnvId; label: string; url: string }[], deviceId: string): Promise<VisualColumn[]>;
   claude: {
     state(): Promise<{ hooks: ClaudeHookState; projects: Record<string, ClaudeProjectState> }>;
     /** Add Parakeet's hooks to ~/.claude/settings.json (a backup is kept). */
@@ -400,10 +510,20 @@ export interface ParakeetApi {
   localServers(): Promise<LocalServer[]>;
   /** Folder on disk of a Vercel project (its .vercel/project.json), searched in the usual code folders. */
   findFolder(vercelProjectId: string): Promise<string | null>;
+  /** Inspector mode: hover an element on a device, see it on all of them. */
+  setInspect(on: boolean): void;
   /** The element under a point (CSS px) of a device's page. */
   elementAt(deviceId: string, x: number, y: number): Promise<ElementInfo | null>;
+  feedback: {
+    load(projectId: string): Promise<FeedbackPin[]>;
+    save(projectId: string, pins: FeedbackPin[]): Promise<void>;
+  };
   github: {
     state(): Promise<GitHubState>;
+    /** Open an issue in a repository ("owner/name"); returns its URL. */
+    createIssue(repo: string, title: string, body: string): Promise<string>;
+    /** Pull request of each branch of a repository ("owner/name"), by branch. */
+    pullRequests(repo: string, branches: string[]): Promise<Record<string, PullRequest>>;
     connect(token: string): Promise<GitHubState>;
     disconnect(): Promise<GitHubState>;
   };
@@ -413,6 +533,8 @@ export interface ParakeetApi {
     send(projectId: string, text: string, attachments: ChatAttachment[]): Promise<void>;
     stop(projectId: string): void;
     clear(projectId: string): void;
+    /** Answer Claude's request to run a tool; `all`: allow everything for this conversation. */
+    approve(projectId: string, id: string, allow: boolean, all?: boolean): void;
     /** Run `claude mcp add` (user scope) so Claude in a terminal sees Parakeet too. */
     installMcp(): Promise<{ ok: boolean; output: string }>;
   };

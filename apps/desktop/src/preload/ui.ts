@@ -36,6 +36,7 @@ const api: ParakeetApi = {
     pickFolder: () => ipcRenderer.invoke('projects:pick-folder'),
   },
   compare: (targets) => ipcRenderer.invoke('compare:run', targets),
+  compareVisual: (targets, deviceId) => ipcRenderer.invoke('compare:visual', targets, deviceId),
   openExternal: (url) => ipcRenderer.send('shell:open', url),
   update: {
     state: () => ipcRenderer.invoke('update:state'),
@@ -54,8 +55,15 @@ const api: ParakeetApi = {
   localServers: () => ipcRenderer.invoke('detect:servers'),
   findFolder: (vercelProjectId) => ipcRenderer.invoke('projects:find-folder', vercelProjectId),
   elementAt: (deviceId, x, y) => ipcRenderer.invoke('preview:element-at', deviceId, x, y),
+  setInspect: (on) => ipcRenderer.send('preview:inspect', on),
+  feedback: {
+    load: (projectId) => ipcRenderer.invoke('feedback:load', projectId),
+    save: (projectId, pins) => ipcRenderer.invoke('feedback:save', projectId, pins),
+  },
   github: {
     state: () => ipcRenderer.invoke('github:state'),
+    createIssue: (repo, title, body) => ipcRenderer.invoke('github:issue', repo, title, body),
+    pullRequests: (repo, branches) => ipcRenderer.invoke('github:prs', repo, branches),
     connect: (token) => ipcRenderer.invoke('github:connect', token),
     disconnect: () => ipcRenderer.invoke('github:disconnect'),
   },
@@ -65,6 +73,7 @@ const api: ParakeetApi = {
     send: (projectId, text, attachments) => ipcRenderer.invoke('chat:send', projectId, text, attachments),
     stop: (projectId) => ipcRenderer.send('chat:stop', projectId),
     clear: (projectId) => ipcRenderer.send('chat:clear', projectId),
+    approve: (projectId, id, allow, all) => ipcRenderer.send('chat:approve', projectId, id, allow, !!all),
     installMcp: () => ipcRenderer.invoke('chat:install-mcp'),
   },
   onEvent: (cb) => {

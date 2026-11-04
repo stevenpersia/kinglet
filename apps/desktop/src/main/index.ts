@@ -1,3 +1,4 @@
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, Notification, shell } from 'electron';
 import { resolveLanguage, setLanguage, t, buildShareFix, checkShare, crawl, probeImage, readPageMeta, readSharePreviews, readSiteFiles, runChecks, score, vercelBypassHeaders, type CrawledPage, type SiteFiles } from '@parakeet/core';
@@ -109,6 +110,9 @@ async function createWindow() {
     devices.setActive(activeIds(PRESETS, settings.value));
   };
   devices.setThrottle(settings.value.throttle);
+  devices.setMedia(settings.value.media);
+  devices.setOffline(settings.value.offline);
+  devices.setMocks(settings.value.mocks);
   devices.setScrollSync(settings.value.scrollSync);
   /** The site's favicon, kept on the project for its tab (also when closed). */
   async function saveFavicon(url: string, pageUrl: string) {
@@ -264,6 +268,9 @@ async function createWindow() {
     if (patch.scrollSync !== undefined) devices.setScrollSync(patch.scrollSync);
     if (patch.landscape !== undefined) devices.setLandscape(patch.landscape);
     if (patch.throttle) devices.setThrottle(patch.throttle);
+    if (patch.media) devices.setMedia(patch.media);
+    if (patch.offline !== undefined) devices.setOffline(patch.offline);
+    if (patch.mocks) devices.setMocks(patch.mocks);
     if (patch.openIds || patch.projects) watchOpenProjects();
     emit({ type: 'settings', settings: next });
     return next;
@@ -293,7 +300,8 @@ async function createWindow() {
     if (opts.refreshSite || !siteCache.has(key)) siteCache.set(key, readSiteFiles(meta.finalUrl, { manifest: meta.manifest, favicon: meta.icons[0] ?? null }, { headers }));
     const site = await siteCache.get(key)!.catch(() => null);
     const checks = runChecks({ meta, image, site, rendered: rendered.devices });
-    return { url, share: { meta, image, issues: checkShare(meta, image) }, site, checks, score: score(checks) };
+    const vitals = Object.fromEntries(rendered.devices.filter((r) => r.vitals).map((r) => [r.id, r.vitals!]));
+    return { url, share: { meta, image, issues: checkShare(meta, image) }, site, checks, score: score(checks), vitals };
   }
   ipcMain.handle('page:analyze', (_e, url: string, opts: { refreshSite?: boolean }) => analyzePage(url, opts));
 
@@ -371,6 +379,7 @@ async function createWindow() {
     logs: () => ({ url: devices.currentUrl, throttle: devices.throttling, logs: devices.allLogs() }),
     onClaudeEvent: (payload) => onClaudeEvent(payload as HookPayload),
     onListen: (port, token) => claudeHooks.publish(port, token),
+    approve: (req) => chat.approve(req.chat, req.tool, req.input),
     onActivity: (a) => {
       activity.unshift(a);
       activity.length = Math.min(activity.length, 100);
@@ -390,9 +399,9 @@ async function createWindow() {
         emit({ type: 'settings', settings: settings.value });
       }
     },
-    () => {
+    (projectId) => {
       const { exe, args } = mcpLaunch();
-      return { command: exe, args: [...args, ...(process.getuid?.() === 0 ? ['--no-sandbox'] : [])], env: { PARAKEET_CONFIG_DIR: app.getPath('userData') } };
+      return { command: exe, args: [...args, ...(process.getuid?.() === 0 ? ['--no-sandbox'] : [])], env: { PARAKEET_CONFIG_DIR: app.getPath('userData'), PARAKEET_CHAT_PROJECT: projectId } };
     },
   );
   const chatContext = () => {
@@ -413,6 +422,7 @@ async function createWindow() {
     chat.send({ projectId, folder: project.folder, sessionId: project.claudeSession ?? null, text, attachments, allowCommands: settings.value.claudeAllowCommands, context: chatContext() });
   });
   ipcMain.on('chat:stop', (_e, projectId: string) => chat.stop(projectId));
+  ipcMain.on('chat:approve', (_e, projectId: string, id: string, allow: boolean, all: boolean) => chat.answer(projectId, id, allow, all));
   ipcMain.on('chat:clear', (_e, projectId: string) => {
     chat.clear(projectId);
     settings.update(patchProject(settings.value, projectId, { claudeSession: null }));
@@ -433,6 +443,7 @@ async function createWindow() {
   // First run: local servers and their folders, GitHub.
   ipcMain.handle('detect:servers', () => detectLocalServers());
   ipcMain.handle('projects:find-folder', (_e, vercelProjectId: string) => findVercelFolder(vercelProjectId));
+  ipcMain.on('preview:inspect', (_e, on: boolean) => devices.setInspect(on));
   ipcMain.handle('preview:element-at', (_e, id: string, x: number, y: number) => devices.elementAt(id, x, y));
 
   const github = new GitHubService(app.getPath('userData'), (state) => emit({ type: 'github', state }));
@@ -440,6 +451,21 @@ async function createWindow() {
   ipcMain.handle('github:state', () => github.state);
   ipcMain.handle('github:connect', (_e, token: string) => github.connect(token));
   ipcMain.handle('github:disconnect', () => github.disconnect());
+  ipcMain.handle('github:issue', (_e, repo: string, title: string, body: string) => github.createIssue(repo, title, body));
+  // Review pins, one file per project (captures included).
+  const feedbackFile = (projectId: string) => join(app.getPath('userData'), 'feedback', `${projectId.replace(/[^\w.-]+/g, '_')}.json`);
+  ipcMain.handle('feedback:load', (_e, projectId: string) => {
+    try {
+      return JSON.parse(readFileSync(feedbackFile(projectId), 'utf8'));
+    } catch {
+      return [];
+    }
+  });
+  ipcMain.handle('feedback:save', (_e, projectId: string, pins: unknown[]) => {
+    mkdirSync(join(app.getPath('userData'), 'feedback'), { recursive: true });
+    writeFileSync(feedbackFile(projectId), JSON.stringify(pins));
+  });
+  ipcMain.handle('github:prs', (_e, repo: string, branches: string[]) => github.pullRequests(repo, branches));
 
   ipcMain.handle('mcp:info', (): McpInfo => {
     const { exe, args } = mcpLaunch();
@@ -525,6 +551,9 @@ async function createWindow() {
     ['theme-color', (m) => m.themeColor],
     ['lang', (m) => m.lang],
   ];
+  ipcMain.handle('compare:visual', (_e, targets: { env: EnvId; label: string; url: string }[], deviceId: string) =>
+    Promise.all(targets.map(async (x) => ({ ...x, ...(await devices.snapshot(x.url, deviceId)) }))),
+  );
   ipcMain.handle('compare:run', (_e, targets: { env: EnvId; label: string; url: string }[]): Promise<CompareColumn[]> =>
     Promise.all(
       targets.map(async (t) => {

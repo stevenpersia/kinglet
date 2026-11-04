@@ -2,7 +2,7 @@
 
 Voir son site sur tous les écrans (iPhone, Android, iPad, desktop), en local, en preview et en prod, et vérifier l'aperçu de ses liens (WhatsApp, LinkedIn, Slack…) avant de les partager. Pensé pour les sites construits avec Claude.
 
-> Nom provisoire. État actuel : **phase 7**, version 0.1.0. Aperçu multi-appareils, ton site sur ton vrai téléphone, local / preview / prod via Vercel, aperçus de partage sur 7 plateformes avec correctif, 24 checks, exploration des pages et serveur MCP pour Claude Code. Releases GitHub avec mises à jour automatiques, landing page, intégration continue.
+> Nom provisoire. État actuel : **phase 7**, version 0.1.0. Aperçu multi-appareils, ton site sur ton vrai téléphone, local / preview / prod via Vercel, aperçus de partage sur 7 plateformes avec correctif, 30 checks, exploration des pages et serveur MCP pour Claude Code. Releases GitHub avec mises à jour automatiques, landing page, intégration continue.
 
 ## Ce que fait Parakeet
 
@@ -12,11 +12,11 @@ Voir son site sur tous les écrans (iPhone, Android, iPad, desktop), en local, e
   - La page est lue par le robot de chaque plateforme, avec son user agent et sans JavaScript.
   - Chaque rendu suit les règles de sa plateforme : textes coupés, recadrage en 1,91:1, carte X selon `twitter:card`, bordure Discord selon `theme-color`. Les rendus et les limites restent approximatifs.
   - Parakeet détecte le framework (Next.js, Nuxt, Astro, SvelteKit, Vite/HTML) et propose le correctif à coller au bon endroit, avec un prompt prêt pour Claude.
-- **Checks** : 24 vérifications en 4 familles.
+- **Checks** : 30 vérifications en 4 familles.
   - **SEO** : titre, description, lang, canonical, h1, indexation, robots.txt, sitemap.
   - **Partage** : og:title, og:description, og:site_name, image, format de l'image, twitter:card.
-  - **Mobile** : viewport, débordement horizontal, theme-color, apple-touch-icon, manifest.
-  - **Technique** : statut HTTP, favicon, textes alternatifs, erreurs JavaScript, poids des images.
+  - **Mobile** : viewport, débordement horizontal, zones tactiles trop petites (moins de 24×24 px), texte sous 12 px, encoche (viewport-fit=cover sans safe-area), theme-color, apple-touch-icon, manifest.
+  - **Technique** : statut HTTP, favicon, textes alternatifs, contraste du texte, erreurs JavaScript, poids des images, Core Web Vitals (LCP et CLS, aussi affichés sous chaque appareil).
 
   Le débordement, les erreurs JavaScript et le poids des images sont mesurés dans les appareils, sur la page rendue. Le `noindex` est considéré comme normal en local et sur les previews.
 - **Sur mon téléphone** : un QR code ouvre la page affichée sur ton vrai téléphone.
@@ -25,13 +25,18 @@ Voir son site sur tous les écrans (iPhone, Android, iPad, desktop), en local, e
 - **Local, preview, prod (Vercel)** : un clic affiche la même page sur ton serveur local, sur une preview (au choix par branche) ou en production.
   - **Prod** a son menu, comme Preview : la prod actuelle (celle que sert le domaine) en tête, avec un badge « En ligne », puis les prods précédentes. Une ancienne prod s'ouvre sur son adresse Vercel ; le bouton passe en orange et un bandeau propose de revenir à la prod actuelle.
   - **Déploiements** liste les builds, rafraîchis toutes les 30 s.
-  - **Comparer** met côte à côte les balises et le score des checks de la page sur chaque environnement, avec les différences surlignées.
+  - **Comparer** met côte à côte les balises et le score des checks de la page sur chaque environnement, avec les différences surlignées. L'onglet **Visuel** rend la page de chaque environnement comme l'appareil choisi, montre les pixels qui changent en rouge et les Web Vitals (LCP, CLS, TTFB) de chacun.
 - **Claude dans Parakeet** : un panneau à côté des appareils (`Ctrl J`) pour demander une retouche ou une nouvelle fonctionnalité. Parakeet lance Claude Code dans le dossier du projet, avec le serveur MCP déjà branché : Claude modifie le code puis vérifie le résultat sur les appareils. « Montrer » pose une épingle sur un appareil et joint la capture et l'élément pointé. Des boutons « Demander à Claude » sur la console, les checks et les aperçus de partage préremplissent le message. « Terminal » copie la commande qui reprend la même session dans un terminal (détails plus bas).
 - **Claude Code (MCP)** : dans le terminal, Claude voit aussi ce que Parakeet voit. Il peut capturer les appareils, lire les balises, lancer les checks et vérifier lui-même ses corrections (détails plus bas).
 - **Premier lancement** : un accueil guidé en 4 étapes, toutes facultatives (langue et appareils, comptes Vercel et GitHub, premier projet avec son dossier trouvé tout seul, Claude). Sans site ouvert, un écran d'accueil liste les serveurs de dev qui tournent.
 - **Projets en onglets** : chaque projet (Vercel ou simple adresse locale) a son onglet en haut, avec le favicon du site, avec ce qui s'y passe : Claude travaille, attend ta réponse, a terminé (« à voir »), build en cours ou en erreur. `Ctrl P` ouvre n'importe quel projet Vercel de tes équipes, ou une adresse. Un seul jeu d'appareils est affiché à la fois, celui de l'onglet actif ; chaque projet garde sa dernière page et son serveur local.
 - **Tous les projets** : une carte par projet ouvert (dernière capture, statut de Claude, dernier déploiement) et le fil d'activité de Claude sur tous les projets.
 - **Suivi de Claude Code** (à activer dans les réglages) : des hooks de Claude Code préviennent Parakeet de chaque demande, fichier modifié et fin de tâche, avec une notification système quand Claude termine ou qu'un build échoue (détails plus bas).
+- **Inspecteur** : « Inspecter » dans la barre des appareils. L'élément survolé s'allume sur tous les appareils, et une barre donne sa taille, ses marges, sa police et sa couleur sur chacun (ou qu'il y est masqué). Un clic le garde, « Demander à Claude » envoie le tableau.
+- **Apparence** : thème clair ou sombre, animations réduites, contraste élevé, vus par les media queries de tous les appareils, sans recharger.
+- **Hors ligne et réponses simulées** (menu réseau) : tous les appareils sans réseau, ou des réponses d'API inventées (méthode, URL avec `*`, statut, délai, corps) pour voir les états d'erreur, vides ou lents sans toucher au backend.
+- **Retours** (barre de gauche) : épingle des commentaires sur les appareils ; chacun garde l'appareil, la page, l'élément et une capture. Envoie-les en issue GitHub, en Markdown ou à Claude.
+- **Pull requests** : avec GitHub relié, le menu Preview et les déploiements montrent la PR de chaque branche, son état et sa CI.
 - **Réseau et CPU ralentis** : 4G ou 3G lente, CPU d'un téléphone moyen (×4) ou d'entrée de gamme (×6), sur les téléphones et tablettes (les écrans restent à pleine vitesse). Le temps de chargement et le poids de la page s'affichent sous chaque appareil.
 - **Barre de gauche** : en haut ce qui sert pendant le dev (Appareils, Console, Déploiements), en dessous, plus discret, ce qui sert avant de publier (Page, Partage, Checks, Comparer). Page et Checks s'ouvrent en panneau à côté des appareils, la Console en tiroir sous les appareils.
 - **Console** : messages de console et erreurs réseau (requêtes échouées, HTTP 4xx/5xx) en direct, par appareil, avec une pastille d'erreurs sous chaque appareil. « Send to Claude » copie les erreurs et quoi faire, prêt à coller dans Claude Code ; Claude peut aussi les lire lui-même (outil MCP `get_console`, commande `/mcp__parakeet__fix_console`).
@@ -163,11 +168,11 @@ Le workflow `release.yml` refait les tests, construit, teste l'app packagée (mi
 pnpm --filter @parakeet/web preview    # http://localhost:4173
 ```
 
-Ses tests la passent aux 24 checks et aux 7 aperçus de partage de Parakeet : tout doit être vert.
+Ses tests la passent aux 30 checks et aux 7 aperçus de partage de Parakeet : tout doit être vert.
 
 ## Claude dans Parakeet
 
-Il faut Claude Code installé sur l'ordinateur (`npm install -g @anthropic-ai/claude-code`) et connecté à ton compte ; Parakeet le cherche dans le `PATH`, `~/.local/bin` et `~/.claude/local`. Chaque message lance `claude -p` dans le dossier du projet, avec le serveur MCP de Parakeet et la session précédente reprise. Par défaut, Claude peut modifier les fichiers du dossier et utiliser Parakeet ; les commandes du shell (`npm install`, `git`…) sont bloquées et signalées dans le panneau. **Réglages → Claude Code → Laisser Claude lancer des commandes** les autorise sans demander.
+Il faut Claude Code installé sur l'ordinateur (`npm install -g @anthropic-ai/claude-code`) et connecté à ton compte ; Parakeet le cherche dans le `PATH`, `~/.local/bin` et `~/.claude/local`. Chaque message lance `claude -p` dans le dossier du projet, avec le serveur MCP de Parakeet et la session précédente reprise. Par défaut, Claude modifie les fichiers du dossier et utilise Parakeet librement, et demande avant chaque commande du shell (`npm install`, `git`…) : le panneau affiche la commande avec Autoriser, Refuser ou Tout autoriser dans cette conversation (via l'outil MCP `approve`, branché comme `--permission-prompt-tool`). **Réglages → Claude Code → Laisser Claude lancer des commandes** les autorise toutes sans demander.
 
 ## Suivi de Claude Code
 
@@ -197,7 +202,7 @@ L'autotest lance le site de démo et Parakeet, puis vérifie :
 - le mode paysage et l'enregistrement des réglages ;
 - le gel des aperçus sous la palette ;
 - la synchro de navigation ;
-- les 24 checks sur une page aux défauts connus (débordement, erreur JavaScript) ;
+- les 30 checks sur une page aux défauts connus (débordement, erreur JavaScript) ;
 - l'exploration des pages ;
 - les 7 aperçus de partage et le correctif pour le framework détecté ;
 - le serveur MCP lancé comme le ferait Claude Code (`parakeet --mcp`), avec capture et checks via l'app ;
@@ -222,7 +227,7 @@ apps/desktop        app Electron (electron-vite)
   src/preload       ponts sécurisés vers l'interface et les pages émulées
   src/renderer      interface React + Tailwind (design « Graphite »)
 packages/mcp        serveur MCP (stdio) pour Claude Code, client du serveur de contrôle de l'app
-packages/core       lecture des balises comme les robots, aperçus des 7 plateformes, correctifs, fichiers du site, exploration, 24 checks
+packages/core       lecture des balises comme les robots, aperçus des 7 plateformes, correctifs, fichiers du site, exploration, 30 checks
 apps/web            landing page statique (Vercel)
 fixtures/demo-site  site de test (Vite)
 fixtures/vercel-mock  fausse API Vercel pour les tests

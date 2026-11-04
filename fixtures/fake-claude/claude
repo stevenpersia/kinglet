@@ -9,7 +9,7 @@ if (args.includes('--version')) {
 const out = (o) => process.stdout.write(`${JSON.stringify(o)}\n`);
 let input = '';
 process.stdin.on('data', (c) => (input += c));
-process.stdin.on('end', () => {
+process.stdin.on('end', async () => {
   const msg = JSON.parse(input.split('\n')[0]);
   const content = msg.message.content;
   const images = content.filter((c) => c.type === 'image').length;
@@ -18,6 +18,22 @@ process.stdin.on('end', () => {
   const session = resume ?? 'fake-session-1';
   const mcp = args.includes('--mcp-config') ? JSON.parse(args[args.indexOf('--mcp-config') + 1]) : null;
   out({ type: 'system', subtype: 'init', session_id: session, cwd: process.cwd() });
+  // "install": ask before a command, the way the parakeet approve tool does (through the app's control server).
+  if (/install/i.test(text)) {
+    const env = mcp?.mcpServers?.parakeet?.env ?? {};
+    const { readFileSync } = await import('node:fs');
+    const ctl = JSON.parse(readFileSync(`${env.PARAKEET_CONFIG_DIR}/mcp.json`, 'utf8'));
+    const res = await fetch(`http://127.0.0.1:${ctl.port}/approve`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${ctl.token}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ tool: 'Bash', input: { command: 'npm install zod' }, chat: env.PARAKEET_CHAT_PROJECT ?? null }),
+    });
+    const answer = await res.json();
+    const asked = args.includes('--permission-prompt-tool') ? args[args.indexOf('--permission-prompt-tool') + 1] : 'none';
+    out({ type: 'assistant', session_id: session, message: { content: [{ type: 'text', text: `FAKE-CLAUDE approval ${answer.allow ? 'allowed' : 'refused'} · prompt tool ${asked}` }] } });
+    out({ type: 'result', subtype: 'success', is_error: false, session_id: session, result: 'done', permission_denials: [] });
+    return;
+  }
   out({ type: 'assistant', session_id: session, message: { content: [{ type: 'tool_use', id: 'tu1', name: 'mcp__parakeet__screenshot', input: { device: 'iphone-16' } }] } });
   out({ type: 'user', session_id: session, message: { content: [{ type: 'tool_result', tool_use_id: 'tu1', content: 'ok' }] } });
   out({

@@ -5,6 +5,7 @@ import { ENV_DOT, ENV_LABEL, envOf, envTargets, oldProdOf, productionsOf, timeAg
 import { activeProject } from '../../shared/projects';
 import { projectVercel, useStore } from '../store';
 import { Dot, Icon } from './Icons';
+import { PrBadge, usePullRequests } from './PullRequest';
 
 const host = (u: string | null | undefined) => {
   try {
@@ -21,6 +22,7 @@ export function EnvSwitch() {
   const { url, previewId, prodId, switchEnv, openOverlay, closeOverlay } = s;
   const vercel = projectVercel(s);
   const [menu, setMenu] = useState<'preview' | 'prod' | null>(null);
+  const prs = usePullRequests();
   const current = envOf(url, vercel);
   const t = envTargets(activeProject(s.settings)?.localOrigin ?? null, vercel, previewId, prodId);
   const old = current === 'prod' ? oldProdOf(url, vercel) : null;
@@ -125,10 +127,13 @@ export function EnvSwitch() {
               {t.previews.map((d) => (
                 <button key={d.id} role="menuitem" onClick={() => pickPreview(d.id)} className={`flex w-full flex-col gap-0.5 rounded-md px-2.5 py-2 text-left hover:bg-active ${d.id === t.preview?.id ? 'bg-active' : ''}`}>
                   <span className="flex items-center justify-between gap-2">
-                    <span className="truncate font-mono text-xs text-fg">{d.branch ?? d.id}</span>
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span className="truncate font-mono text-xs text-fg">{d.branch ?? d.id}</span>
+                      {d.branch && prs[d.branch] && <PrBadge pr={prs[d.branch]!} />}
+                    </span>
                     <span className="shrink-0 text-[11px] text-faint">{timeAgo(d.createdAt)}</span>
                   </span>
-                  <span className="truncate text-xs text-muted">{d.commitMessage ?? d.url}</span>
+                  <span className="truncate text-xs text-muted">{(d.branch && prs[d.branch]?.title) || d.commitMessage || d.url}</span>
                 </button>
               ))}
             </div>

@@ -8,6 +8,8 @@ import { ConsoleTab } from './Console';
 import { OldProdBanner } from './EnvSwitch';
 import { Icon } from './Icons';
 import { Welcome } from './Welcome';
+import { InspectBar } from './InspectBar';
+import { MocksDialog } from './MocksDialog';
 import type { Viewport } from '../lib/layout';
 
 const groups = (): { kind: DevicePreset['kind']; label: string }[] => [
@@ -49,6 +51,16 @@ function DeviceToolbar({ scale }: { scale: number }) {
         </div>
       ))}
       <div className="ml-auto flex items-center gap-1.5">
+        <button
+          aria-pressed={state.inspecting}
+          onClick={() => state.toggleInspect()}
+          title={t('Inspect an element on every device', 'Inspecter un élément sur tous les appareils')}
+          className={chip(state.inspecting)}
+        >
+          <Icon name="target" size={13} />
+          {t('Inspect', 'Inspecter')}
+        </button>
+        <MediaMenu />
         <ThrottleMenu />
         <button aria-pressed={settings.landscape} onClick={() => void updateSettings({ landscape: !settings.landscape })} title={t('Landscape (Ctrl+Shift+O)', 'Paysage (Ctrl+Maj+O)')} className={chip(settings.landscape)}>
           <Icon name="rotate" size={13} />
@@ -75,12 +87,80 @@ const CPU: { id: Throttle['cpu']; label: () => string; hint: () => string }[] = 
   { id: 6, label: () => t('Low-end phone', 'Téléphone d’entrée de gamme'), hint: () => 'CPU ×6' },
 ];
 
+/** Dark mode, reduced motion, high contrast on every device (CSS media features). */
+function MediaMenu() {
+  const { settings, updateSettings, openOverlay, closeOverlay } = useStore();
+  const [open, setOpen] = useState(false);
+  const m = settings.media;
+  const on = m.colorScheme !== 'auto' || m.reducedMotion || m.moreContrast;
+  const toggle = async () => {
+    if (open) {
+      setOpen(false);
+      closeOverlay();
+    } else {
+      await openOverlay();
+      setOpen(true);
+    }
+  };
+  const set = (patch: Partial<typeof m>) => void updateSettings({ media: { ...m, ...patch } });
+  const row = (active: boolean) => `flex w-full items-center justify-between gap-3 rounded-md px-2.5 py-1.5 text-left text-xs ${active ? 'bg-active text-fg' : 'text-muted hover:bg-active/60 hover:text-fg'}`;
+  const label = [m.colorScheme === 'dark' ? t('Dark', 'Sombre') : m.colorScheme === 'light' ? t('Light', 'Clair') : null, m.reducedMotion ? t('No motion', 'Sans animation') : null, m.moreContrast ? t('Contrast', 'Contraste') : null].filter(Boolean).join(' · ');
+  return (
+    <div className="relative">
+      <button
+        aria-pressed={on}
+        aria-expanded={open}
+        onClick={toggle}
+        title={t('Dark mode, reduced motion, high contrast', 'Mode sombre, animations réduites, contraste élevé')}
+        className={`inline-flex h-[26px] items-center gap-1.5 rounded-md border px-2.5 text-xs ${on ? 'border-[#3a3f5c] bg-[rgba(138,180,248,0.08)] font-medium text-local' : 'border-line text-muted hover:border-line-strong'}`}
+      >
+        <svg width="13" height="13" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18zM12 3a9 9 0 0 1 0 18" stroke="currentColor" strokeWidth="1.8" fill="none" /><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor" /></svg>
+        {on ? label : t('Appearance', 'Apparence')}
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={toggle} />
+          <div role="menu" className="absolute top-8 right-0 z-50 w-72 rounded-[10px] border border-line bg-card p-1 shadow-2xl shadow-black/60">
+            <div className="label px-2.5 pt-2 pb-1.5">{t('Theme', 'Thème')}</div>
+            {(
+              [
+                ['auto', t('Site default', 'Celui du site'), t('no preference', 'pas de préférence')],
+                ['light', t('Light', 'Clair'), 'prefers-color-scheme: light'],
+                ['dark', t('Dark', 'Sombre'), 'prefers-color-scheme: dark'],
+              ] as const
+            ).map(([id, text, hint]) => (
+              <button key={id} role="menuitemradio" aria-checked={m.colorScheme === id} onClick={() => set({ colorScheme: id })} className={row(m.colorScheme === id)}>
+                {text}
+                <span className="font-mono text-[10.5px] text-ghost">{hint}</span>
+              </button>
+            ))}
+            <div className="label px-2.5 pt-3 pb-1.5">{t('Accessibility', 'Accessibilité')}</div>
+            <button role="menuitemcheckbox" aria-checked={m.reducedMotion} onClick={() => set({ reducedMotion: !m.reducedMotion })} className={row(m.reducedMotion)}>
+              {t('Reduced motion', 'Animations réduites')}
+              <span className="font-mono text-[10.5px] text-ghost">{m.reducedMotion ? '✓' : ''} reduce</span>
+            </button>
+            <button role="menuitemcheckbox" aria-checked={m.moreContrast} onClick={() => set({ moreContrast: !m.moreContrast })} className={row(m.moreContrast)}>
+              {t('High contrast', 'Contraste élevé')}
+              <span className="font-mono text-[10.5px] text-ghost">{m.moreContrast ? '✓' : ''} more</span>
+            </button>
+            <p className="m-0 px-2.5 pt-2.5 pb-2 text-[11.5px] leading-normal text-faint">
+              {t('What the page sees in its CSS media queries, on every device. Applies right away, no reload.', 'Ce que la page voit dans ses media queries CSS, sur tous les appareils. Immédiat, sans recharger.')}
+            </p>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 /** Slow network and CPU for phones and tablets: a site is much slower there than on a PC. */
 function ThrottleMenu() {
   const { settings, updateSettings, openOverlay, closeOverlay } = useStore();
   const [open, setOpen] = useState(false);
   const th = settings.throttle;
-  const on = th.network !== 'off' || th.cpu > 1;
+  const mocksOn = settings.mocks.filter((m) => m.enabled).length;
+  const on = th.network !== 'off' || th.cpu > 1 || settings.offline || mocksOn > 0;
+  const [mocksOpen, setMocksOpen] = useState(false);
   const toggle = async () => {
     if (open) {
       setOpen(false);
@@ -99,10 +179,14 @@ function ThrottleMenu() {
         aria-expanded={open}
         onClick={toggle}
         title={t('Slow network and CPU (phones and tablets)', 'Réseau et CPU ralentis (téléphones et tablettes)')}
-        className={`inline-flex h-[26px] items-center gap-1.5 rounded-md border px-2.5 text-xs ${on ? 'border-[#5c4a26] bg-[rgba(230,192,123,0.08)] font-medium text-warn' : 'border-line text-muted hover:border-line-strong'}`}
+        className={`inline-flex h-[26px] items-center gap-1.5 rounded-md border px-2.5 text-xs ${settings.offline ? 'border-[#5c3330] bg-[rgba(242,139,130,0.08)] font-medium text-err' : on ? 'border-[#5c4a26] bg-[rgba(230,192,123,0.08)] font-medium text-warn' : 'border-line text-muted hover:border-line-strong'}`}
       >
         <svg width="13" height="13" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20a8 8 0 1 1 8-8M12 12l4-4" stroke="currentColor" strokeWidth="1.8" fill="none" strokeLinecap="round" /></svg>
-        {on ? [th.network !== 'off' ? NETWORK.find((n) => n.id === th.network)!.label() : null, th.cpu > 1 ? `CPU ×${th.cpu}` : null].filter(Boolean).join(' · ') : t('Full speed', 'Pleine vitesse')}
+        {settings.offline
+          ? t('Offline', 'Hors ligne')
+          : on
+            ? [th.network !== 'off' ? NETWORK.find((n) => n.id === th.network)!.label() : null, th.cpu > 1 ? `CPU ×${th.cpu}` : null, mocksOn ? t(`${mocksOn} simulated`, `${mocksOn} simulée${mocksOn > 1 ? 's' : ''}`) : null].filter(Boolean).join(' · ')
+            : t('Full speed', 'Pleine vitesse')}
       </button>
       {open && (
         <>
@@ -125,8 +209,32 @@ function ThrottleMenu() {
             <p className="m-0 px-2.5 pt-2.5 pb-2 text-[11.5px] leading-normal text-faint">
               {t('Applies to phones and tablets; screens stay at full speed. Reload to see the page load again.', 'S’applique aux téléphones et tablettes ; les écrans restent à pleine vitesse. Recharge pour revoir le chargement.')}
             </p>
+            <div className="mx-1.5 my-1 h-px bg-line-soft" />
+            <button role="menuitemcheckbox" aria-checked={settings.offline} onClick={() => void updateSettings({ offline: !settings.offline })} className={row(settings.offline)}>
+              {t('Offline', 'Hors ligne')}
+              <span className={`font-mono text-[10.5px] ${settings.offline ? 'text-err' : 'text-ghost'}`}>{settings.offline ? t('on · every device', 'activé · tous') : t('every device', 'tous les appareils')}</span>
+            </button>
+            <button
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                setMocksOpen(true);
+              }}
+              className={row(false)}
+            >
+              {t('Simulated API responses…', 'Réponses d’API simulées…')}
+              <span className="font-mono text-[10.5px] text-ghost">{t(`${mocksOn} on`, `${mocksOn} active${mocksOn > 1 ? 's' : ''}`)}</span>
+            </button>
           </div>
         </>
+      )}
+      {mocksOpen && (
+        <MocksDialog
+          onClose={() => {
+            setMocksOpen(false);
+            closeOverlay();
+          }}
+        />
       )}
     </div>
   );
@@ -179,6 +287,15 @@ async function pointAt(preset: DevicePreset, viewport: Viewport, el: HTMLElement
   const n = (id ? (s.drafts[id]?.attachments.filter((a) => a.kind === 'image').length ?? 0) : 0) + 1;
   const [info, image] = await Promise.all([api().elementAt(preset.id, x, y), shot ? pinned(shot, fx, fy, n).catch(() => null) : Promise.resolve(null)]);
   s.stopPointing();
+  if (s.pointingFor === 'feedback' && id) {
+    // A review pin: numbered after the others of this project, the comment comes next.
+    const pins = s.pins[id] ?? [];
+    const num = Math.max(0, ...pins.map((p) => p.n)) + 1;
+    const img = shot ? await pinned(shot, fx, fy, num).catch(() => null) : null;
+    s.setPins(id, [...pins, { id: `p${Date.now().toString(36)}`, n: num, deviceId: preset.id, deviceLabel: preset.label, url: s.url ?? '', x, y, selector: info?.selector ?? null, elementText: info?.text?.slice(0, 120) || null, comment: '', image: img, createdAt: Date.now(), done: false }]);
+    useStore.setState({ panel: 'feedback' });
+    return;
+  }
   const where = `${preset.label} (${viewport.width}×${viewport.height})`;
   s.askClaude('', [
     ...(image ? [{ kind: 'image' as const, label: t(`${preset.label} · pin ${n}`, `${preset.label} · épingle ${n}`), dataUrl: image }] : []),
@@ -207,7 +324,11 @@ function PointingBar() {
   return (
     <div role="status" className="absolute top-3 right-4 left-4 z-20 flex items-center gap-2.5 rounded-lg border border-[rgba(217,119,87,0.35)] bg-[#1c1513] shadow-xl shadow-black/50 px-3 py-2 text-[12.5px] text-muted">
       <Icon name="target" size={13} className="text-[#d97757]" />
-      <span className="flex-1">{t('Click a spot on a device to show it to Claude.', 'Clique un endroit d’un appareil pour le montrer à Claude.')}</span>
+      <span className="flex-1">
+        {useStore.getState().pointingFor === 'feedback'
+          ? t('Click the spot on a device the comment is about.', 'Clique l’endroit d’un appareil dont parle le retour.')
+          : t('Click a spot on a device to show it to Claude.', 'Clique un endroit d’un appareil pour le montrer à Claude.')}
+      </span>
       <button onClick={stopPointing} className="h-7 rounded-ui border border-[#2a2a2f] bg-active px-2.5 text-xs font-medium text-fg hover:border-line-strong">
         {t('Cancel (Esc)', 'Annuler (Échap)')}
       </button>
@@ -288,7 +409,7 @@ function Devices() {
                   {frozen?.[preset.id] && <img src={frozen[preset.id]} alt="" className="block size-full object-cover object-top" />}
                 </div>
               </div>
-              <div className="flex items-center gap-2 font-mono text-[11px] text-faint">
+              <div style={{ maxWidth: w + pad * 2 + 80 }} className="flex flex-wrap items-center justify-center gap-x-2 gap-y-0.5 font-mono text-[11px] text-faint [&>*]:whitespace-nowrap">
                 <span>
                   {preset.label} · {viewport.width} × {viewport.height}
                 </span>
@@ -298,6 +419,14 @@ function Devices() {
                     className={throttled(preset) ? 'text-warn' : ''}
                   >
                     · {seconds(perf[preset.id]!.loadMs)} · {weight(perf[preset.id]!.bytes)}
+                  </span>
+                )}
+                {state.report?.vitals?.[preset.id]?.lcpMs != null && (
+                  <span
+                    title={t('Core Web Vitals: largest paint (good under 2.5 s) and layout shifts (good under 0.1)', 'Core Web Vitals : plus grand affichage (bon sous 2,5 s) et décalages (bon sous 0,1)')}
+                    className={state.report.vitals[preset.id]!.lcpMs! > 2500 || (state.report.vitals[preset.id]!.cls ?? 0) > 0.1 ? 'text-warn' : ''}
+                  >
+                    · LCP {seconds(state.report.vitals[preset.id]!.lcpMs!)} · CLS {(state.report.vitals[preset.id]!.cls ?? 0).toFixed(2)}
                   </span>
                 )}
                 {errorsOf(preset.id) > 0 && (
@@ -320,6 +449,7 @@ function Devices() {
           );
         })}
       </div>
+      {state.inspecting && <InspectBar />}
       {state.consoleOpen && <ConsoleDrawer />}
     </main>
   );

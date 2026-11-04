@@ -19,6 +19,8 @@ interface Deps {
   logs(): unknown;
   /** A Claude Code hook event (see claude-hooks.ts). */
   onClaudeEvent?(payload: Record<string, unknown>): void;
+  /** Claude (in the panel) wants to run a tool: ask the user; resolves with the answer. */
+  approve?(req: { tool: string; input: Record<string, unknown>; chat: string | null }): Promise<{ allow: boolean; message?: string }>;
   /** The server listens: where to reach it. */
   onListen?(port: number, token: string): void;
 }
@@ -83,6 +85,11 @@ export function startControlServer(deps: Deps) {
           deps.onActivity({ at: Date.now(), tool: String(body.tool ?? '?'), ok: body.ok !== false, detail: String(body.detail ?? ''), ms: Number(body.ms ?? 0) });
           return send(res, 200, { ok: true });
         }
+        case 'POST /approve': {
+          if (!deps.approve) return send(res, 200, { allow: false, message: 'no approver' });
+          const answer = await deps.approve({ tool: String(body.tool ?? '?'), input: (body.input ?? {}) as Record<string, unknown>, chat: typeof body.chat === 'string' ? body.chat : null });
+          return send(res, 200, answer);
+        }
         case 'POST /claude-event': {
           deps.onClaudeEvent?.(body);
           return send(res, 200, { ok: true });
@@ -124,6 +131,8 @@ export function startControlServer(deps: Deps) {
     }
   });
 
+  // An approval waits for the user (up to 30 min): no default 5-minute request timeout.
+  server.requestTimeout = 35 * 60_000;
   server.listen(0, '127.0.0.1', () => {
     const address = server.address();
     if (!address || typeof address === 'string') return;

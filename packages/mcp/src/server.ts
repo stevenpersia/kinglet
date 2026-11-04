@@ -302,7 +302,7 @@ export function createParakeetServer(opts: Options = {}) {
   server.registerTool(
     'run_checks',
     {
-      title: t('Run the 24 checks', 'Lancer les 24 checks'),
+      title: t('Run the 30 checks', 'Lancer les 30 checks'),
       description: t(
         'SEO, sharing, mobile and technical. With the app open, includes the measures in the devices (horizontal overflow, JavaScript errors, heavy images).',
         'SEO, partage, mobile et technique. Avec l’app ouverte, inclut les mesures dans les appareils (débordement horizontal, erreurs JavaScript, images lourdes).',
@@ -321,6 +321,26 @@ export function createParakeetServer(opts: Options = {}) {
       const image = meta.ogImageUrl ? await probeImage(meta.ogImageUrl, { headers }) : null;
       const site = await readSiteFiles(meta.finalUrl, { manifest: meta.manifest, favicon: meta.icons[0] ?? null }, { headers }).catch(() => null);
       return text(formatChecks(meta.finalUrl, runChecks({ meta, image, site }), false));
+    },
+  );
+
+  // Claude Code's --permission-prompt-tool: Parakeet's Claude panel asks before a command runs.
+  server.registerTool(
+    'approve',
+    {
+      title: t('Ask before a command', 'Demander avant une commande'),
+      description: t(
+        'Used by Claude Code inside Parakeet (permission prompt): asks the user in Parakeet whether a tool may run. Do not call it yourself.',
+        'Utilisé par Claude Code dans Parakeet (demande de permission) : demande à l’utilisateur dans Parakeet si un outil peut s’exécuter. Ne l’appelle pas toi-même.',
+      ),
+      inputSchema: { tool_name: z.string(), input: z.record(z.string(), z.unknown()).optional(), tool_use_id: z.string().optional() },
+    },
+    async ({ tool_name, input }) => {
+      const control = await app();
+      const deny = (message: string) => text(JSON.stringify({ behavior: 'deny', message }));
+      if (!control) return deny(appClosed());
+      const r = await control.approve({ tool: tool_name, input: input ?? {}, chat: process.env.PARAKEET_CHAT_PROJECT ?? null });
+      return r.allow ? text(JSON.stringify({ behavior: 'allow', updatedInput: input ?? {} })) : deny(r.message ?? t('The user refused.', 'L’utilisateur a refusé.'));
     },
   );
 
@@ -363,7 +383,7 @@ export function createParakeetServer(opts: Options = {}) {
     'fix_checks',
     {
       title: t('Fix the checks', 'Corriger les checks'),
-      description: t('Fixes the problems found by the 24 checks on the page open in Parakeet, then runs the checks again.', 'Corrige les problèmes trouvés par les 24 checks sur la page ouverte dans Parakeet, puis relance les checks.'),
+      description: t('Fixes the problems found by the 30 checks on the page open in Parakeet, then runs the checks again.', 'Corrige les problèmes trouvés par les 30 checks sur la page ouverte dans Parakeet, puis relance les checks.'),
       argsSchema: { url: z.string().optional() },
     },
     async ({ url }) => {

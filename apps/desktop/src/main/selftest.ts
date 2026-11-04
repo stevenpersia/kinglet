@@ -198,9 +198,16 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     const atelier = await analyze('http://localhost:5173/atelier.html');
     const st = Object.fromEntries(atelier.checks.map((c) => [c.id, c.status]));
     criteria.push({
-      id: 'checks-24',
-      ok: atelier.checks.length === 24 && st['overflow'] === 'error' && st['console'] === 'error' && st['og-site-name'] === 'warning' && st['robots'] === 'warning',
+      id: 'checks-30',
+      ok: atelier.checks.length === 30 && st['overflow'] === 'error' && st['console'] === 'error' && st['og-site-name'] === 'warning' && st['robots'] === 'warning',
       detail: `${atelier.checks.length} checks, ${atelier.score.passed}/${atelier.score.total} · débordement ${st['overflow']}, erreurs JS ${st['console']}, robots.txt ${st['robots']} (le serveur Vite renvoie sa page HTML)`,
+    });
+    // Measured in the devices: the « mentions » link of atelier.html is tiny and pale on purpose.
+    const det = (id: string) => atelier.checks.find((c) => c.id === id)?.detail ?? '';
+    criteria.push({
+      id: 'checks-mobile',
+      ok: st['tap-targets'] === 'warning' && st['small-text'] === 'warning' && st['contrast'] === 'warning' && st['safe-area'] === 'ok' && det('tap-targets').includes('mentions') && st['lcp'] !== 'skip' && st['cls'] !== 'skip',
+      detail: ['tap-targets', 'small-text', 'contrast', 'safe-area', 'lcp', 'cls'].map((id) => `${id} ${st[id]}: ${det(id)}`).join(' · '),
     });
     report['checks-atelier'] = atelier.checks;
 
@@ -255,7 +262,7 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
       if (img) writeFileSync(join(outDir, 'mcp-screenshot-iphone.jpg'), Buffer.from(img, 'base64'));
       criteria.push({
         id: 'mcp',
-        ok: tools === 10 && statusText.includes('iPhone 16') && img.startsWith('/9j/') && /Checks for .* \d+\/\d+/.test(checksText) && !checksText.includes('without measures'),
+        ok: tools === 11 && statusText.includes('iPhone 16') && img.startsWith('/9j/') && /Checks for .* \d+\/\d+/.test(checksText) && !checksText.includes('without measures'),
         detail: `${tools} outils · status « ${statusText.split('\n')[1] ?? ''} » · capture ${Math.round((img.length * 3) / 4 / 1024)} Ko · ${checksText.split('\n')[0]}`,
       });
     } catch (e) {
@@ -350,12 +357,24 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
       detail: cols.map((c) => `${c.env}: « ${c.values['title']} » ${c.score?.passed ?? '?'} ok`).join(' · '),
     });
 
+    // GitHub: the pull request of each preview branch, with its CI.
+    await js(`window.parakeet.github.connect(${JSON.stringify(process.env.PARAKEET_VERCEL_TEST_TOKEN ?? '')})`);
+    await sleep(300);
     await clickText('nav button', 'Deployments');
-    await sleep(900);
+    const prShown = await waitFor(() => js<boolean>(`document.querySelector('main')?.textContent.includes('#12') ?? false`), 6000);
+    const prText = await js<string>(`[...document.querySelectorAll('main [role=link]')].map((e) => e.textContent).join(' | ')`);
     await shot('14-deploiements');
+    criteria.push({ id: 'github-pr', ok: prShown && /#12\s*open/.test(prText) && prText.includes('2/3'), detail: prText || 'aucune PR affichée' });
     await clickText('nav button', 'Compare');
     await sleep(2500);
     await shot('15-comparer');
+    // Visual comparison: each environment rendered off screen like a device, differences in red.
+    await clickText('[role=tab]', 'Visual');
+    const visualOk = await waitFor(() => js<boolean>(`document.querySelectorAll('main figure img').length >= 3 && [...document.querySelectorAll('main figcaption')].slice(1).every((f) => /%|identical/.test(f.textContent))`), 30_000, 500);
+    const visualText = await js<string>(`[...document.querySelectorAll('main figure')].map((f) => f.textContent).join(' | ')`);
+    await shot('15b-comparer-visuel');
+    criteria.push({ id: 'compare-visual', ok: visualOk && /LCP \d/.test(visualText), detail: visualText });
+    await clickText('[role=tab]', 'Tags and checks');
     await clickText('nav button', 'Settings');
     await clickText('[aria-label="Settings pages"] button', 'Vercel');
     await sleep(800);
@@ -585,6 +604,81 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     });
     await clickText('nav button', 'Console'); // close the drawer
 
+    // 26-media. Dark mode, reduced motion, high contrast: what the pages see in their media queries.
+    await js(`window.parakeet.updateSettings({ media: { colorScheme: 'dark', reducedMotion: true, moreContrast: true } })`);
+    const mq = `[matchMedia('(prefers-color-scheme: dark)').matches, matchMedia('(prefers-reduced-motion: reduce)').matches, matchMedia('(prefers-contrast: more)').matches]`;
+    const mediaOn = await waitFor(async () => (await Promise.all(devices.entries().map((d) => d.view.webContents.executeJavaScript(mq) as Promise<boolean[]>))).every((r) => r.every(Boolean)), 3000);
+    await sleep(300);
+    await shot('31-mode-sombre');
+    await js(`window.parakeet.updateSettings({ media: { colorScheme: 'light', reducedMotion: false, moreContrast: false } })`);
+    const mediaOff = await waitFor(async () => (await Promise.all(devices.entries().map((d) => d.view.webContents.executeJavaScript(mq) as Promise<boolean[]>))).every((r) => r.every((x) => !x)), 3000);
+    await js(`window.parakeet.updateSettings({ media: { colorScheme: 'auto', reducedMotion: false, moreContrast: false } })`);
+    criteria.push({ id: 'media', ok: mediaOn && mediaOff, detail: `sombre + animations réduites + contraste : ${mediaOn ? 'vus par les pages' : 'absents'} · clair : ${mediaOff ? 'ok' : 'échec'}` });
+
+    // 26-network. Simulated API responses and offline mode, on every device.
+    await js(`window.parakeet.updateSettings({ mocks: [{ id: 'm1', enabled: true, method: 'GET', pattern: '*/api/plans*', status: 503, contentType: 'application/json', body: '{"down":true}', delayMs: 300 }] })`);
+    await sleep(600);
+    const probeApi = `fetch('/api/plans?x=1').then(async (r) => r.status + ' ' + (await r.text())).catch((e) => 'failed ' + e.message)`;
+    const mocked = (await Promise.all(devices.entries().map((d) => d.view.webContents.executeJavaScript(probeApi) as Promise<string>))) as string[];
+    await clickText('main button', 'simulated'); // the network menu (its button says "1 simulated")
+    await sleep(400);
+    await clickText('[role=menu] button', 'Simulated API responses');
+    await waitFor(() => js<boolean>(`!!document.querySelector('[role=dialog][aria-label="Simulated API responses"]')`), 3000);
+    await sleep(400);
+    await shot('33-reponses-simulees');
+    await js(`document.querySelector('[role=dialog][aria-label="Simulated API responses"] button[aria-label=Close]')?.click()`);
+    await js(`window.parakeet.updateSettings({ mocks: [], offline: true })`);
+    await sleep(600);
+    const offline = (await Promise.all(devices.entries().map((d) => d.view.webContents.executeJavaScript(probeApi) as Promise<string>))) as string[];
+    await js(`window.parakeet.updateSettings({ offline: false })`);
+    await sleep(600);
+    const online = (await devices.entries()[0]!.view.webContents.executeJavaScript(`fetch('/').then((r) => r.status).catch(() => 0)`)) as number;
+    criteria.push({
+      id: 'network-mocks',
+      ok: mocked.every((m) => m === '503 {"down":true}') && offline.every((m) => m.startsWith('failed')) && online === 200,
+      detail: `simulée : ${mocked.join(' / ')} · hors ligne : ${offline.join(' / ')} · retour : ${online}`,
+    });
+
+    // 26-inspect. Inspector: hover the title on one device, it is measured on all of them.
+    await clickText('main button', 'Inspect');
+    await waitFor(() => js<boolean>(`!!document.querySelector('[aria-label=Inspector]')`), 3000);
+    await sleep(800);
+    const inspected0 = devices.entries()[0]!;
+    const r = (await inspected0.view.webContents.executeJavaScript(`(() => { const b = document.querySelector('h1').getBoundingClientRect(); return { x: b.left + 8, y: b.top + 8 }; })()`)) as { x: number; y: number };
+    // Move in, twice: the first move can land before the view has its final size.
+    for (const dx of [0, 4]) {
+      inspected0.view.webContents.sendInputEvent({ type: 'mouseMove', x: Math.round((r.x + dx) * inspected0.scale), y: Math.round(r.y * inspected0.scale) });
+      await sleep(300);
+    }
+    const rows = await waitFor(() => js<boolean>(`[...document.querySelectorAll('[aria-label=Inspector] tbody tr')].length === ${devices.entries().length} && [...document.querySelectorAll('[aria-label=Inspector] tbody tr')].every((tr) => /[0-9]+ × [0-9]+/.test(tr.textContent))`), 5000);
+    const inspectText = await js<string>(`document.querySelector('[aria-label=Inspector]')?.textContent ?? ''`);
+    await shot('32-inspecteur');
+    await js(`document.querySelector('[aria-label="Stop inspecting"]')?.click()`);
+    const inspectOff = await waitFor(() => js<boolean>(`!document.querySelector('[aria-label=Inspector]')`), 3000);
+    criteria.push({ id: 'inspector', ok: rows && inspectText.includes('h1') && inspectOff, detail: inspectText.slice(0, 160) });
+
+    // 26-feedback. Review pins: pin a spot with a comment, open a GitHub issue with them.
+    await clickText('nav button', 'Feedback');
+    await clickText('aside[aria-label=Feedback] button', 'Pin a comment');
+    await waitFor(() => js<boolean>(`!!document.querySelector('.cursor-crosshair')`), 4000);
+    await js(`(() => {
+      const el = document.querySelector('.cursor-crosshair');
+      const r = el.getBoundingClientRect();
+      el.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: r.left + r.width * 0.3, clientY: r.top + r.height * 0.15 }));
+    })()`);
+    const pinAdded = await waitFor(() => js<boolean>(`!!document.querySelector('textarea[aria-label="Comment of pin 1"]')`), 5000);
+    await js(`(() => {
+      const ta = document.querySelector('textarea[aria-label="Comment of pin 1"]');
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(ta, 'Le titre est trop gros sur téléphone');
+      ta.dispatchEvent(new Event('input', { bubbles: true }));
+    })()`);
+    await sleep(300);
+    await clickText('aside[aria-label=Feedback] button', 'Open an issue');
+    const issued = await waitFor(() => js<boolean>(`document.querySelector('aside[aria-label=Feedback]')?.textContent.includes('Issue opened') ?? false`), 6000);
+    await shot('34-retours');
+    criteria.push({ id: 'feedback-pins', ok: pinAdded && issued, detail: `épingle ${pinAdded ? 'posée' : 'absente'} · issue ${issued ? 'ouverte (#7)' : 'non ouverte'}` });
+    await clickText('nav button', 'Feedback');
+
     // 26a. Claude panel: Claude Code (a stand-in here) in the project folder, with Parakeet's MCP, a pointed spot joined.
     await js(`(async () => {
       const s = await window.parakeet.updateSettings({});
@@ -631,6 +725,20 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     await js(`document.querySelector('textarea[aria-label="Message to Claude"]').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))`);
     const resumed = await waitFor(() => js<boolean>(`[...document.querySelectorAll('aside[aria-label=Claude] p')].some((p) => p.textContent.includes('resume fake-session-1'))`), 8000);
     criteria.push({ id: 'claude-resume', ok: resumed, detail: resumed ? 'session fake-session-1 reprise' : 'session non reprise' });
+    // Before a command, Claude asks; the panel shows the question and the answer goes back to Claude.
+    await js(`(() => {
+      const ta = document.querySelector('textarea[aria-label="Message to Claude"]');
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(ta, 'Install zod and use it');
+      ta.dispatchEvent(new Event('input', { bubbles: true }));
+    })()`);
+    await sleep(200);
+    await js(`document.querySelector('textarea[aria-label="Message to Claude"]').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))`);
+    const asked = await waitFor(() => js<boolean>(`!!document.querySelector('[role=alertdialog][aria-label="Claude asks"]')?.textContent.includes('npm install zod')`), 8000);
+    await shot('30-claude-demande');
+    await clickText('[role=alertdialog] button', 'Allow');
+    let approval = '';
+    const allowed = await waitFor(async () => (approval = await js<string>(`[...document.querySelectorAll('aside[aria-label=Claude] p')].map((p) => p.textContent).find((x) => x.includes('approval')) ?? ''`)) !== '', 8000);
+    criteria.push({ id: 'claude-approval', ok: asked && allowed && approval.includes('allowed') && approval.includes('mcp__parakeet__approve'), detail: approval || `question ${asked ? 'affichée' : 'absente'}` });
     await clickText('nav button', 'Claude'); // close the panel
 
     // 26b. Settings: a custom device is emulated like the built-in ones, then removed.
