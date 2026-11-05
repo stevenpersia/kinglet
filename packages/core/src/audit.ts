@@ -54,6 +54,8 @@ export interface SiteAudit {
   hreflang: { path: string; message: string }[];
   /** The crawl stopped at the limit: some pages were not read. */
   truncated: boolean;
+  /** Dead anchors were checked again in the rendered page (after JavaScript): the ones left are really missing. */
+  anchorsRendered?: boolean;
   limit: number;
 }
 

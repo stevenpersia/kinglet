@@ -1,5 +1,5 @@
 // Runs inside every emulated device page. Keeps scroll positions in sync across devices.
-import { ipcRenderer } from 'electron';
+import { contextBridge, ipcRenderer } from 'electron';
 
 let suppressUntil = 0;
 let frame = 0;
@@ -177,8 +177,43 @@ window.addEventListener(
   true,
 );
 
+/**
+ * The page's own view of the keyboard: visualViewport shrinks by its height and fires resize,
+ * like iOS and Chrome on Android, so the sites that follow it (sticky footers, chat inputs) react.
+ * Runs in the page's world (the preload's world has its own window objects).
+ */
+function setKeyboardInset(height: number) {
+  try {
+    contextBridge.executeInMainWorld({
+      func: (h: number) => {
+        const w = window as unknown as { __kingletKeyboard?: number; visualViewport: VisualViewport | null };
+        const proto = Object.getPrototypeOf(w.visualViewport ?? {}) as object;
+        if (w.__kingletKeyboard === undefined && w.visualViewport) {
+          const desc = Object.getOwnPropertyDescriptor(proto, 'height');
+          if (desc?.get) {
+            const get = desc.get;
+            Object.defineProperty(proto, 'height', { configurable: true, enumerable: true, get(this: VisualViewport) { return Math.max(0, get.call(this) - ((window as unknown as { __kingletKeyboard?: number }).__kingletKeyboard ?? 0)); } });
+          }
+        }
+        if ((w.__kingletKeyboard ?? 0) === h) {
+          w.__kingletKeyboard = h;
+          return;
+        }
+        w.__kingletKeyboard = h;
+        w.visualViewport?.dispatchEvent(new Event('resize'));
+      },
+      args: [height],
+    });
+  } catch {
+    /* older Electron: the drawn keyboard alone */
+  }
+}
+
 ipcRenderer.on('device:keyboard', (_e, k: { on: boolean; height: number; android: boolean; lang: string }) => {
-  const draw = () => drawKeyboard(k.on ? k.height : 0, k.android, k.lang);
+  const draw = () => {
+    drawKeyboard(k.on ? k.height : 0, k.android, k.lang);
+    setKeyboardInset(k.on ? k.height : 0);
+  };
   if (document.documentElement) draw();
   else window.addEventListener('DOMContentLoaded', draw, { once: true });
 });

@@ -110,6 +110,8 @@ async function createWindow() {
     }
     if (!win.isDestroyed()) win.webContents.send('app:event', e);
   };
+  /** Set once the history is ready: measure the local site after a finished Claude task. */
+  let onClaudeDone: (projectId: string, prompt: string | null) => void = () => undefined;
   const devices = new DeviceManager(win, allPresets(PRESETS, settings.value), emit);
   /** Devices shown: the global list or the active project's, built-in and custom. */
   const applyDevices = () => {
@@ -183,7 +185,7 @@ async function createWindow() {
       // A build just went live: measure it (history) and check the budgets.
       if (before && before !== key && d.state === 'READY') {
         const project = settings.value.projects.find((p) => p.vercelProjectId === vpId);
-        if (project) void measureDeployment(project.id, { url: d.url, deploymentId: d.id, production: d.production, branch: d.branch, commit: d.commitMessage }, true).catch((e) => console.error('history', e));
+        if (project) void measureDeployment(project.id, { url: d.url, deploymentId: d.id, production: d.production, branch: d.branch, commit: d.commitMessage }, true, 'vercel').catch((e) => console.error('history', e));
       }
     }
   });
@@ -381,7 +383,7 @@ async function createWindow() {
     const site = await (siteCache.get(key) ?? Promise.resolve(null)).catch(() => null);
     const { links } = await devices.measure({ a11y: false });
     let last = 0;
-    return auditSite(`${key}/`, {
+    const audit = await auditSite(`${key}/`, {
       headers,
       site,
       seeds: [url, ...links],
@@ -392,8 +394,24 @@ async function createWindow() {
         emit({ type: 'audit', done, queued });
       },
     });
+    // Dead anchors: the raw HTML misses ids added by JavaScript. Look again in each rendered page.
+    const anchors = audit.brokenLinks.filter((b) => b.kind === 'anchor');
+    if (anchors.length) {
+      const pages = [...new Set(anchors.map((b) => b.url.split('#')[0]!))].slice(0, 15);
+      const ids = new Map<string, string[] | null>();
+      for (let i = 0; i < pages.length; i += 3) await Promise.all(pages.slice(i, i + 3).map(async (p) => ids.set(p, await devices.renderedIds(p))));
+      audit.brokenLinks = audit.brokenLinks.filter((b) => {
+        if (b.kind !== 'anchor') return true;
+        const [page, frag = ''] = b.url.split('#');
+        const found = ids.get(page!);
+        return !found || !found.includes(decodeURIComponent(frag));
+      });
+      audit.anchorsRendered = pages.every((p) => ids.get(p) != null);
+    }
+    return audit;
   });
   ipcMain.on('preview:taborder', (_e, on: boolean) => devices.setTabOrder(on));
+  ipcMain.handle('preview:fill-forms', (_e, mode: 'valid' | 'invalid' | 'clear') => devices.fillForms(mode));
 
   // Export: captures of the devices, as a sheet (PNG), a PDF, a folder of images, or a video.
   const exportDir = () => {
@@ -470,7 +488,13 @@ ${shots.map((sh) => `<section><header><h1>${esc(title)}</h1><span>${esc(sh.label
     const phone = devices.entries().find((d) => d.preset.kind === 'phone')?.preset.id;
     return phone ?? PRESETS.find((p) => p.kind === 'phone')?.id ?? PRESETS[0]!.id;
   };
-  async function measureDeployment(projectId: string, target: { url: string; deploymentId: string | null; production: boolean; branch: string | null; commit: string | null }, auto = false): Promise<HistoryEntry> {
+  async function measureDeployment(
+    projectId: string,
+    target: { url: string; deploymentId: string | null; production: boolean; branch: string | null; commit: string | null },
+    auto = false,
+    source: HistoryEntry['source'] = 'manual',
+  ): Promise<HistoryEntry> {
+    lastMeasure.set(projectId, Date.now());
     const project = settings.value.projects.find((p) => p.id === projectId);
     const device = historyDevice();
     const label = PRESETS.find((p) => p.id === device)?.label ?? device;
@@ -492,12 +516,50 @@ ${shots.map((sh) => `<section><header><h1>${esc(title)}</h1><span>${esc(sh.label
       const other = await devices.snapshot(new URL(path, root).toString(), device);
       failures.push(...describeFailures(evaluateBudgets(budgets, path, [measure(other.perf, other.vitals)])));
     }
-    const entry: HistoryEntry = { at, ...target, device: label, score: checksScore, lcpMs: snap.vitals?.lcpMs ?? null, cls: snap.vitals?.cls ?? null, bytes: snap.perf?.bytes ?? null, requests: snap.perf?.requests ?? null, budgetFailures: failures, error: snap.error };
+    const entry: HistoryEntry = { at, ...target, source, device: label, score: checksScore, lcpMs: snap.vitals?.lcpMs ?? null, cls: snap.vitals?.cls ?? null, bytes: snap.perf?.bytes ?? null, requests: snap.perf?.requests ?? null, budgetFailures: failures, error: snap.error };
     const entries = history.add(projectId, entry);
     emit({ type: 'history', projectId, entries });
     if (failures.length && auto) notify(projectId, t(`Budget exceeded · ${project?.name ?? ''}`, `Budget dépassé · ${project?.name ?? ''}`), failures.slice(0, 3).join('\n'));
     return entry;
   }
+  /**
+   * Without Vercel too: the local site is measured after each commit in the project's folder and
+   * each finished Claude task (once a minute at most), when the project's dev server answers.
+   */
+  const lastMeasure = new Map<string, number>();
+  const git = (folder: string, args: string[]) =>
+    new Promise<string | null>((resolve) => execFile('git', ['-C', folder, ...args], { timeout: 5000 }, (err, out) => resolve(err ? null : out.trim())));
+  const localPage = (projectId: string) => {
+    const p = settings.value.projects.find((x) => x.id === projectId);
+    if (!p || p.historyAuto === false) return null;
+    if (p.lastUrl && isLocalUrl(p.lastUrl)) return p.lastUrl;
+    return p.localOrigin ? `${p.localOrigin}/` : null;
+  };
+  const measureLocal = async (projectId: string, source: 'commit' | 'claude', commit: string | null) => {
+    const url = localPage(projectId);
+    if (!url || Date.now() - (lastMeasure.get(projectId) ?? 0) < 60_000) return;
+    const answers = await fetch(url, { signal: AbortSignal.timeout(3000) }).then(() => true, () => false);
+    if (!answers) return; // dev server stopped: nothing to measure
+    const folder = settings.value.projects.find((x) => x.id === projectId)?.folder;
+    const branch = folder ? await git(folder, ['rev-parse', '--abbrev-ref', 'HEAD']) : null;
+    await measureDeployment(projectId, { url, deploymentId: null, production: false, branch, commit }, true, source).catch((e) => console.error('history', e));
+  };
+  const heads = new Map<string, string>();
+  const watchCommits = setInterval(async () => {
+    for (const id of settings.value.openIds) {
+      const folder = settings.value.projects.find((p) => p.id === id)?.folder;
+      if (!folder || !localPage(id)) continue;
+      const line = await git(folder, ['log', '-1', '--format=%H%x1f%s']);
+      if (!line) continue;
+      const [sha, subject] = line.split('\x1f');
+      const before = heads.get(id);
+      heads.set(id, sha!);
+      if (before && before !== sha) void measureLocal(id, 'commit', subject ?? null);
+    }
+  }, 20_000);
+  app.on('will-quit', () => clearInterval(watchCommits));
+  onClaudeDone = (projectId, prompt) => void measureLocal(projectId, 'claude', prompt);
+
   ipcMain.handle('history:measure', (_e, projectId: string, target: Parameters<typeof measureDeployment>[1] | null) => {
     const url = target?.url ?? devices.currentUrl;
     if (!url) throw new Error(t('No page shown.', 'Aucune page affichée.'));
@@ -559,6 +621,7 @@ ${shots.map((sh) => `<section><header><h1>${esc(title)}</h1><span>${esc(sh.label
     emitClaude();
     if (r.finished && project) {
       const st = tracker.projects[project.id]!;
+      if (r.event.kind !== 'error') onClaudeDone(project.id, st.prompt);
       const n = st.files.length;
       notify(
         project.id,

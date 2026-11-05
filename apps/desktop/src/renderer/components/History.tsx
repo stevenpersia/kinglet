@@ -1,6 +1,7 @@
 import { formatBudgetValue, locale, t } from '@kinglet/core';
 import { useEffect, useState } from 'react';
 import type { HistoryEntry, VercelDeployment } from '../../shared/types';
+import { activeProject, patchProject } from '../../shared/projects';
 import { api, cleanError, useStore } from '../store';
 import { Icon } from './Icons';
 
@@ -59,6 +60,9 @@ export function HistoryCard({ projectId, deployments }: { projectId: string; dep
   const list = entries ?? [];
   const recent = list.slice(-20);
   const latestReady = deployments.find((d) => d.state === 'READY') ?? null;
+  const project = activeProject(s.settings);
+  const auto = project?.historyAuto !== false;
+  const SOURCE: Record<string, string> = { commit: 'commit', claude: 'Claude', manual: t('by hand', 'à la main'), vercel: 'Vercel' };
   return (
     <section aria-label={t('History', 'Historique')} className="shrink-0 overflow-hidden rounded-[10px] border border-line bg-card">
       <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
@@ -67,11 +71,22 @@ export function HistoryCard({ projectId, deployments }: { projectId: string; dep
             <Icon name="chart" size={13} />
             {t('History', 'Historique')}
           </span>
-          <span className="text-xs text-muted">{t('Each new deployment is measured on a phone, off screen. Budgets are checked at the same time.', 'Chaque nouveau déploiement est mesuré sur un téléphone, hors écran. Les budgets sont vérifiés en même temps.')}</span>
+          <span className="text-xs text-muted">
+            {deployments.length
+              ? t('Each new deployment is measured on a phone, off screen, and the local site after each commit and each finished Claude task. Budgets are checked at the same time.', 'Chaque nouveau déploiement est mesuré sur un téléphone, hors écran, et le site local après chaque commit et chaque tâche de Claude terminée. Les budgets sont vérifiés en même temps.')
+              : t('The local site is measured on a phone, off screen, after each commit in the project folder and each finished Claude task. Budgets are checked at the same time.', 'Le site local est mesuré sur un téléphone, hors écran, après chaque commit dans le dossier du projet et chaque tâche de Claude terminée. Les budgets sont vérifiés en même temps.')}
+          </span>
+          {project && (
+            <label className="mt-1 flex items-center gap-1.5 text-[11.5px] text-faint">
+              <input type="checkbox" checked={auto} onChange={() => void s.updateSettings(patchProject(s.settings, project.id, { historyAuto: !auto }))} className="accent-[#ededef]" />
+              {t('Measure the local site automatically', 'Mesurer le site local automatiquement')}
+              {!project.folder && <span className="text-warn">{t(' (no folder: commits are not seen)', ' (pas de dossier : les commits ne sont pas vus)')}</span>}
+            </label>
+          )}
         </div>
-        <button onClick={() => void measure(latestReady)} disabled={!!busy || !latestReady} className="flex h-7 items-center gap-1.5 rounded-ui border border-[#2a2a2f] bg-active px-2.5 text-xs font-medium hover:border-line-strong disabled:opacity-50">
+        <button onClick={() => void measure(latestReady)} disabled={!!busy || (!latestReady && !s.url)} className="flex h-7 items-center gap-1.5 rounded-ui border border-[#2a2a2f] bg-active px-2.5 text-xs font-medium hover:border-line-strong disabled:opacity-50">
           <Icon name="reload" size={11} className={busy ? 'animate-spin' : ''} />
-          {busy ? t('Measuring…', 'Mesure…') : t('Measure the latest deployment', 'Mesurer le dernier déploiement')}
+          {busy ? t('Measuring…', 'Mesure…') : latestReady ? t('Measure the latest deployment', 'Mesurer le dernier déploiement') : t('Measure the page shown', 'Mesurer la page affichée')}
         </button>
       </div>
       {error && <p className="m-0 px-4 pb-2 text-xs text-err">{error}</p>}
@@ -106,7 +121,8 @@ export function HistoryCard({ projectId, deployments }: { projectId: string; dep
                 <span className="w-28 shrink-0 text-faint">{new Date(e.at).toLocaleString(locale(), { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
                 <span className="min-w-0 flex-1 truncate">
                   {e.production && <span className="mr-1.5 rounded border border-prod/40 px-1 text-[10px] text-prod">PROD</span>}
-                  <span className="font-mono text-fg">{e.branch ?? new URL(e.url).host}</span> <span className="text-muted">{e.commit ?? ''}</span>
+                  {e.source && e.source !== 'vercel' && <span className="mr-1.5 rounded border border-line px-1 text-[10px] text-faint">{SOURCE[e.source]}</span>}
+                  <span className="font-mono text-fg">{e.branch ?? new URL(e.url).host}</span> <span className="text-muted">{e.commit ?? new URL(e.url).pathname}</span>
                 </span>
                 {e.error ? (
                   <span className="text-err">{e.error}</span>

@@ -3,7 +3,7 @@ import { BaseWindow, BrowserWindow, WebContentsView, ipcMain, screen, session, t
 import { HEAVY_IMAGE_BYTES, getLanguage, t, type AxeSummary, type AxeViolation, type RenderedDevice } from '@kinglet/core';
 import AXE_SOURCE from 'axe-core/axe.min.js?raw';
 import { globMatch } from '../shared/mocks';
-import type { ApiMock, DeviceLog, DevicePerf, DevicePreset, DeviceSlot, ElementInfo, ElementMetrics, ExportShot, InspectState, MediaPrefs, PreviewEvent, RegionPrefs, ShortcutAction, TabOrderInfo, TextSize, Throttle } from '../shared/types';
+import type { FormFill, ApiMock, DeviceLog, DevicePerf, DevicePreset, DeviceSlot, ElementInfo, ElementMetrics, ExportShot, InspectState, MediaPrefs, PreviewEvent, RegionPrefs, ShortcutAction, TabOrderInfo, TextSize, Throttle } from '../shared/types';
 
 export const PREVIEW_PARTITION = 'persist:kinglet-preview';
 
@@ -81,8 +81,67 @@ const serial = <T,>(d: DeviceEntry, job: () => Promise<T>): Promise<T> => {
   return run;
 };
 
+/**
+ * What a form field is for, from its type, autocomplete, name, id, placeholder and label.
+ * Defines `fieldKind(el)`, `fieldLabel(el)`, `FIELDS` and `EXPECT` in the page (shared by the
+ * check and the automatic filling).
+ */
+const FIELD_KIND = `
+const FIELDS = 'input:not([type=hidden]):not([type=submit]):not([type=button]):not([type=reset]):not([type=image]), select, textarea';
+const fieldLabel = (el) => {
+  const byId = el.id ? document.querySelector('label[for="' + CSS.escape(el.id) + '"]') : null;
+  const txt = el.getAttribute('aria-label') || (el.getAttribute('aria-labelledby') || '').split(/\\s+/).map((id) => document.getElementById(id)?.innerText || '').join(' ').trim() || byId?.innerText || el.closest('label')?.innerText || '';
+  return txt.trim().replace(/\\s+/g, ' ');
+};
+const fieldKind = (el) => {
+  const type = (el.getAttribute('type') || el.tagName).toLowerCase();
+  const ac = (el.getAttribute('autocomplete') || '').toLowerCase();
+  const hint = [el.name, el.id, el.getAttribute('placeholder'), ac, fieldLabel(el)].join(' ').toLowerCase();
+  if (type === 'checkbox' || type === 'radio' || type === 'select' || type === 'file' || type === 'range' || type === 'color') return type;
+  if (type === 'textarea') return 'message';
+  if (type === 'password') return /new|nouveau|confirm/.test(hint) ? 'new-password' : 'password';
+  if (type === 'date' || type === 'datetime-local' || type === 'time' || type === 'month') return 'date';
+  if (type === 'email' || /e-?mail|courriel/.test(hint)) return 'email';
+  if (type === 'tel' || /\\b(tel|phone|mobile|portable|téléphone|telephone)/.test(hint)) return 'tel';
+  if (type === 'url' || /\\b(url|site web|website)\\b/.test(hint)) return 'url';
+  if (/postal|zip|code postal|cp\\b/.test(hint)) return 'postal-code';
+  if (/one-time|otp|code de vérification|verification code|\\bcode\\b/.test(hint)) return 'one-time-code';
+  if (/cc-number|card ?number|numéro de carte/.test(hint)) return 'cc-number';
+  if (/given|first|prénom|prenom/.test(hint)) return 'given-name';
+  if (/family|last|nom de famille|surname/.test(hint)) return 'family-name';
+  if (/organi[sz]ation|company|société|entreprise/.test(hint)) return 'organization';
+  if (/address|adresse|street|rue/.test(hint)) return 'street-address';
+  if (/city|ville|locality/.test(hint)) return 'address-level2';
+  if (/country|pays/.test(hint)) return 'country-name';
+  if (type === 'number' || /quantit|amount|montant|\\bage\\b|nombre/.test(hint)) return 'number';
+  if (type === 'search' || /search|recherche/.test(hint)) return 'search';
+  if (/\\bname\\b|\\bnom\\b|full ?name|nom complet/.test(hint)) return 'name';
+  return 'text';
+};
+/** The keyboard a kind needs (type or inputmode), and the autocomplete token that lets the browser fill it. */
+const EXPECT = {
+  email: { keyboard: ['email'], ac: 'email' },
+  tel: { keyboard: ['tel'], ac: 'tel' },
+  url: { keyboard: ['url'], ac: 'url' },
+  'postal-code': { keyboard: ['numeric', 'tel', 'number', 'text'], ac: 'postal-code' },
+  'one-time-code': { keyboard: ['numeric', 'number', 'tel'], ac: 'one-time-code' },
+  'cc-number': { keyboard: ['numeric', 'number', 'tel'], ac: 'cc-number' },
+  number: { keyboard: ['numeric', 'decimal', 'number'], ac: null },
+  name: { keyboard: null, ac: 'name' },
+  'given-name': { keyboard: null, ac: 'given-name' },
+  'family-name': { keyboard: null, ac: 'family-name' },
+  organization: { keyboard: null, ac: 'organization' },
+  'street-address': { keyboard: null, ac: 'street-address' },
+  'address-level2': { keyboard: null, ac: 'address-level2' },
+  'country-name': { keyboard: null, ac: 'country' },
+  password: { keyboard: null, ac: 'current-password' },
+  'new-password': { keyboard: null, ac: 'new-password' },
+};
+`;
+
 /** Runs inside a device page: what only the rendered page (after JavaScript) can tell. */
 const MEASURE = `(async () => {
+  ${FIELD_KIND}
   const heavy = performance.getEntriesByType('resource')
     .filter((e) => e.initiatorType === 'img' || /\\.(png|jpe?g|webp|gif|avif)(\\?|$)/i.test(e.name))
     .map((e) => ({ url: e.name, bytes: e.transferSize || e.encodedBodySize || 0 }))
@@ -166,6 +225,27 @@ const MEASURE = `(async () => {
     lowContrast: { count: low.length, examples: low.slice(0, 3) },
     notchUnsafe: /viewport-fit\\s*=\\s*cover/.test(vp) && !insets,
     clippedText: { count: clipped.length, examples: clipped.slice(0, 3) },
+    forms: (() => {
+      const wrongKeyboard = [], noAutocomplete = [], noLabel = [];
+      let fields = 0;
+      for (const el of document.querySelectorAll(FIELDS)) {
+        const r = el.getBoundingClientRect();
+        if (r.width < 1 || r.height < 1 || el.disabled || el.closest('[data-kinglet]')) continue;
+        fields++;
+        const kind = fieldKind(el);
+        const label = fieldLabel(el) || el.getAttribute('placeholder') || '';
+        const name = '« ' + (label || el.name || el.id || el.tagName.toLowerCase()).slice(0, 24) + ' »';
+        if (!label && !el.getAttribute('title')) noLabel.push(name);
+        const want = EXPECT[kind];
+        if (!want) continue;
+        const type = (el.getAttribute('type') || 'text').toLowerCase();
+        const mode = (el.getAttribute('inputmode') || '').toLowerCase();
+        if (want.keyboard && !want.keyboard.includes(type) && !want.keyboard.includes(mode)) wrongKeyboard.push(name + ' (' + (want.keyboard[0] === 'email' || want.keyboard[0] === 'tel' || want.keyboard[0] === 'url' ? 'type=' + want.keyboard[0] : 'inputmode=' + want.keyboard[0]) + ')');
+        const ac = (el.getAttribute('autocomplete') || '').toLowerCase();
+        if (want.ac && (!ac || ac === 'on')) noAutocomplete.push(name + ' (' + want.ac + ')');
+      }
+      return { fields, wrongKeyboard, noAutocomplete, noLabel };
+    })(),
     rootFontPx: parseFloat(getComputedStyle(document.documentElement).fontSize),
     vitals: { lcpMs: lcp != null ? Math.round(lcp) : null, cls: Math.round(cls * 1000) / 1000, fcpMs: fcp ? Math.round(fcp.startTime) : null, ttfbMs: nav ? Math.round(nav.responseStart) : null },
   };
@@ -370,6 +450,24 @@ export class DeviceManager {
       };
     } catch (e) {
       return { image: null, vitals: null, error: (e as Error).message };
+    } finally {
+      win.destroy();
+    }
+  }
+
+  /**
+   * Ids and anchor names of a page once its JavaScript has run (off screen, like a screen):
+   * an anchor added by a framework is not in the raw HTML the audit reads.
+   */
+  async renderedIds(url: string): Promise<string[] | null> {
+    const win = new BrowserWindow({ show: false, width: 1280, height: 900, webPreferences: { offscreen: true, session: this.session, sandbox: true } });
+    try {
+      win.webContents.setAudioMuted(true);
+      await within(win.webContents.loadURL(url), 20_000);
+      await new Promise((r) => setTimeout(r, 1200)); // client-side rendering, late content
+      return (await within(win.webContents.executeJavaScript(`[...document.querySelectorAll('[id]')].map((e) => e.id).concat([...document.querySelectorAll('a[name]')].map((e) => e.getAttribute('name')))`), 5000)) as string[];
+    } catch {
+      return null;
     } finally {
       win.destroy();
     }
@@ -766,6 +864,80 @@ export class DeviceManager {
       console.error(`[${d.preset.id}] axe`, (e as Error).message);
       return null;
     }
+  }
+
+  /**
+   * Fill every form of every device: plausible data (`valid`), wrong data and empty required
+   * fields (`invalid`), or nothing (`clear`). Values go through the native setter and input/change
+   * events, so React, Vue and Svelte see them. Nothing is submitted.
+   */
+  async fillForms(mode: 'valid' | 'invalid' | 'clear'): Promise<Record<string, FormFill>> {
+    const out: Record<string, FormFill> = {};
+    await Promise.all(
+      this.entries().map(async (d) => {
+        // The device's region decides, else the page's own language, else Kinglet's.
+        const locale = this.regionFor(d.preset.id).locale;
+        const code = `(() => {
+          ${FIELD_KIND}
+          const mode = ${JSON.stringify(mode)};
+          const fr = (${JSON.stringify(locale)} || document.documentElement.lang || ${JSON.stringify(getLanguage())}).toLowerCase().startsWith('fr');
+          const VALID = {
+            email: 'camille.martin@example.com', tel: fr ? '06 12 34 56 78' : '(555) 010-0199', url: 'https://example.com', 'postal-code': fr ? '69001' : '94103',
+            'one-time-code': '123456', 'cc-number': '4242 4242 4242 4242', number: '3', name: 'Camille Martin', 'given-name': 'Camille', 'family-name': 'Martin',
+            organization: fr ? 'Atelier Sable' : 'Sable Studio', 'street-address': fr ? '12 rue des Lilas' : '12 Lilac Street', 'address-level2': fr ? 'Lyon' : 'San Francisco',
+            'country-name': fr ? 'France' : 'United States', password: 'Kinglet-2026!', 'new-password': 'Kinglet-2026!', search: fr ? 'bol en grès' : 'stoneware bowl',
+            message: fr ? 'Bonjour, je voudrais des informations sur vos pièces.' : 'Hello, I would like to know more about your pieces.', text: fr ? 'Test Kinglet' : 'Kinglet test', date: '2026-06-15',
+          };
+          const INVALID = { email: 'camille@', tel: 'abc', url: 'pas une url', 'postal-code': 'ABCDE', 'one-time-code': 'abc', 'cc-number': '1234', number: '-999999999', date: '' };
+          const set = (el, value) => {
+            const proto = el.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype : el.tagName === 'SELECT' ? HTMLSelectElement.prototype : HTMLInputElement.prototype;
+            Object.getOwnPropertyDescriptor(proto, 'value').set.call(el, value);
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+            el.dispatchEvent(new Event('change', { bubbles: true }));
+          };
+          const check = (el, on) => {
+            if (el.checked === on) return;
+            Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'checked').set.call(el, on);
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+            el.dispatchEvent(new Event('change', { bubbles: true }));
+            el.dispatchEvent(new Event('click', { bubbles: true }));
+          };
+          const radios = new Set();
+          const fields = [];
+          for (const el of document.querySelectorAll(FIELDS)) {
+            const r = el.getBoundingClientRect();
+            if (r.width < 1 || r.height < 1 || el.disabled || el.readOnly || el.closest('[data-kinglet]')) continue;
+            const kind = fieldKind(el);
+            const label = (fieldLabel(el) || el.getAttribute('placeholder') || el.name || el.id || el.tagName.toLowerCase()).slice(0, 32);
+            if (kind === 'file' || kind === 'range' || kind === 'color') continue;
+            if (kind === 'checkbox') check(el, mode === 'valid');
+            else if (kind === 'radio') {
+              if (radios.has(el.name)) continue;
+              radios.add(el.name);
+              check(el, mode === 'valid');
+            } else if (kind === 'select') {
+              const opts = [...el.options].filter((o) => !o.disabled);
+              const pick = mode === 'valid' ? opts.find((o) => o.value) ?? opts[0] : opts.find((o) => !o.value) ?? opts[0];
+              if (pick) set(el, mode === 'clear' ? (opts[0]?.value ?? '') : pick.value);
+            } else {
+              const v = mode === 'clear' ? '' : mode === 'valid' ? (VALID[kind] ?? VALID.text) : (kind in INVALID ? INVALID[kind] : el.required ? '' : (VALID[kind] ?? VALID.text));
+              set(el, el.maxLength > 0 ? v.slice(0, el.maxLength) : v);
+            }
+            fields.push({ label, kind, valid: el.checkValidity(), message: el.validationMessage || '' });
+          }
+          // Wrong data the field takes without complaining: it has no validation at all.
+          const accepted = mode === 'invalid' ? fields.filter((f) => f.valid && (f.kind in INVALID) && f.kind !== 'date').map((f) => f.label) : [];
+          const refused = fields.filter((f) => !f.valid).map((f) => f.label + (f.message ? ' — ' + f.message : ''));
+          return { filled: fields.length, accepted, refused };
+        })()`;
+        try {
+          out[d.preset.id] = (await within(d.view.webContents.executeJavaScriptInIsolatedWorld(AXE_WORLD, [{ code }]), 8000)) as FormFill;
+        } catch (e) {
+          out[d.preset.id] = { filled: 0, accepted: [], refused: [], error: (e as Error).message };
+        }
+      }),
+    );
+    return out;
   }
 
   /** Last load of every device: weight, requests, timings. */

@@ -19,6 +19,7 @@ export {
   type AxeSummary,
   type AxeViolation,
   type AxeImpact,
+  type FormsSummary,
 } from './checks.ts';
 export { readSiteFiles, parseRobots, parseSitemap, type SiteFiles } from './site.ts';
 export { crawl, type CrawledPage } from './crawl.ts';

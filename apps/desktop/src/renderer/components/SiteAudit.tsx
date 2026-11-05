@@ -141,7 +141,10 @@ export function SiteAuditView() {
                 {b.path}
               </span>
               <span className="text-[11.5px] text-muted">
-                {t('No element with this id in the HTML (an anchor added by JavaScript is not seen here). Linked from', 'Aucun élément avec cet id dans le HTML (une ancre ajoutée par JavaScript n’est pas vue ici). Lié depuis')} <span className="font-mono">{b.from.join(', ')}</span>
+                {audit.anchorsRendered
+                  ? t('No element with this id, even after JavaScript. Linked from', 'Aucun élément avec cet id, même après JavaScript. Lié depuis')
+                  : t('No element with this id in the HTML. Linked from', 'Aucun élément avec cet id dans le HTML. Lié depuis')}{' '}
+                <span className="font-mono">{b.from.join(', ')}</span>
               </span>
             </Li>
           ))}

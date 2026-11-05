@@ -81,6 +81,7 @@ const api: KingletApi = {
     focus: (on) => ipcRenderer.send('term:focus', on),
   },
   audit: (url, opts) => ipcRenderer.invoke('site:audit', url, opts ?? {}),
+  fillForms: (mode) => ipcRenderer.invoke('preview:fill-forms', mode),
   setTabOrder: (on) => ipcRenderer.send('preview:taborder', on),
   export: {
     shots: (full) => ipcRenderer.invoke('export:shots', full),

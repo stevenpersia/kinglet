@@ -309,7 +309,7 @@ export function createKingletServer(opts: Options = {}) {
   server.registerTool(
     'run_checks',
     {
-      title: t('Run the 36 checks', 'Lancer les 36 checks'),
+      title: t('Run the 37 checks', 'Lancer les 37 checks'),
       description: t(
         'SEO (with structured data and hreflang), sharing, mobile, accessibility and technical. With the app open, includes the measures in the devices (horizontal overflow, JavaScript errors, heavy images, axe-core accessibility audit, keyboard focus).',
         'SEO (avec données structurées et hreflang), partage, mobile, accessibilité et technique. Avec l’app ouverte, inclut les mesures dans les appareils (débordement horizontal, erreurs JavaScript, images lourdes, audit d’accessibilité axe-core, focus clavier).',
@@ -499,7 +499,7 @@ export function createKingletServer(opts: Options = {}) {
     'fix_checks',
     {
       title: t('Fix the checks', 'Corriger les checks'),
-      description: t('Fixes the problems found by the 36 checks on the page open in Kinglet, then runs the checks again.', 'Corrige les problèmes trouvés par les 36 checks sur la page ouverte dans Kinglet, puis relance les checks.'),
+      description: t('Fixes the problems found by the 37 checks on the page open in Kinglet, then runs the checks again.', 'Corrige les problèmes trouvés par les 37 checks sur la page ouverte dans Kinglet, puis relance les checks.'),
       argsSchema: { url: z.string().optional() },
     },
     async ({ url }) => {

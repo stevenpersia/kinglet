@@ -34,7 +34,7 @@ export function App() {
       const s = useStore.getState();
       switch (e.type) {
         case 'loading':
-          useStore.setState({ status: 'loading', error: null, perf: {}, ...(useStore.getState().settings.autoAnalyze ? {} : { report: null, share: null }) });
+          useStore.setState({ status: 'loading', error: null, perf: {}, forms: null, ...(useStore.getState().settings.autoAnalyze ? {} : { report: null, share: null }) });
           break;
         case 'loaded':
           useStore.setState({ status: 'loaded', url: e.url, error: null });
