@@ -4,7 +4,7 @@ import { api, useStore } from '../store';
 
 /** GitHub's fine-grained token form, pre-filled with what Kinglet uses (PRs and CI of previews, issues reported from a preview). */
 export const GITHUB_TOKEN_URL =
-  'https://github.com/settings/personal-access-tokens/new?name=Kinglet&description=Pull+requests+and+CI+of+previews&pull_requests=read&issues=write';
+  'https://github.com/settings/personal-access-tokens/new?name=Kinglet&description=Pull+requests+of+previews&pull_requests=read&issues=write';
 
 /** What to tick when creating the GitHub token. */
 export const githubScopes = () => [
