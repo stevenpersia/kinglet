@@ -2,7 +2,8 @@ import { t } from '@kinglet/core';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { ChatAttachment, ChatItem, ClaudeCli } from '../../shared/types';
 import { activeProject, patchProject } from '../../shared/projects';
-import { api, cleanError, useStore } from '../store';
+import { api, claudeOpen, cleanError, useStore } from '../store';
+import { ClaudeBanner } from './ClaudeBanner';
 import { Icon, Kbd } from './Icons';
 
 const EMPTY = { text: '', attachments: [] as ChatAttachment[] };
@@ -85,8 +86,38 @@ function Item({ it }: { it: ChatItem }) {
   return <div className={`rounded-md border bg-card px-2.5 py-2 text-xs leading-snug whitespace-pre-wrap ${color}`}>{it.text}</div>;
 }
 
+const FOLD = 'M15 6l-6 6 6 6';
+
+/** Claude's column, next to the rail: unfolded by default, a thin strip when folded. */
+export function ClaudeColumn() {
+  const open = useStore(claudeOpen);
+  return open ? <ClaudePanel /> : <ClaudeStrip />;
+}
+
+/** The folded column: still shows whether Claude works or waits for an answer. */
+function ClaudeStrip() {
+  const s = useStore();
+  const project = activeProject(s.settings);
+  const chat = project ? s.chats[project.id] : undefined;
+  const status = chat?.pending ? t('Claude is waiting for you', 'Claude t’attend') : chat?.running ? t('Claude is working…', 'Claude travaille…') : 'Claude';
+  return (
+    <button
+      onClick={() => s.toggleClaude(true)}
+      aria-label={t('Unfold Claude (Ctrl J)', 'Déplier Claude (Ctrl J)')}
+      title={t('Unfold Claude (Ctrl J)', 'Déplier Claude (Ctrl J)')}
+      className="group flex w-9 shrink-0 flex-col items-center gap-3 border-r border-line-soft bg-chrome py-3 text-faint hover:bg-active/60 hover:text-fg"
+    >
+      <span aria-hidden="true" className={`size-2 shrink-0 rounded-full ${chat?.pending ? 'bg-warn' : 'bg-[#d97757]'} ${chat?.running ? 'claude-dot' : ''}`} />
+      <svg width="12" height="12" viewBox="0 0 24 24" aria-hidden="true" className="rotate-180">
+        <path d={FOLD} stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+      <span className={`text-[11px] [writing-mode:vertical-rl] ${chat?.pending ? 'text-warn' : ''}`}>{status}</span>
+    </button>
+  );
+}
+
 /** Claude Code in Kinglet: ask, show a spot on a device, watch Claude fix and verify. */
-export function ClaudePanel() {
+function ClaudePanel() {
   const s = useStore();
   const project = activeProject(s.settings);
   const chat = project ? s.chats[project.id] : undefined;
@@ -110,7 +141,7 @@ export function ClaudePanel() {
     input.current?.focus();
   }, [draft.attachments.length]);
 
-  const close = () => useStore.setState({ panel: null });
+  const close = () => s.toggleClaude(false);
   const setDraft = (d: typeof draft) => project && s.setDraft(project.id, d);
 
   const send = async () => {
@@ -190,7 +221,7 @@ export function ClaudePanel() {
 
   const ready = !!project?.folder && cli?.found !== false;
   return (
-    <aside aria-label="Claude" className="flex w-[400px] shrink-0 flex-col border-r border-line-soft bg-chrome">
+    <aside aria-label="Claude" className="flex w-[360px] shrink-0 flex-col border-r border-line-soft bg-chrome">
       <div className="flex h-11 shrink-0 items-center gap-2 border-b border-line-soft pr-2 pl-4">
         <span aria-hidden="true" className={`size-2 shrink-0 rounded-full bg-[#d97757] ${chat?.running ? 'claude-dot' : ''}`} />
         <span className="font-medium">Claude</span>
@@ -207,10 +238,14 @@ export function ClaudePanel() {
             <Icon name="plus" size={12} />
           </button>
         )}
-        <button onClick={close} aria-label={t('Close', 'Fermer')} title={t('Close', 'Fermer')} className="flex size-7 items-center justify-center rounded-md text-faint hover:bg-active hover:text-fg">
-          <Icon name="close" size={12} />
+        <button onClick={close} aria-label={t('Fold Claude', 'Replier Claude')} title={t('Fold (Ctrl J)', 'Replier (Ctrl J)')} className="flex size-7 items-center justify-center rounded-md text-faint hover:bg-active hover:text-fg">
+          <svg width="12" height="12" viewBox="0 0 24 24" aria-hidden="true">
+            <path d={FOLD} stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
         </button>
       </div>
+      {/* What Claude (here or in a terminal) and the build are up to: in the column rather than a line across the window. */}
+      <ClaudeBanner inPanel />
 
       <div ref={list} aria-live="polite" className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4">
         {body}

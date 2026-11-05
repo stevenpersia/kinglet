@@ -1,8 +1,8 @@
 import { t } from '@kinglet/core';
 import { useState } from 'react';
 import type { CustomDevice, DevicePreset, Language, Settings, Throttle } from '../../shared/types';
-import { setActiveIds } from '../../shared/devices';
-import { activePresets, devicePresets, useStore } from '../store';
+import { setListedIds } from '../../shared/devices';
+import { activePresets, devicePresets, listedPresets, useStore } from '../store';
 import { Icon, Kbd } from './Icons';
 
 const field = 'h-8 rounded-ui border border-line bg-bg px-2.5 text-[13px] text-fg outline-none focus:border-line-strong';
@@ -200,20 +200,22 @@ export function GeneralSettings() {
 const KIND = (): Record<DevicePreset['kind'], string> => ({ phone: t('Phone', 'Téléphone'), tablet: t('Tablet', 'Tablette'), desktop: t('Screen', 'Écran') });
 const dprText = (n: number) => `${n.toLocaleString(t('en-US', 'fr-FR'))}×`;
 
-/** Devices: which are shown, in which order, custom ones; one list for all or per project. */
+/** Devices: which are listed in the projects, in which order, custom ones; one list for all or per project. */
 export function DeviceSettings() {
   const state = useStore();
   const { settings, updateSettings, presets: builtins } = state;
   const all = devicePresets(state);
+  // Ticked: listed in the project(s), offered in the device bar. Showing them side by side is done there.
+  const listed = listedPresets(state).map((p) => p.id);
   const shown = activePresets(state).map((p) => p.id);
   const project = settings.projects.find((p) => p.id === settings.activeId) ?? null;
   const [drag, setDrag] = useState<string | null>(null);
   const [over, setOver] = useState<string | null>(null);
 
   const toggle = (id: string) => {
-    const on = shown.includes(id);
-    if (on && shown.length === 1) return;
-    void updateSettings(setActiveIds(builtins, settings, on ? shown.filter((x) => x !== id) : [...shown, id]));
+    const on = listed.includes(id);
+    if (on && listed.length === 1) return;
+    void updateSettings(setListedIds(builtins, settings, on ? listed.filter((x) => x !== id) : [...listed, id]));
   };
   const move = (id: string, to: number) => {
     const ids = all.map((p) => p.id).filter((x) => x !== id);
@@ -225,12 +227,14 @@ export function DeviceSettings() {
       customDevices: settings.customDevices.filter((d) => d.id !== id),
       deviceOrder: settings.deviceOrder.filter((x) => x !== id),
       active: settings.active.filter((x) => x !== id).length ? settings.active.filter((x) => x !== id) : settings.active,
-      projects: settings.projects.map((p) => (p.active ? { ...p, active: p.active.filter((x) => x !== id) } : p)),
+      ...(settings.listed ? { listed: settings.listed.filter((x) => x !== id) } : {}),
+      projects: settings.projects.map((p) => ({ ...p, ...(p.active ? { active: p.active.filter((x) => x !== id) } : {}), ...(p.listed ? { listed: p.listed.filter((x) => x !== id) } : {}) })),
     });
   };
   const perProject = (on: boolean) => {
-    // Start the project's list from what is shown now.
-    if (on && project && !project.active?.length) void updateSettings({ devicesPerProject: true, projects: settings.projects.map((p) => (p.id === project.id ? { ...p, active: shown } : p)) });
+    // Start the project's lists from what is listed and shown now.
+    if (on && project && !project.listed?.length)
+      void updateSettings({ devicesPerProject: true, projects: settings.projects.map((p) => (p.id === project.id ? { ...p, listed, active: p.active?.length ? p.active : shown } : p)) });
     else void updateSettings({ devicesPerProject: on });
   };
 
@@ -264,7 +268,7 @@ export function DeviceSettings() {
         </div>
         <ul aria-label={t('Devices', 'Appareils')} className="m-0 list-none p-0">
           {all.map((p, i) => {
-            const on = shown.includes(p.id);
+            const on = listed.includes(p.id);
             return (
               <li
                 key={p.id}
@@ -326,7 +330,10 @@ export function DeviceSettings() {
         <AddDevice />
       </Group>
       <p className="m-0 text-xs text-muted">
-        {t(`${shown.length} device${shown.length > 1 ? 's' : ''} shown. The more there are, the smaller they get to fit the window.`, `${shown.length} appareil${shown.length > 1 ? 's' : ''} affiché${shown.length > 1 ? 's' : ''}. Plus il y en a, plus ils rapetissent pour tenir dans la fenêtre.`)}
+        {t(
+          `${listed.length} device${listed.length > 1 ? 's' : ''} in ${settings.devicesPerProject && project ? project.name : 'every project'}, ${shown.length} shown side by side. Unticked devices don’t appear in the device bar; pick the ones to show there.`,
+          `${listed.length} appareil${listed.length > 1 ? 's' : ''} dans ${settings.devicesPerProject && project ? project.name : 'tous les projets'}, ${shown.length} affiché${shown.length > 1 ? 's' : ''} côte à côte. Les appareils non cochés n’apparaissent pas dans la barre des appareils ; choisis-y ceux à afficher.`,
+        )}
       </p>
     </>
   );
@@ -351,8 +358,8 @@ function AddDevice() {
     if (!(d >= 1 && d <= 4)) return setError(t('Density: between 1 and 4.', 'Densité : entre 1 et 4.'));
     const device: CustomDevice = { id: `custom-${Date.now().toString(36)}`, label: label.trim(), width: w, height: h, dpr: d, kind };
     const next = { ...settings, customDevices: [...settings.customDevices, device] };
-    const shown = useStore.getState().settings;
-    void updateSettings({ customDevices: next.customDevices, ...setActiveIds(builtins, next, [...activePresets({ presets: builtins, settings: shown }).map((p) => p.id), device.id]) });
+    // Listed in the project(s) right away; showing it is done from the device bar.
+    void updateSettings({ customDevices: next.customDevices, ...setListedIds(builtins, next, [...listedPresets({ presets: builtins, settings }).map((p) => p.id), device.id]) });
     setLabel('');
     setError(null);
   };

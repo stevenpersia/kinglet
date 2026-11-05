@@ -2,7 +2,6 @@ import { t, type Issue } from '@kinglet/core';
 import { useStore } from '../store';
 import { CheckGroups } from './Checks';
 import { Dot, Icon } from './Icons';
-import { ClaudePanel } from './ClaudePanel';
 import { FeedbackPanel } from './FeedbackPanel';
 import { askCheck } from './askCheck';
 
@@ -163,7 +162,6 @@ function PageBody() {
 export function SidePanel() {
   const { panel, togglePanel, share, shareError, status, error, url, report, analyzing, analyze } = useStore();
   if (!panel) return null;
-  if (panel === 'claude') return <ClaudePanel />;
   if (panel === 'feedback') return <FeedbackPanel />;
   let body;
   if (!url) body = <p className="text-faint">{t('Enter your dev server’s address at the top, or just its port (e.g. 3000).', 'Saisis l’adresse de ton serveur de dev en haut, ou juste son port (ex. 3000).')}</p>;

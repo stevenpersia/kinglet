@@ -1,27 +1,25 @@
 import { t } from '@kinglet/core';
-import { useStore, type Panel, type Section } from '../store';
+import { claudeOpen, useStore, type Panel, type Section } from '../store';
 import { Icon, type IconName } from './Icons';
 
 type Item = { id: string; label: string; icon: IconName; on: boolean; run: () => void; badge?: React.ReactNode; hint?: string; claude?: boolean };
 
 /**
- * Narrow icon rail. On top, what you use all along while developing (devices, console, deployments);
+ * Narrow icon rail. On top, Claude (its column), then what you use all along while developing (devices, deployments);
  * below, smaller, what you check before publishing (page, share, checks, compare).
  */
 export function Rail() {
   const s = useStore();
-  const { section, setSection, share, report, logs, panel, consoleOpen, togglePanel, toggleConsole } = s;
+  const { section, setSection, share, report, panel, togglePanel } = s;
   const shareErrors = share?.issues.filter((i) => i.severity === 'error').length ?? 0;
-  const consoleErrors = logs.filter((l) => l.level === 'error').length;
   const onDevices = section === 'apercu';
   const go = (id: Section) => () => setSection(id);
   const open = (p: Panel) => () => togglePanel(p);
 
   const primary: Item[] = [
+    ...(s.settings.claudePanel && s.settings.activeId ? [{ id: 'claude', label: 'Claude', icon: 'spark' as IconName, on: claudeOpen(s), run: () => s.toggleClaude(), hint: 'Ctrl J', claude: true }] : []),
     { id: 'apercu', label: t('Devices', 'Appareils'), icon: 'eye', on: onDevices, run: go('apercu') },
-    { id: 'console', label: 'Console', icon: 'terminal', on: onDevices && consoleOpen, run: () => toggleConsole(), badge: consoleErrors > 0 ? <span className="text-err">{consoleErrors}</span> : null },
     { id: 'deploiements', label: t('Deployments', 'Déploiements'), icon: 'tri', on: section === 'deploiements', run: go('deploiements') },
-    ...(s.settings.claudePanel ? [{ id: 'claude', label: 'Claude', icon: 'spark' as IconName, on: onDevices && panel === 'claude', run: open('claude'), hint: 'Ctrl J', claude: true }] : []),
   ];
   const secondary: Item[] = [
     { id: 'page', label: 'Page', icon: 'page', on: onDevices && panel === 'page', run: open('page') },

@@ -35,7 +35,7 @@ export function ClaudePanelSettings() {
       <div className={row}>
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <span className="font-medium">{t('Claude panel', 'Panneau Claude')}</span>
-          <span className="text-xs text-muted">{t('Ask Claude next to the devices (left bar, Ctrl J).', 'Demander à Claude à côté des appareils (barre de gauche, Ctrl J).')}</span>
+          <span className="text-xs text-muted">{t('A Claude column, open by default in every project. Fold it with Ctrl J.', 'Une colonne Claude, ouverte par défaut dans chaque projet. Ctrl J pour la replier.')}</span>
         </div>
         <Switch label={t('Claude panel', 'Panneau Claude')} on={settings.claudePanel} onChange={(claudePanel) => void updateSettings({ claudePanel })} />
       </div>

@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import type { ChatAttachment, ChatState, FeedbackPin, GitHubState, InspectState, ClaudeProjectState, AnalyzeReport, CrawledPage, DevicePreset, EnvId, InitState, McpActivity, McpInfo, KingletApi, PhoneState, Project, Settings, ShareReport, UpdateState, VercelState, VercelTeamProject } from '../shared/types';
 import { activeProject, closeProject as closeTab, openProject, patchProject, projectFromUrl } from '../shared/projects';
 import { envOf, envTargets, urlOnEnv, type ProjectVercel } from './lib/env';
-import { activeIds, allPresets } from '../shared/devices';
+import { activeIds, allPresets, listedIds } from '../shared/devices';
 
 declare global {
   interface Window {
@@ -16,7 +16,7 @@ export const cleanError = (e: unknown) => String((e as Error)?.message ?? e).rep
 
 export type Section = 'apercu' | 'partage' | 'comparer' | 'deploiements' | 'checks' | 'reglages' | 'projets';
 /** Panel opened next to the devices from the left bar. */
-export type Panel = 'page' | 'checks' | 'claude' | 'feedback';
+export type Panel = 'page' | 'checks' | 'feedback';
 export type SettingsTab = 'general' | 'devices' | 'project' | 'vercel' | 'github' | 'claude' | 'mcp' | 'updates';
 export type LoadStatus = 'idle' | 'loading' | 'loaded' | 'failed';
 
@@ -39,7 +39,7 @@ interface State {
   crawledOrigin: string | null;
   section: Section;
   panel: Panel | null;
-  /** Console drawer under the devices. */
+  /** Console panel on the right of the devices. */
   consoleOpen: boolean;
   settingsTab: SettingsTab;
   /** Conversation with Claude, per project id. */
@@ -106,6 +106,8 @@ interface State {
   /** Open or close a panel next to the devices (opens the devices if needed). */
   togglePanel(p: Panel): void;
   toggleConsole(open?: boolean): void;
+  /** Unfold or fold the Claude column of the active project (open by default). */
+  toggleClaude(open?: boolean): void;
   /** Open the Claude panel with a message (and things joined to it) ready to send. */
   askClaude(text: string, attachments?: ChatAttachment[]): void;
   setDraft(projectId: string, draft: { text: string; attachments: ChatAttachment[] }): void;
@@ -334,8 +336,17 @@ export const useStore = create<State>((set, get) => ({
     if (!id) return;
     const prev = s.drafts[id] ?? { text: '', attachments: [] };
     set({ drafts: { ...s.drafts, [id]: { text: !text ? prev.text : prev.text ? `${prev.text}\n${text}` : text, attachments: [...prev.attachments, ...attachments] } } });
-    if (s.section !== 'apercu') s.setSection('apercu');
-    set({ panel: 'claude' });
+    // The column is there on every section but the projects and the settings.
+    if (s.section === 'projets' || s.section === 'reglages') s.setSection('apercu');
+    s.toggleClaude(true);
+  },
+
+  toggleClaude(open) {
+    const s = get();
+    const project = activeProject(s.settings);
+    if (!project) return;
+    const closed = !(open ?? !!project.claudeClosed);
+    if (closed !== !!project.claudeClosed) void s.updateSettings(patchProject(s.settings, project.id, { claudeClosed: closed }));
   },
 
   setDraft(projectId, draft) {
@@ -382,6 +393,14 @@ export const useStore = create<State>((set, get) => ({
 /** Built-in and custom devices, in the order chosen in the settings. */
 export const devicePresets = (s: Pick<State, 'presets' | 'settings'>) => allPresets(s.presets, s.settings);
 
+/** Devices listed in the project (ticked in the settings): the only ones offered in the device bar. */
+export const listedPresets = (s: Pick<State, 'presets' | 'settings'>) => {
+  const all = devicePresets(s);
+  return listedIds(s.presets, s.settings)
+    .map((id) => all.find((p) => p.id === id))
+    .filter((p): p is DevicePreset => !!p);
+};
+
 /** Devices shown side by side (global list, or the active project's). */
 export const activePresets = (s: Pick<State, 'presets' | 'settings'>) => {
   const all = devicePresets(s);
@@ -396,5 +415,11 @@ export function projectVercel(s: Pick<State, 'settings' | 'vercel'>, projectId?:
   const vp = project?.vercelProjectId ? (s.vercel?.projects.find((p) => p.id === project.vercelProjectId) ?? null) : null;
   return { project: vp, deployments: vp ? (s.vercel?.deployments[vp.id] ?? []) : [] };
 }
+
+/** The Claude column has its place here (folded or not): every section but the projects and the settings. */
+export const claudeShown = (s: Pick<State, 'settings' | 'section'>) => s.settings.claudePanel && !!activeProject(s.settings) && s.section !== 'projets' && s.section !== 'reglages';
+
+/** The Claude column is unfolded: open by default, folded per project. */
+export const claudeOpen = (s: Pick<State, 'settings' | 'section'>) => claudeShown(s) && !activeProject(s.settings)!.claudeClosed;
 
 export const currentProject = (s: Pick<State, 'settings'>) => activeProject(s.settings);

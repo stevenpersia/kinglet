@@ -54,6 +54,10 @@ export interface Project {
   favicon?: string | null;
   /** Devices of this project, when the settings keep one list per project. */
   active?: string[];
+  /** Devices listed in this project (ticked in the settings), when the settings keep one list per project. */
+  listed?: string[];
+  /** The Claude column was folded for this project (it is open by default). */
+  claudeClosed?: boolean;
   /** Claude Code session of the panel, to resume it (here or in a terminal). */
   claudeSession?: string | null;
 }
@@ -64,7 +68,10 @@ export interface Settings {
   openIds: string[];
   activeId: string | null;
   recentUrls: string[];
+  /** Devices shown side by side (among the listed ones). */
   active: string[];
+  /** Devices listed in the projects (ticked in the settings); absent: all of them. */
+  listed?: string[];
   scrollSync: boolean;
   landscape: boolean;
   /** Slow network and CPU, applied to phones and tablets (screens stay at full speed). */

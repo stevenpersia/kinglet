@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { activeIds, allPresets, customPreset, setActiveIds } from './devices';
+import { activeIds, allPresets, customPreset, listedIds, setActiveIds, setListedIds } from './devices';
 import type { DevicePreset, Settings } from './types';
 
 const preset = (id: string, kind: DevicePreset['kind'] = 'phone'): DevicePreset => ({ id, label: id, width: 400, height: 800, dpr: 3, mobile: true, touch: true, userAgent: '', radius: 0, kind });
@@ -51,5 +51,31 @@ describe('devices', () => {
     // A project without its own list shows the global one.
     expect(activeIds(builtins, per)).toEqual(['a', 'c']);
     expect(setActiveIds(builtins, base, [])).toEqual({});
+  });
+
+  it('lists only the ticked devices, without showing them', () => {
+    expect(listedIds(builtins, base)).toEqual(['a', 'b', 'c']);
+    const patch = setListedIds(builtins, base, ['b', 'a']);
+    expect(patch).toEqual({ listed: ['a', 'b'] });
+    const s = { ...base, ...patch };
+    expect(listedIds(builtins, s)).toEqual(['a', 'b']);
+    // Ticking a device does not show it; unticking hides it.
+    expect(activeIds(builtins, s)).toEqual(['a']);
+    expect(activeIds(builtins, { ...s, listed: ['b'] })).toEqual(['b']);
+  });
+
+  it('keeps one device list per project', () => {
+    const per = { ...base, devicesPerProject: true, listed: ['a', 'b', 'c'] };
+    const patch = setListedIds(builtins, per, ['c']);
+    expect(patch.projects?.[0]?.listed).toEqual(['c']);
+    expect(patch.listed).toBeUndefined();
+    expect(listedIds(builtins, { ...per, ...patch })).toEqual(['c']);
+    expect(activeIds(builtins, { ...per, ...patch })).toEqual(['c']);
+  });
+
+  it('lists a device shown from elsewhere (Claude, onboarding)', () => {
+    const s = { ...base, listed: ['a'] };
+    expect(setActiveIds(builtins, s, ['b'])).toEqual({ active: ['b'], listed: ['a', 'b'] });
+    expect(setActiveIds(builtins, base, ['b'])).toEqual({ active: ['b'] });
   });
 });
