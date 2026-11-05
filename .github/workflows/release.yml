@@ -40,7 +40,8 @@ jobs:
             echo "Secret RELEASES_TOKEN missing: a token with Contents read & write on $RELEASES_REPO" >&2
             exit 1
           fi
-          if GH_TOKEN="$RELEASES_TOKEN" gh release view "$tag" --repo "$RELEASES_REPO" >/dev/null 2>&1; then
+          # Complete only with latest-linux.yml: a release left half-made (GitHub error) is finished by this run.
+          if GH_TOKEN="$RELEASES_TOKEN" gh release view "$tag" --repo "$RELEASES_REPO" --json assets --jq '.assets[].name' 2>/dev/null | grep -qx latest-linux.yml; then
             echo "Release $tag already exists: bump the version in apps/desktop/package.json" >&2
             exit 1
           fi
@@ -83,9 +84,16 @@ jobs:
       # Same files in the public repository: latest-linux.yml there is what the app's updater reads.
       - name: Publish the update
         working-directory: apps/desktop
+        # GitHub answers 502 now and then: retry, and finish a release a failed attempt left behind.
+        # latest-linux.yml goes last, so the updater never sees a version whose files are missing.
         run: |
+          retry() { for i in 1 2 3 4; do "$@" && return 0; echo "Attempt $i failed, retrying" >&2; sleep $((i * 10)); done; return 1; }
           GH_TOKEN="$PRIVATE_TOKEN" gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json body --jq .body > notes.md
-          gh release create "$TAG" dist/*.AppImage dist/*.pacman dist/latest-linux.yml --repo "$RELEASES_REPO" --title "Kinglet ${TAG#v}" --notes-file notes.md
+          if ! gh release view "$TAG" --repo "$RELEASES_REPO" >/dev/null 2>&1; then
+            retry sh -c 'gh release view "$TAG" --repo "$RELEASES_REPO" >/dev/null 2>&1 || gh release create "$TAG" --repo "$RELEASES_REPO" --title "Kinglet ${TAG#v}" --notes-file notes.md'
+          fi
+          retry gh release upload "$TAG" dist/*.AppImage dist/*.pacman --repo "$RELEASES_REPO" --clobber
+          retry gh release upload "$TAG" dist/latest-linux.yml --repo "$RELEASES_REPO" --clobber
         env:
           GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
           PRIVATE_TOKEN: ${{ secrets.GITHUB_TOKEN }}
