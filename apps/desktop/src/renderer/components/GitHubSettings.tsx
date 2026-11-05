@@ -4,13 +4,12 @@ import { api, useStore } from '../store';
 
 /** GitHub's fine-grained token form, pre-filled with what Kinglet uses (PRs and CI of previews, issues reported from a preview). */
 export const GITHUB_TOKEN_URL =
-  'https://github.com/settings/personal-access-tokens/new?name=Kinglet&description=Pull+requests+and+CI+of+previews&pull_requests=read&checks=read&issues=write';
+  'https://github.com/settings/personal-access-tokens/new?name=Kinglet&description=Pull+requests+of+previews&pull_requests=read&issues=write';
 
 /** What to tick when creating the GitHub token. */
 export const githubScopes = () => [
   t('Repository access: the repositories of your projects (or all)', 'Accès aux dépôts : ceux de tes projets (ou tous)'),
   t('Pull requests: Read', 'Pull requests : lecture'),
-  t('Checks: Read (CI status)', 'Checks : lecture (statut de la CI)'),
   t('Issues: Read and write (report a bug from a preview)', 'Issues : lecture et écriture (signaler un bug depuis une preview)'),
 ];
 
@@ -60,8 +59,8 @@ export function GitHubSettings() {
         <>
           <span className="text-xs leading-relaxed text-muted">
             {t(
-              'Optional. Vercel already gives each project’s repository; GitHub shows the pull request and CI of each preview.',
-              'Facultatif. Vercel donne déjà le dépôt de chaque projet ; GitHub affiche la pull request et la CI de chaque preview.',
+              'Optional. Vercel already gives each project’s repository; GitHub shows the pull request of each preview.',
+              'Facultatif. Vercel donne déjà le dépôt de chaque projet ; GitHub affiche la pull request de chaque preview.',
             )}
           </span>
           <form

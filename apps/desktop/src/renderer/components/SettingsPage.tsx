@@ -111,9 +111,10 @@ function McpSettings() {
             <div className="flex flex-col gap-2 border-t border-line-soft p-3.5">
               <span className="label">{t('2. Use', '2. Utiliser')}</span>
               <span className="text-xs text-muted">
+                {t('Open a terminal in your project folder, run', 'Ouvre un terminal dans le dossier du projet, lance')} <code className="font-mono text-fg">claude</code>{' '}
                 {t(
-                  'Just ask Claude “check the home page on iPhone with Kinglet”, or run one of these commands in Claude Code:',
-                  'Demande simplement à Claude « vérifie la home sur iPhone avec Kinglet », ou lance une de ces commandes dans Claude Code :',
+                  'and ask “check the home page on iPhone with Kinglet”, or run one of these commands:',
+                  'et demande « vérifie la home sur iPhone avec Kinglet », ou lance une de ces commandes :',
                 )}
               </span>
               <div className="flex flex-col gap-1.5">
@@ -164,8 +165,8 @@ const NAV = (): { group: string; items: { id: SettingsTab; label: string; icon: 
       items: [
         { id: 'vercel', label: 'Vercel', icon: 'tri' },
         { id: 'github', label: 'GitHub', icon: 'git' },
-        { id: 'claude', label: 'Claude Code', icon: 'spark' },
-        { id: 'mcp', label: t('MCP server', 'Serveur MCP'), icon: 'terminal' },
+        { id: 'claude', label: t('Claude in Kinglet', 'Claude dans Kinglet'), icon: 'spark' },
+        { id: 'mcp', label: t('Claude in terminal', 'Claude dans le terminal'), icon: 'terminal' },
         { id: 'updates', label: t('Updates', 'Mises à jour'), icon: 'download' },
       ],
     },
@@ -179,6 +180,8 @@ export function SettingsPage() {
   const current = nav.flatMap((g) => g.items).find((i) => i.id === settingsTab)!;
   const sub: Partial<Record<SettingsTab, string>> = {
     general: t('Applies to every project.', 'Vaut pour tous les projets.'),
+    claude: t('A Claude panel next to your devices, which Kinglet runs for you. To use your own claude in a terminal instead, see “Claude in terminal”.', 'Un panneau Claude à côté de tes appareils, que Kinglet lance pour toi. Pour utiliser ton propre claude dans un terminal, vois « Claude dans le terminal ».'),
+    mcp: t('Your own claude, in a terminal or editor, drives Kinglet through its MCP server: screenshots, checks, previews.', 'Ton propre claude, dans un terminal ou un éditeur, pilote Kinglet grâce à son serveur MCP : captures, checks, aperçus.'),
     devices: t('Only checked devices appear in the project’s device bar, in this order. Drag a row to move it.', 'Seuls les appareils cochés apparaissent dans la barre des appareils du projet, dans cet ordre. Glisse une ligne pour la déplacer.'),
   };
   return (
@@ -207,7 +210,7 @@ export function SettingsPage() {
         </p>
       </nav>
       <main className="flex min-w-0 flex-1 justify-center overflow-y-auto p-7">
-        <div className="flex w-full max-w-[760px] flex-col gap-6 [&>*]:shrink-0">
+        <div className="flex h-fit w-full max-w-[760px] flex-col gap-6 pb-8 [&>*]:shrink-0">
           <div>
             <h1 className="m-0 text-xl font-semibold tracking-[-0.02em]">{current.label}</h1>
             {sub[settingsTab] && <p className="m-0 mt-1 text-muted">{sub[settingsTab]}</p>}
@@ -223,13 +226,13 @@ export function SettingsPage() {
           ) : settingsTab === 'github' ? (
             <GitHubSettings />
           ) : settingsTab === 'claude' ? (
+            <ClaudePanelSettings />
+          ) : settingsTab === 'mcp' ? (
             <>
-              <ClaudePanelSettings />
-              <span className="label">{t('Session tracking', 'Suivi des sessions')}</span>
+              <McpSettings />
+              <span className="label">{t('Follow terminal sessions', 'Suivre les sessions du terminal')}</span>
               <ClaudeSettings />
             </>
-          ) : settingsTab === 'mcp' ? (
-            <McpSettings />
           ) : (
             <UpdateSettings />
           )}

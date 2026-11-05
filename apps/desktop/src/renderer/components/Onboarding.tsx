@@ -281,6 +281,15 @@ export function Onboarding() {
                 {vercel?.connected && (
                   <>
                     <div className="label border-y border-line-soft bg-chrome px-3 py-2">{t('Your Vercel projects', 'Tes projets Vercel')}</div>
+                    {!vercelProjects.length && (
+                      <p className="m-0 px-3 py-2.5 text-xs text-faint">
+                        {vercel.error ??
+                          t(
+                            'No project found with this token. If your projects are in a team, create a token with the “Full Account” scope, or one for that team.',
+                            'Aucun projet trouvé avec ce jeton. Si tes projets sont dans une équipe, crée un jeton avec la portée « Full Account », ou un pour cette équipe.',
+                          )}
+                      </p>
+                    )}
                     {vercelProjects.map((vp) => {
                       const on = choice?.kind === 'vercel' && choice.project.id === vp.id;
                       return (
@@ -353,10 +362,39 @@ export function Onboarding() {
                   </span>
                 )}
               </div>
+              <p className="m-0 -mb-2 text-xs text-muted">{t('Two ways to use it, one or both:', 'Deux façons de l’utiliser, l’une ou les deux :')}</p>
               <div className="overflow-hidden rounded-[10px] border border-line bg-card">
-                <Toggle label={t('Claude in Kinglet', 'Claude dans Kinglet')} hint={t('A column always at hand to ask and show.', 'Une colonne toujours à portée pour demander et montrer.')} on={settings.claudePanel} onChange={(claudePanel) => void updateSettings({ claudePanel })} />
-                <Toggle label={t('Claude in the terminal', 'Claude dans le terminal')} hint={t('Installs the MCP server for all your projects.', 'Installe le serveur MCP pour tous tes projets.')} on={wantMcp && !!cli?.found} disabled={!cli?.found} onChange={setWantMcp} />
-                <Toggle label={t('Session tracking', 'Suivi des sessions')} hint={t('The tab pulses while Claude works, a notification when it is done.', 'L’onglet pulse quand Claude travaille, une notification quand il a fini.')} on={wantHooks} onChange={setWantHooks} />
+                <Toggle
+                  label={t('In Kinglet', 'Dans Kinglet')}
+                  hint={t('A Claude panel next to your devices: you write to Claude without leaving the app. Kinglet runs Claude Code for you, in the project folder.', 'Un panneau Claude à côté de tes appareils : tu écris à Claude sans quitter l’app. Kinglet lance Claude Code pour toi, dans le dossier du projet.')}
+                  on={settings.claudePanel}
+                  onChange={(claudePanel) => void updateSettings({ claudePanel })}
+                />
+              </div>
+              <div className="overflow-hidden rounded-[10px] border border-line bg-card">
+                <Toggle
+                  label={t('From your terminal', 'Depuis ton terminal')}
+                  hint={t('You keep using claude in your terminal or editor, and it drives Kinglet: screenshots, checks, previews. Installs Kinglet’s MCP server in Claude Code, for all your projects.', 'Tu gardes claude dans ton terminal ou ton éditeur, et il pilote Kinglet : captures, checks, aperçus. Installe le serveur MCP de Kinglet dans Claude Code, pour tous tes projets.')}
+                  on={wantMcp && !!cli?.found}
+                  disabled={!cli?.found}
+                  onChange={setWantMcp}
+                />
+                <Toggle
+                  label={t('Follow these sessions in Kinglet', 'Suivre ces sessions dans Kinglet')}
+                  hint={t('The project’s tab pulses while Claude works in your terminal, and a notification tells you when it is done.', 'L’onglet du projet pulse pendant que Claude travaille dans ton terminal, et une notification te prévient quand il a fini.')}
+                  on={wantHooks}
+                  onChange={setWantHooks}
+                />
+                {wantMcp && cli?.found && (
+                  <div className="flex flex-col gap-1.5 border-t border-line-soft bg-bg px-3.5 py-3 text-xs text-muted">
+                    <span className="label">{t('Then', 'Ensuite')}</span>
+                    <span>
+                      {t('Open a terminal in your project folder, run', 'Ouvre un terminal dans le dossier du projet, lance')} <code className="font-mono text-fg">claude</code>{' '}
+                      {t('and ask, for example:', 'et demande par exemple :')} <span className="text-fg">{t('“check the home page on iPhone with Kinglet”', '« vérifie la home sur iPhone avec Kinglet »')}</span>.
+                    </span>
+                    <span className="text-faint">{t('All of this stays in Settings → Claude in terminal.', 'Tout ça reste dans Réglages → Claude dans le terminal.')}</span>
+                  </div>
+                )}
               </div>
               {error && <p className="m-0 text-xs text-err">{error}</p>}
             </>

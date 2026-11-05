@@ -87,10 +87,15 @@ export class VercelService {
   private async open() {
     const personal = this.client(null);
     const [user, teams] = await Promise.all([personal.user(), personal.teams()]);
-    const lists = await Promise.all([null, ...teams.map((t) => t.id)].map(async (teamId) => (await this.client(teamId).projects().catch(() => [])).map((p): VercelTeamProject => ({ ...p, teamId }))));
+    // Personal scope, every team, and the default team (where a recent account's projects live, even when not listed in teams).
+    const scopes = [...new Set([null, ...teams.map((t) => t.id), ...(user.defaultTeamId ? [user.defaultTeamId] : [])])];
+    const results = await Promise.allSettled(scopes.map(async (teamId) => (await this.client(teamId).projects()).map((p): VercelTeamProject => ({ ...p, teamId }))));
     const seen = new Set<string>();
-    const projects = lists.flat().filter((p) => !seen.has(p.id) && seen.add(p.id));
-    this.update({ connected: true, user, teams, projects, error: null, storage: this.storageBackend() });
+    const projects = results.flatMap((r) => (r.status === 'fulfilled' ? r.value : [])).filter((p) => !seen.has(p.id) && seen.add(p.id));
+    // Nothing found and a scope refused: say why instead of an empty list.
+    const refused = results.find((r): r is PromiseRejectedResult => r.status === 'rejected');
+    const error = !projects.length && refused ? t(`Couldn’t list your Vercel projects: ${(refused.reason as Error).message}`, `Impossible de lister tes projets Vercel : ${(refused.reason as Error).message}`) : null;
+    this.update({ connected: true, user, teams, projects, error, storage: this.storageBackend() });
     this.startPolling();
   }
 
