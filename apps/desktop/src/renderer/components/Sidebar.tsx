@@ -1,4 +1,4 @@
-import { t } from '@parakeet/core';
+import { t } from '@kinglet/core';
 import { useStore, type Panel, type Section } from '../store';
 import { Icon, type IconName } from './Icons';
 

@@ -1,4 +1,4 @@
-import { locale, t } from '@parakeet/core';
+import { locale, t } from '@kinglet/core';
 import { useEffect, useState } from 'react';
 import type { EnvId, VisualColumn } from '../../shared/types';
 import { ENV_DOT } from '../lib/env';

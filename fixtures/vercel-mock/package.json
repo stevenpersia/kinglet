@@ -1,5 +1,5 @@
 {
-  "name": "@parakeet/vercel-mock",
+  "name": "@kinglet/vercel-mock",
   "private": true,
   "type": "module",
   "main": "index.mjs"

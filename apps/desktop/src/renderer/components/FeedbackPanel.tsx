@@ -1,4 +1,4 @@
-import { locale, t } from '@parakeet/core';
+import { locale, t } from '@kinglet/core';
 import { useEffect, useState } from 'react';
 import type { FeedbackPin } from '../../shared/types';
 import { activeProject } from '../../shared/projects';
@@ -69,7 +69,7 @@ export function FeedbackPanel() {
       const url = await api().github.createIssue(
         repo,
         t(`Feedback · ${open.length} point${open.length > 1 ? 's' : ''}`, `Retours · ${open.length} point${open.length > 1 ? 's' : ''}`),
-        `${pinsMarkdown(project.name, open)}\n\n_${t('Pinned in Parakeet (the captures stay in the app).', 'Épinglé dans Parakeet (les captures restent dans l’app).')}_`,
+        `${pinsMarkdown(project.name, open)}\n\n_${t('Pinned in Kinglet (the captures stay in the app).', 'Épinglé dans Kinglet (les captures restent dans l’app).')}_`,
       );
       setStatus({ ok: true, text: t('Issue opened ✓', 'Issue ouverte ✓'), url });
     } catch (e) {

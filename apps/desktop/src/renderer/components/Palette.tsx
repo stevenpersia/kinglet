@@ -1,4 +1,4 @@
-import { t } from '@parakeet/core';
+import { t } from '@kinglet/core';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { activePresets, api, devicePresets, projectVercel, useStore, type Section } from '../store';
 import { setActiveIds } from '../../shared/devices';

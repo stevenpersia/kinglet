@@ -1,5 +1,5 @@
 {
-  "name": "@parakeet/web",
+  "name": "@kinglet/web",
   "private": true,
   "type": "module",
   "description": "Landing page (static). Deployed on Vercel with apps/web as root directory.",
@@ -9,7 +9,7 @@
     "test": "vitest run"
   },
   "devDependencies": {
-    "@parakeet/core": "workspace:*",
+    "@kinglet/core": "workspace:*",
     "vitest": "^5.1.0"
   }
 }

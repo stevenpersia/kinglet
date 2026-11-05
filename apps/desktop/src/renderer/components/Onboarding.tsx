@@ -1,4 +1,4 @@
-import { resolveLanguage, t } from '@parakeet/core';
+import { resolveLanguage, t } from '@kinglet/core';
 import { useEffect, useState } from 'react';
 import type { ClaudeCli, Language, LocalServer, VercelTeamProject } from '../../shared/types';
 import { patchProject } from '../../shared/projects';
@@ -166,7 +166,7 @@ export function Onboarding() {
 
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-6">
-      <div role="dialog" aria-modal="true" aria-label={t('Welcome to Parakeet', 'Bienvenue dans Parakeet')} className="flex max-h-full w-[640px] flex-col overflow-hidden rounded-[14px] border border-line bg-card shadow-2xl shadow-black/70">
+      <div role="dialog" aria-modal="true" aria-label={t('Welcome to Kinglet', 'Bienvenue dans Kinglet')} className="flex max-h-full w-[640px] flex-col overflow-hidden rounded-[14px] border border-line bg-card shadow-2xl shadow-black/70">
         <div role="tablist" className="flex shrink-0 gap-1.5 px-6 pt-5">
           {steps.map((label, i) => (
             <button key={label} role="tab" aria-selected={i === step} onClick={() => setStep(i)} className={`flex flex-1 flex-col gap-2 text-left text-[11.5px] ${i === step ? 'text-fg' : 'text-ghost hover:text-faint'}`}>
@@ -180,7 +180,7 @@ export function Onboarding() {
           {step === 0 && (
             <>
               <div>
-                <h2 className="m-0 text-xl font-semibold tracking-[-0.02em]">{t('Welcome to Parakeet', 'Bienvenue dans Parakeet')}</h2>
+                <h2 className="m-0 text-xl font-semibold tracking-[-0.02em]">{t('Welcome to Kinglet', 'Bienvenue dans Kinglet')}</h2>
                 <p className="m-0 mt-1.5 text-muted">{t('Your site on every screen, locally, in preview and in production, and your link previews before you share them.', 'Ton site sur tous les écrans, en local, en preview et en prod, et l’aperçu de tes liens avant de les partager.')}</p>
               </div>
               <div className="flex items-center gap-4">
@@ -350,7 +350,7 @@ export function Onboarding() {
                 )}
               </div>
               <div className="overflow-hidden rounded-[10px] border border-line bg-card">
-                <Toggle label={t('Claude in Parakeet', 'Claude dans Parakeet')} hint={t('A panel next to the devices to ask and show.', 'Un panneau à côté des appareils pour demander et montrer.')} on={settings.claudePanel} onChange={(claudePanel) => void updateSettings({ claudePanel })} />
+                <Toggle label={t('Claude in Kinglet', 'Claude dans Kinglet')} hint={t('A panel next to the devices to ask and show.', 'Un panneau à côté des appareils pour demander et montrer.')} on={settings.claudePanel} onChange={(claudePanel) => void updateSettings({ claudePanel })} />
                 <Toggle label={t('Claude in the terminal', 'Claude dans le terminal')} hint={t('Installs the MCP server for all your projects.', 'Installe le serveur MCP pour tous tes projets.')} on={wantMcp && !!cli?.found} disabled={!cli?.found} onChange={setWantMcp} />
                 <Toggle label={t('Session tracking', 'Suivi des sessions')} hint={t('The tab pulses while Claude works, a notification when it is done.', 'L’onglet pulse quand Claude travaille, une notification quand il a fini.')} on={wantHooks} onChange={setWantHooks} />
               </div>
@@ -370,7 +370,7 @@ export function Onboarding() {
               </button>
             )}
             <button disabled={finishing} onClick={() => (step === 3 ? void finish() : setStep(step + 1))} className="flex h-8 items-center rounded-ui bg-fg px-4 text-xs font-semibold text-bg disabled:opacity-60">
-              {step === 3 ? (finishing ? t('Opening…', 'Ouverture…') : t('Open Parakeet', 'Ouvrir Parakeet')) : t('Continue', 'Continuer')}
+              {step === 3 ? (finishing ? t('Opening…', 'Ouverture…') : t('Open Kinglet', 'Ouvrir Kinglet')) : t('Continue', 'Continuer')}
             </button>
           </div>
         </div>

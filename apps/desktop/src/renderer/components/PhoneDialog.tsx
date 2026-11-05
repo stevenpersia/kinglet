@@ -1,4 +1,4 @@
-import { t } from '@parakeet/core';
+import { t } from '@kinglet/core';
 import { useEffect, useState } from 'react';
 import type { PhoneQr } from '../../shared/types';
 import { ENV_DOT, ENV_LABEL, envOf } from '../lib/env';
@@ -79,13 +79,13 @@ export function PhoneDialog() {
         </div>
 
         {!url ? (
-          <p className="m-0 p-5 text-faint">{t('Open a site in Parakeet first.', 'Ouvre d’abord un site dans Parakeet.')}</p>
+          <p className="m-0 p-5 text-faint">{t('Open a site in Kinglet first.', 'Ouvre d’abord un site dans Kinglet.')}</p>
         ) : local && !phone?.running ? (
           <div className="flex flex-col gap-3 p-5">
             <p className="m-0 leading-relaxed text-muted">
               {t(
-                'Parakeet can make your local server reachable on your Wi-Fi network. Only a device that scans the QR code can see it. Hot reload works on the phone too.',
-                'Parakeet peut rendre ton serveur local accessible sur ton réseau Wi-Fi. Seul un appareil qui scanne le QR code pourra le voir. Le rechargement à chaud marche aussi sur le téléphone.',
+                'Kinglet can make your local server reachable on your Wi-Fi network. Only a device that scans the QR code can see it. Hot reload works on the phone too.',
+                'Kinglet peut rendre ton serveur local accessible sur ton réseau Wi-Fi. Seul un appareil qui scanne le QR code pourra le voir. Le rechargement à chaud marche aussi sur le téléphone.',
               )}
             </p>
             <button onClick={() => void set(() => api().phone.start())} disabled={busy} className="flex h-9 items-center justify-center self-start rounded-ui bg-fg px-4 font-semibold text-bg disabled:opacity-60">
@@ -117,7 +117,7 @@ export function PhoneDialog() {
                   </label>
                   <label className="flex items-center gap-2 text-muted">
                     <input type="checkbox" checked={phone?.follow ?? true} onChange={(e) => void set(() => api().phone.setFollow(e.target.checked))} className="accent-[#ededef]" />
-                    {t('The phone follows navigation in Parakeet', 'Le téléphone suit la navigation de Parakeet')}
+                    {t('The phone follows navigation in Kinglet', 'Le téléphone suit la navigation de Kinglet')}
                   </label>
                   <div className="flex flex-col gap-1">
                     <span className="label">{t('Connected devices', 'Appareils connectés')}</span>

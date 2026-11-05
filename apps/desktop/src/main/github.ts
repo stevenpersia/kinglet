@@ -1,7 +1,7 @@
 import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { safeStorage } from 'electron';
-import { t } from '@parakeet/core';
+import { t } from '@kinglet/core';
 import type { GitHubState, PullRequest } from '../shared/types';
 
 interface Stored {
@@ -21,7 +21,7 @@ export class GitHubService {
   constructor(
     userData: string,
     private emit: (s: GitHubState) => void,
-    private baseUrl = process.env.PARAKEET_GITHUB_API ?? 'https://api.github.com',
+    private baseUrl = process.env.KINGLET_GITHUB_API ?? 'https://api.github.com',
   ) {
     this.file = join(userData, 'github.json');
   }
@@ -32,7 +32,7 @@ export class GitHubService {
   }
 
   private async open() {
-    const res = await fetch(`${this.baseUrl}/user`, { headers: { authorization: `Bearer ${this.token}`, accept: 'application/vnd.github+json', 'user-agent': 'Parakeet' }, signal: AbortSignal.timeout(10_000) });
+    const res = await fetch(`${this.baseUrl}/user`, { headers: { authorization: `Bearer ${this.token}`, accept: 'application/vnd.github+json', 'user-agent': 'Kinglet' }, signal: AbortSignal.timeout(10_000) });
     if (res.status === 401) throw new Error(t('GitHub refused this token.', 'GitHub refuse ce jeton.'));
     if (!res.ok) throw new Error(`GitHub: HTTP ${res.status}`);
     const u = (await res.json()) as { login: string; name: string | null; avatar_url?: string };
@@ -70,7 +70,7 @@ export class GitHubService {
   private cache = new Map<string, { at: number; pr: PullRequest | null }>();
 
   private async get<T>(path: string): Promise<T> {
-    const res = await fetch(`${this.baseUrl}${path}`, { headers: { authorization: `Bearer ${this.token}`, accept: 'application/vnd.github+json', 'user-agent': 'Parakeet' }, signal: AbortSignal.timeout(10_000) });
+    const res = await fetch(`${this.baseUrl}${path}`, { headers: { authorization: `Bearer ${this.token}`, accept: 'application/vnd.github+json', 'user-agent': 'Kinglet' }, signal: AbortSignal.timeout(10_000) });
     if (!res.ok) throw new Error(`GitHub ${path}: HTTP ${res.status}`);
     return (await res.json()) as T;
   }
@@ -122,7 +122,7 @@ export class GitHubService {
     if (!this.token) throw new Error(t('GitHub not connected', 'GitHub non connecté'));
     const res = await fetch(`${this.baseUrl}/repos/${repo}/issues`, {
       method: 'POST',
-      headers: { authorization: `Bearer ${this.token}`, accept: 'application/vnd.github+json', 'user-agent': 'Parakeet', 'content-type': 'application/json' },
+      headers: { authorization: `Bearer ${this.token}`, accept: 'application/vnd.github+json', 'user-agent': 'Kinglet', 'content-type': 'application/json' },
       body: JSON.stringify({ title, body }),
       signal: AbortSignal.timeout(15_000),
     });

@@ -1,4 +1,4 @@
-import { setLanguage, type VercelDeployment } from '@parakeet/core';
+import { setLanguage, type VercelDeployment } from '@kinglet/core';
 import { describe, expect, it } from 'vitest';
 import { envOf, envTargets, oldProdOf, productionsOf, timeAgo, urlOnEnv } from './env';
 

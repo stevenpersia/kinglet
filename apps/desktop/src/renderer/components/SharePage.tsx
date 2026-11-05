@@ -1,4 +1,4 @@
-import { t, type PlatformFamily, type ShareCard } from '@parakeet/core';
+import { t, type PlatformFamily, type ShareCard } from '@kinglet/core';
 import { useEffect, useState } from 'react';
 import type { ShareStudio } from '../../shared/types';
 import { api, cleanError, useStore } from '../store';

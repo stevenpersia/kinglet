@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { setLanguage } from '@parakeet/core';
+import { setLanguage } from '@kinglet/core';
 import { ClaudeTracker, IDLE_AFTER_MS } from './claude';
 
 const P = { id: 'shop', folder: '/home/s/dev/shop' };

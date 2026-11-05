@@ -1,15 +1,15 @@
 import { create } from 'zustand';
-import type { ChatAttachment, ChatState, FeedbackPin, GitHubState, InspectState, ClaudeProjectState, AnalyzeReport, CrawledPage, DevicePreset, EnvId, InitState, McpActivity, McpInfo, ParakeetApi, PhoneState, Project, Settings, ShareReport, UpdateState, VercelState, VercelTeamProject } from '../shared/types';
+import type { ChatAttachment, ChatState, FeedbackPin, GitHubState, InspectState, ClaudeProjectState, AnalyzeReport, CrawledPage, DevicePreset, EnvId, InitState, McpActivity, McpInfo, KingletApi, PhoneState, Project, Settings, ShareReport, UpdateState, VercelState, VercelTeamProject } from '../shared/types';
 import { activeProject, closeProject as closeTab, openProject, patchProject, projectFromUrl } from '../shared/projects';
 import { envOf, envTargets, urlOnEnv, type ProjectVercel } from './lib/env';
 import { activeIds, allPresets } from '../shared/devices';
 
 declare global {
   interface Window {
-    parakeet: ParakeetApi;
+    kinglet: KingletApi;
   }
 }
-export const api = (): ParakeetApi => window.parakeet;
+export const api = (): KingletApi => window.kinglet;
 
 /** "Error invoking remote method 'x': Error: why" → "why". */
 export const cleanError = (e: unknown) => String((e as Error)?.message ?? e).replace(/^Error invoking remote method '[^']+': (?:\w*Error: )?/, '');

@@ -1,7 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import type { ParakeetApi, PreviewEvent } from '../shared/types';
+import type { KingletApi, PreviewEvent } from '../shared/types';
 
-const api: ParakeetApi = {
+const api: KingletApi = {
   init: () => ipcRenderer.invoke('app:init'),
   navigate: (url) => ipcRenderer.invoke('preview:navigate', url),
   reload: () => ipcRenderer.invoke('preview:reload'),
@@ -83,4 +83,4 @@ const api: ParakeetApi = {
   },
 };
 
-contextBridge.exposeInMainWorld('parakeet', api);
+contextBridge.exposeInMainWorld('kinglet', api);

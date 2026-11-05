@@ -1,4 +1,4 @@
-import { t } from '@parakeet/core';
+import { t } from '@kinglet/core';
 import { useEffect, useState } from 'react';
 import { activeProject, patchProject } from '../../shared/projects';
 import type { Project, VercelState } from '../../shared/types';
@@ -158,7 +158,7 @@ export function ProjectSettings() {
       </div>
       <div className={row}>
         <span className={key}>{t('Folder', 'Dossier')}</span>
-        <span className="min-w-0 flex-1 truncate font-mono text-xs text-fg">{project.folder ?? <span className="font-sans text-muted">{t('None: Parakeet can’t follow Claude Code on this project.', 'Aucun : Parakeet ne peut pas suivre Claude Code sur ce projet.')}</span>}</span>
+        <span className="min-w-0 flex-1 truncate font-mono text-xs text-fg">{project.folder ?? <span className="font-sans text-muted">{t('None: Kinglet can’t follow Claude Code on this project.', 'Aucun : Kinglet ne peut pas suivre Claude Code sur ce projet.')}</span>}</span>
         <button onClick={() => void pick()} className={btn}>
           {project.folder ? t('Change…', 'Changer…') : t('Choose folder…', 'Choisir le dossier…')}
         </button>
@@ -189,13 +189,13 @@ export function ProjectSettings() {
           {vp.bypassSecrets.length ? (
             <span className="flex items-center gap-1.5 text-fg">
               <Dot className="bg-ok" />
-              {t('Bypass secret found: Parakeet opens and reads protected previews.', 'Secret de contournement trouvé : Parakeet ouvre et lit les previews protégées.')}
+              {t('Bypass secret found: Kinglet opens and reads protected previews.', 'Secret de contournement trouvé : Kinglet ouvre et lit les previews protégées.')}
             </span>
           ) : confirmBypass ? (
             <span className="flex flex-col gap-2 text-muted">
               {t(
-                `Parakeet will create a “Protection Bypass for Automation” secret in the settings of the Vercel project ${vp.name}. It lets you open previews without signing in; you can revoke it in Vercel.`,
-                `Parakeet va créer un secret « Protection Bypass for Automation » dans les réglages du projet Vercel ${vp.name}. Il permet d’ouvrir les previews sans te connecter ; tu pourras le révoquer dans Vercel.`,
+                `Kinglet will create a “Protection Bypass for Automation” secret in the settings of the Vercel project ${vp.name}. It lets you open previews without signing in; you can revoke it in Vercel.`,
+                `Kinglet va créer un secret « Protection Bypass for Automation » dans les réglages du projet Vercel ${vp.name}. Il permet d’ouvrir les previews sans te connecter ; tu pourras le révoquer dans Vercel.`,
               )}
               <span className="flex gap-2">
                 <button
@@ -224,8 +224,8 @@ export function ProjectSettings() {
           ) : (
             <span className="flex flex-col items-start gap-2 text-muted">
               {t(
-                'No secret. If your previews require a Vercel login, Parakeet won’t be able to show them or read their tags.',
-                'Aucun secret. Si tes previews demandent une connexion Vercel, Parakeet ne pourra ni les afficher ni lire leurs balises.',
+                'No secret. If your previews require a Vercel login, Kinglet won’t be able to show them or read their tags.',
+                'Aucun secret. Si tes previews demandent une connexion Vercel, Kinglet ne pourra ni les afficher ni lire leurs balises.',
               )}
               <button onClick={() => setConfirmBypass(true)} className={btn}>
                 {t('Create a bypass secret…', 'Créer un secret de contournement…')}

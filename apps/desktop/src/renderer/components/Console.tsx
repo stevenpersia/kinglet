@@ -1,4 +1,4 @@
-import { consolePrompt, groupEntries, locale, t } from '@parakeet/core';
+import { consolePrompt, groupEntries, locale, t } from '@kinglet/core';
 import { useState } from 'react';
 import type { DeviceLog } from '../../shared/types';
 import { activePresets, api, useStore } from '../store';
@@ -92,7 +92,7 @@ export function ConsoleTab() {
             {copied ? t('Copied ✓', 'Copié ✓') : settings.claudePanel ? t('Ask Claude', 'Demander à Claude') : t('Send to Claude', 'Envoyer à Claude')}
           </button>
         </div>
-        {copied && <p className="m-0 text-[11.5px] text-muted">{t('Paste it into Claude Code (or run /mcp__parakeet__fix_console).', 'Colle-le dans Claude Code (ou lance /mcp__parakeet__fix_console).')}</p>}
+        {copied && <p className="m-0 text-[11.5px] text-muted">{t('Paste it into Claude Code (or run /mcp__kinglet__fix_console).', 'Colle-le dans Claude Code (ou lance /mcp__kinglet__fix_console).')}</p>}
       </div>
       <ul aria-label={t('Console', 'Console')} aria-live="polite" className="m-0 min-h-0 flex-1 list-none overflow-y-auto p-0 font-mono text-[11.5px]">
         {groups.map(({ entry: l, devices: ids, count: n }) => (

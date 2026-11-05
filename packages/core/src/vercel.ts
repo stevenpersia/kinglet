@@ -161,7 +161,7 @@ export class VercelClient {
    * only on an explicit user action). Returns the project as it is afterwards.
    */
   async generateBypass(projectId: string): Promise<VercelProject> {
-    await this.req('PATCH', `/v1/projects/${encodeURIComponent(projectId)}/protection-bypass`, {}, { generate: { note: 'Parakeet' } });
+    await this.req('PATCH', `/v1/projects/${encodeURIComponent(projectId)}/protection-bypass`, {}, { generate: { note: 'Kinglet' } });
     return this.project(projectId);
   }
 }
@@ -193,7 +193,7 @@ export function samePageOn(currentUrl: string | null, targetOrigin: string): str
 /**
  * Headers for Vercel Deployment Protection ("Protection Bypass for Automation").
  * `x-vercel-set-bypass-cookie` asks Vercel to answer with a redirect that sets a cookie: right for a
- * browser (the devices), but a redirect loop for a client without cookies (the bots Parakeet imitates).
+ * browser (the devices), but a redirect loop for a client without cookies (the bots Kinglet imitates).
  */
 export function vercelBypassHeaders(url: string, opts: { secret: string | null | undefined; hosts?: string[]; browser?: boolean }): Record<string, string> {
   if (!opts.secret) return {};

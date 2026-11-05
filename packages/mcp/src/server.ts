@@ -16,11 +16,11 @@ import {
   score,
   type CheckResult,
   type Platform,
-} from '@parakeet/core';
+} from '@kinglet/core';
 import { z } from 'zod';
 import { AppControl } from './control.ts';
 
-export const SERVER_NAME = 'parakeet';
+export const SERVER_NAME = 'kinglet';
 
 interface Options {
   /** Where to look for the running app (tests). */
@@ -30,7 +30,7 @@ interface Options {
 
 /** Vercel Deployment Protection bypass, same variable as the app. */
 function headersFor(url: string): Record<string, string> {
-  const secret = process.env.PARAKEET_VERCEL_BYPASS;
+  const secret = process.env.KINGLET_VERCEL_BYPASS;
   try {
     if (secret && new URL(url).hostname.endsWith('.vercel.app')) return { 'x-vercel-protection-bypass': secret };
   } catch {
@@ -45,8 +45,8 @@ const fail = (s: string): CallToolResult => ({ content: [{ type: 'text', text: s
 /** A function: the language is read when the message is shown. */
 const appClosed = () =>
   t(
-    'The Parakeet app is not open: launch it (with the site in development) for screenshots and measures in the devices. The other tools work without it if you pass a URL.',
-    'L’app Parakeet n’est pas ouverte : lance-la (avec le site en cours de dev) pour les captures et les mesures dans les appareils. Les autres outils marchent sans elle si tu passes une URL.',
+    'The Kinglet app is not open: launch it (with the site in development) for screenshots and measures in the devices. The other tools work without it if you pass a URL.',
+    'L’app Kinglet n’est pas ouverte : lance-la (avec le site en cours de dev) pour les captures et les mesures dans les appareils. Les autres outils marchent sans elle si tu passes une URL.',
   );
 
 const ICON: Record<string, string> = { ok: '✓', info: 'ℹ', warning: '⚠', error: '✗', skip: '·' };
@@ -59,8 +59,8 @@ function formatChecks(url: string, checks: CheckResult[], rendered: boolean) {
   const bad = checks.filter((c) => c.status === 'error' || c.status === 'warning');
   const lines = [
     t(
-      `Checks for ${url}: ${s.passed}/${s.total}${rendered ? '' : ' (without measures in the devices: open Parakeet for overflow, JS errors and image weight)'}`,
-      `Checks pour ${url} : ${s.passed}/${s.total}${rendered ? '' : ' (sans mesures dans les appareils : ouvre Parakeet pour le débordement, les erreurs JS et le poids des images)'}`,
+      `Checks for ${url}: ${s.passed}/${s.total}${rendered ? '' : ' (without measures in the devices: open Kinglet for overflow, JS errors and image weight)'}`,
+      `Checks pour ${url} : ${s.passed}/${s.total}${rendered ? '' : ' (sans mesures dans les appareils : ouvre Kinglet pour le débordement, les erreurs JS et le poids des images)'}`,
     ),
     '',
     bad.length ? t('To fix:', 'À corriger :') : t('Nothing to fix.', 'Rien à corriger.'),
@@ -72,7 +72,7 @@ function formatChecks(url: string, checks: CheckResult[], rendered: boolean) {
   return lines.join('\n');
 }
 
-export function createParakeetServer(opts: Options = {}) {
+export function createKingletServer(opts: Options = {}) {
   const server = new McpServer({ name: SERVER_NAME, version: opts.version ?? '0.0.1' });
   const app = () => AppControl.connect(opts.configDir);
 
@@ -85,7 +85,7 @@ export function createParakeetServer(opts: Options = {}) {
       return { error: t(`No URL given and ${closed.charAt(0).toLowerCase()}${closed.slice(1)}`, `Aucune URL donnée et ${closed.charAt(0).toLowerCase()}${closed.slice(1)}`) };
     }
     const status = await control.status();
-    if (!status.url) return { error: t('Parakeet is open but shows no site. Pass a URL or use open_url.', 'Parakeet est ouvert mais n’affiche aucun site. Passe une URL ou utilise open_url.') };
+    if (!status.url) return { error: t('Kinglet is open but shows no site. Pass a URL or use open_url.', 'Kinglet est ouvert mais n’affiche aucun site. Passe une URL ou utilise open_url.') };
     return { url: status.url, app: control };
   }
 
@@ -118,13 +118,13 @@ export function createParakeetServer(opts: Options = {}) {
   server.registerPrompt = ((name: string, config: never, cb: (args: unknown, extra: unknown) => Promise<unknown>) =>
     registerPrompt(name, config, ((args: unknown, extra: unknown) => tracked(`/${name}`, args, () => cb(args, extra), () => false)) as never)) as typeof server.registerPrompt;
 
-  const urlArg = z.string().url().optional().describe(t('Page URL. Default: the page open in Parakeet.', 'URL de la page. Par défaut : la page ouverte dans Parakeet.'));
+  const urlArg = z.string().url().optional().describe(t('Page URL. Default: the page open in Kinglet.', 'URL de la page. Par défaut : la page ouverte dans Kinglet.'));
 
   server.registerTool(
     'status',
     {
-      title: t('Parakeet status', 'État de Parakeet'),
-      description: t('Tells whether the Parakeet app is open, the page shown and the emulated devices.', 'Indique si l’app Parakeet est ouverte, la page affichée et les appareils émulés.'),
+      title: t('Kinglet status', 'État de Kinglet'),
+      description: t('Tells whether the Kinglet app is open, the page shown and the emulated devices.', 'Indique si l’app Kinglet est ouverte, la page affichée et les appareils émulés.'),
       inputSchema: {},
     },
     async () => {
@@ -133,7 +133,7 @@ export function createParakeetServer(opts: Options = {}) {
       const s = await control.status();
       return text(
         [
-          t(`Parakeet ${s.version} open.`, `Parakeet ${s.version} ouvert.`),
+          t(`Kinglet ${s.version} open.`, `Kinglet ${s.version} ouvert.`),
           `Page${sep()}${s.url ?? t('none', 'aucune')}`,
           `${t('Devices', 'Appareils')}${sep()}${s.devices.map((d) => `${d.label} (${d.id}, ${d.width}×${d.height})`).join(', ')}`,
         ].join('\n'),
@@ -144,8 +144,8 @@ export function createParakeetServer(opts: Options = {}) {
   server.registerTool(
     'open_url',
     {
-      title: t('Open a page in Parakeet', 'Ouvrir une page dans Parakeet'),
-      description: t('Shows a URL on all of Parakeet’s devices (local, preview or production).', 'Affiche une URL sur tous les appareils de Parakeet (local, preview ou prod).'),
+      title: t('Open a page in Kinglet', 'Ouvrir une page dans Kinglet'),
+      description: t('Shows a URL on all of Kinglet’s devices (local, preview or production).', 'Affiche une URL sur tous les appareils de Kinglet (local, preview ou prod).'),
       inputSchema: { url: z.string().url() },
     },
     async ({ url }) => {
@@ -161,8 +161,8 @@ export function createParakeetServer(opts: Options = {}) {
     {
       title: t('Choose devices', 'Choisir les appareils'),
       description: t(
-        'Changes the devices emulated in Parakeet. Ids: iphone-se, iphone-16, iphone-16-pro-max, pixel-9, galaxy-s24, ipad-mini, ipad-air, ipad-pro-13, laptop, desktop.',
-        'Change les appareils émulés dans Parakeet. Ids : iphone-se, iphone-16, iphone-16-pro-max, pixel-9, galaxy-s24, ipad-mini, ipad-air, ipad-pro-13, laptop, desktop.',
+        'Changes the devices emulated in Kinglet. Ids: iphone-se, iphone-16, iphone-16-pro-max, pixel-9, galaxy-s24, ipad-mini, ipad-air, ipad-pro-13, laptop, desktop.',
+        'Change les appareils émulés dans Kinglet. Ids : iphone-se, iphone-16, iphone-16-pro-max, pixel-9, galaxy-s24, ipad-mini, ipad-air, ipad-pro-13, laptop, desktop.',
       ),
       inputSchema: { ids: z.array(z.string()).min(1) },
     },
@@ -192,7 +192,7 @@ export function createParakeetServer(opts: Options = {}) {
       if (!control) return fail(appClosed());
       if (url) await control.navigate(url);
       const { shots } = await control.screenshot(device ?? null);
-      if (!shots.length) return fail(device ? t(`No device “${device}” in Parakeet.`, `Aucun appareil « ${device} » dans Parakeet.`) : t('No device to capture.', 'Aucun appareil à capturer.'));
+      if (!shots.length) return fail(device ? t(`No device “${device}” in Kinglet.`, `Aucun appareil « ${device} » dans Kinglet.`) : t('No device to capture.', 'Aucun appareil à capturer.'));
       return {
         content: shots.flatMap((s) => [
           { type: 'text' as const, text: `${s.label} (${s.width}×${s.height})` },
@@ -207,8 +207,8 @@ export function createParakeetServer(opts: Options = {}) {
     {
       title: t('Vercel deployments', 'Déploiements Vercel'),
       description: t(
-        'Lists the Vercel deployments of the project linked in Parakeet (production and previews), with their state, branch, commit and URL. Useful to open a preview with open_url or to check that a build passed.',
-        'Liste les déploiements Vercel du projet lié dans Parakeet (production et previews), avec leur état, branche, commit et URL. Utile pour ouvrir une preview avec open_url ou vérifier qu’un build est passé.',
+        'Lists the Vercel deployments of the project linked in Kinglet (production and previews), with their state, branch, commit and URL. Useful to open a preview with open_url or to check that a build passed.',
+        'Liste les déploiements Vercel du projet lié dans Kinglet (production et previews), avec leur état, branche, commit et URL. Utile pour ouvrir une preview avec open_url ou vérifier qu’un build est passé.',
       ),
       inputSchema: {},
     },
@@ -216,7 +216,7 @@ export function createParakeetServer(opts: Options = {}) {
       const control = await app();
       if (!control) return fail(appClosed());
       const { project, deployments } = await control.deployments();
-      if (!project) return fail(t('No linked Vercel project: connect Vercel in Parakeet’s settings.', 'Aucun projet Vercel lié : connecte Vercel dans les réglages de Parakeet.'));
+      if (!project) return fail(t('No linked Vercel project: connect Vercel in Kinglet’s settings.', 'Aucun projet Vercel lié : connecte Vercel dans les réglages de Kinglet.'));
       return text(
         [
           `${t('Project', 'Projet')} ${project.name}${project.productionUrl ? ` · production${sep()}${project.productionUrl}` : ''}`,
@@ -232,8 +232,8 @@ export function createParakeetServer(opts: Options = {}) {
     {
       title: t('Device console', 'Console des appareils'),
       description: t(
-        'Console messages (errors, warnings) and network errors (failed requests, HTTP 4xx/5xx) of each emulated device in Parakeet, since the page was last loaded. Needs the app open.',
-        'Messages de console (erreurs, avertissements) et erreurs réseau (requêtes échouées, HTTP 4xx/5xx) de chaque appareil émulé dans Parakeet, depuis le dernier chargement de la page. Nécessite l’app ouverte.',
+        'Console messages (errors, warnings) and network errors (failed requests, HTTP 4xx/5xx) of each emulated device in Kinglet, since the page was last loaded. Needs the app open.',
+        'Messages de console (erreurs, avertissements) et erreurs réseau (requêtes échouées, HTTP 4xx/5xx) de chaque appareil émulé dans Kinglet, depuis le dernier chargement de la page. Nécessite l’app ouverte.',
       ),
       inputSchema: { all: z.boolean().optional().describe(t('Include info and debug messages too', 'Inclure aussi les messages info et debug')) },
     },
@@ -324,14 +324,14 @@ export function createParakeetServer(opts: Options = {}) {
     },
   );
 
-  // Claude Code's --permission-prompt-tool: Parakeet's Claude panel asks before a command runs.
+  // Claude Code's --permission-prompt-tool: Kinglet's Claude panel asks before a command runs.
   server.registerTool(
     'approve',
     {
       title: t('Ask before a command', 'Demander avant une commande'),
       description: t(
-        'Used by Claude Code inside Parakeet (permission prompt): asks the user in Parakeet whether a tool may run. Do not call it yourself.',
-        'Utilisé par Claude Code dans Parakeet (demande de permission) : demande à l’utilisateur dans Parakeet si un outil peut s’exécuter. Ne l’appelle pas toi-même.',
+        'Used by Claude Code inside Kinglet (permission prompt): asks the user in Kinglet whether a tool may run. Do not call it yourself.',
+        'Utilisé par Claude Code dans Kinglet (demande de permission) : demande à l’utilisateur dans Kinglet si un outil peut s’exécuter. Ne l’appelle pas toi-même.',
       ),
       inputSchema: { tool_name: z.string(), input: z.record(z.string(), z.unknown()).optional(), tool_use_id: z.string().optional() },
     },
@@ -339,7 +339,7 @@ export function createParakeetServer(opts: Options = {}) {
       const control = await app();
       const deny = (message: string) => text(JSON.stringify({ behavior: 'deny', message }));
       if (!control) return deny(appClosed());
-      const r = await control.approve({ tool: tool_name, input: input ?? {}, chat: process.env.PARAKEET_CHAT_PROJECT ?? null });
+      const r = await control.approve({ tool: tool_name, input: input ?? {}, chat: process.env.KINGLET_CHAT_PROJECT ?? null });
       return r.allow ? text(JSON.stringify({ behavior: 'allow', updatedInput: input ?? {} })) : deny(r.message ?? t('The user refused.', 'L’utilisateur a refusé.'));
     },
   );
@@ -359,12 +359,12 @@ export function createParakeetServer(opts: Options = {}) {
     },
   );
 
-  // Prompts become slash commands in Claude Code: /mcp__parakeet__fix_share, /mcp__parakeet__fix_checks
+  // Prompts become slash commands in Claude Code: /mcp__kinglet__fix_share, /mcp__kinglet__fix_checks
   server.registerPrompt(
     'fix_share',
     {
       title: t('Fix share previews', 'Corriger les aperçus de partage'),
-      description: t('Fixes the share tags of the page open in Parakeet (or of the given URL), then checks.', 'Corrige les balises de partage de la page ouverte dans Parakeet (ou de l’URL donnée), puis vérifie.'),
+      description: t('Fixes the share tags of the page open in Kinglet (or of the given URL), then checks.', 'Corrige les balises de partage de la page ouverte dans Kinglet (ou de l’URL donnée), puis vérifie.'),
       argsSchema: { url: z.string().optional() },
     },
     async ({ url }) => {
@@ -373,7 +373,7 @@ export function createParakeetServer(opts: Options = {}) {
       const previews = await readSharePreviews(r.url, { headers: headersFor(r.url) });
       const fix = buildShareFix(previews.meta, previews.image);
       const body = fix.prompt
-        ? `${fix.prompt}\n\n${t(`When done, call Parakeet’s get_share_preview tool on ${r.url} to check that the problems are gone.`, `Quand c’est fait, appelle l’outil get_share_preview de Parakeet sur ${r.url} pour vérifier que les problèmes ont disparu.`)}`
+        ? `${fix.prompt}\n\n${t(`When done, call Kinglet’s get_share_preview tool on ${r.url} to check that the problems are gone.`, `Quand c’est fait, appelle l’outil get_share_preview de Kinglet sur ${r.url} pour vérifier que les problèmes ont disparu.`)}`
         : t(`The share tags of ${r.url} are already complete. Nothing to do.`, `Les balises de partage de ${r.url} sont déjà complètes. Rien à faire.`);
       return { messages: [{ role: 'user', content: { type: 'text', text: body } }] };
     },
@@ -383,7 +383,7 @@ export function createParakeetServer(opts: Options = {}) {
     'fix_checks',
     {
       title: t('Fix the checks', 'Corriger les checks'),
-      description: t('Fixes the problems found by the 30 checks on the page open in Parakeet, then runs the checks again.', 'Corrige les problèmes trouvés par les 30 checks sur la page ouverte dans Parakeet, puis relance les checks.'),
+      description: t('Fixes the problems found by the 30 checks on the page open in Kinglet, then runs the checks again.', 'Corrige les problèmes trouvés par les 30 checks sur la page ouverte dans Kinglet, puis relance les checks.'),
       argsSchema: { url: z.string().optional() },
     },
     async ({ url }) => {
@@ -398,7 +398,7 @@ export function createParakeetServer(opts: Options = {}) {
       const bad = checks.filter((c) => c.status === 'error' || c.status === 'warning');
       const body = bad.length
         ? [
-            t(`Parakeet found these problems on ${r.url}:`, `Parakeet a trouvé ces problèmes sur ${r.url} :`),
+            t(`Kinglet found these problems on ${r.url}:`, `Kinglet a trouvé ces problèmes sur ${r.url} :`),
             ...bad.map((c) => `- [${c.status === 'error' ? t('problem', 'problème') : t('to improve', 'à améliorer')}] ${c.label}${sep()}${c.detail}`),
             '',
             t(
@@ -419,7 +419,7 @@ export function createParakeetServer(opts: Options = {}) {
     'fix_console',
     {
       title: t('Fix console errors', 'Corriger les erreurs de console'),
-      description: t('Fixes the JavaScript and network errors seen in Parakeet’s devices on the open page, then checks the console again.', 'Corrige les erreurs JavaScript et réseau vues dans les appareils de Parakeet sur la page ouverte, puis revérifie la console.'),
+      description: t('Fixes the JavaScript and network errors seen in Kinglet’s devices on the open page, then checks the console again.', 'Corrige les erreurs JavaScript et réseau vues dans les appareils de Kinglet sur la page ouverte, puis revérifie la console.'),
       argsSchema: {},
     },
     async () => {

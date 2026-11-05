@@ -1,9 +1,9 @@
-// Dogfooding: the landing page must pass Parakeet's own checks and share previews.
+// Dogfooding: the landing page must pass Kinglet's own checks and share previews.
 import { mkdtempSync, rmSync } from 'node:fs';
 import type { Server } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { probeImage, readPageMeta, readSharePreviews, readSiteFiles, runChecks } from '@parakeet/core';
+import { probeImage, readPageMeta, readSharePreviews, readSiteFiles, runChecks } from '@kinglet/core';
 import { afterAll, beforeAll, expect, it } from 'vitest';
 // @ts-expect-error plain JS build scripts
 import { build, siteUrl } from './scripts/build.mjs';
@@ -16,7 +16,7 @@ const PORT = 4174;
 const site = `http://localhost:${PORT}`;
 
 beforeAll(async () => {
-  dir = mkdtempSync(join(tmpdir(), 'parakeet-web-'));
+  dir = mkdtempSync(join(tmpdir(), 'kinglet-web-'));
   build(dir, site);
   server = await serve(dir, PORT);
 });
@@ -26,7 +26,7 @@ afterAll(() => {
 });
 
 it('takes the site URL from Vercel at build time', () => {
-  expect(siteUrl([], { VERCEL_PROJECT_PRODUCTION_URL: 'parakeet.dev' })).toBe('https://parakeet.dev');
+  expect(siteUrl([], { VERCEL_PROJECT_PRODUCTION_URL: 'getkinglet.com' })).toBe('https://getkinglet.com');
   expect(siteUrl(['node', 'build', '--site', 'https://x.dev/'], {})).toBe('https://x.dev');
 });
 

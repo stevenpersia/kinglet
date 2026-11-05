@@ -1,6 +1,6 @@
 import { createServer, request, type IncomingHttpHeaders, type Server } from 'node:http';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { setLanguage } from '@parakeet/core';
+import { setLanguage } from '@kinglet/core';
 import { lanAddresses, LanProxy, type LanClient } from './lan';
 
 let site: Server;
@@ -57,7 +57,7 @@ describe('LanProxy', () => {
     const fr = await (await fetch(`${base}/`)).text();
     setLanguage('en');
     expect(fr).toMatch(/non appairé/);
-    expect((await fetch(`${base}/__parakeet/pair?t=wrong`)).status).toBe(403);
+    expect((await fetch(`${base}/__kinglet/pair?t=wrong`)).status).toBe(403);
   });
 
   it('pairs with the token, then proxies with localhost headers', async () => {
@@ -72,7 +72,7 @@ describe('LanProxy', () => {
   it('injects the follow script in HTML pages and rewrites redirects', async () => {
     const cookie = await pairCookie();
     const html = await (await fetch(`${base}/`, { headers: { cookie, accept: 'text/html' } })).text();
-    expect(html).toContain('<script src="/__parakeet/follow.js" defer></script></head>');
+    expect(html).toContain('<script src="/__kinglet/follow.js" defer></script></head>');
     expect(seen['accept-encoding']).toBe('identity');
     const go = await fetch(`${base}/go`, { headers: { cookie }, redirect: 'manual' });
     expect(go.headers.get('location')).toBe('/dest');
@@ -101,12 +101,12 @@ describe('LanProxy', () => {
     expect(refused).toBe(403);
   });
 
-  it('tells following phones where Parakeet goes', async () => {
+  it('tells following phones where Kinglet goes', async () => {
     const cookie = await pairCookie();
     const ctrl = new AbortController();
-    const res = await fetch(`${base}/__parakeet/events`, { headers: { cookie, 'user-agent': 'iPhone test' }, signal: ctrl.signal });
+    const res = await fetch(`${base}/__kinglet/events`, { headers: { cookie, 'user-agent': 'iPhone test' }, signal: ctrl.signal });
     const reader = res.body!.getReader();
-    await reader.read(); // ": parakeet" comment
+    await reader.read(); // ": kinglet" comment
     expect(clients.map((c) => c.userAgent)).toEqual(['iPhone test']);
     proxy.notify('/atelier?x=1');
     const { value } = await reader.read();

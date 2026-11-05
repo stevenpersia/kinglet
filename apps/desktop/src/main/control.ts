@@ -2,8 +2,8 @@ import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { join } from 'node:path';
-import { CONTROL_FILE, type AppShot, type AppStatus, type ControlFile } from '@parakeet/mcp';
-import { t } from '@parakeet/core';
+import { CONTROL_FILE, type AppShot, type AppStatus, type ControlFile } from '@kinglet/mcp';
+import { t } from '@kinglet/core';
 import type { McpActivity } from '../shared/types';
 import type { DeviceManager } from './devices';
 
@@ -34,7 +34,7 @@ const SHOT_SCALE = 0.5;
 /**
  * Local HTTP control server for the MCP bridge (packages/mcp).
  * Listens on 127.0.0.1 only, on a random port, and requires a random token written
- * to ~/.config/Parakeet/mcp.json (readable by the current user only).
+ * to ~/.config/Kinglet/mcp.json (readable by the current user only).
  */
 export function startControlServer(deps: Deps) {
   const token = randomBytes(24).toString('hex');

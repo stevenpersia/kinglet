@@ -20,15 +20,15 @@ importers:
       '@fontsource-variable/geist-mono':
         specifier: ^5.3.0
         version: 5.3.0
+      '@kinglet/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@kinglet/mcp':
+        specifier: workspace:*
+        version: link:../../packages/mcp
       '@modelcontextprotocol/sdk':
         specifier: ^1.32.2
         version: 1.32.2(zod@4.6.7)
-      '@parakeet/core':
-        specifier: workspace:*
-        version: link:../../packages/core
-      '@parakeet/mcp':
-        specifier: workspace:*
-        version: link:../../packages/mcp
       '@tailwindcss/vite':
         specifier: ^4.3.4
         version: 4.3.4(vite@8.3.5(@types/node@26.6.6)(jiti@2.7.0))
@@ -83,7 +83,7 @@ importers:
 
   apps/web:
     devDependencies:
-      '@parakeet/core':
+      '@kinglet/core':
         specifier: workspace:*
         version: link:../../packages/core
       vitest:
@@ -119,12 +119,12 @@ importers:
 
   packages/mcp:
     dependencies:
+      '@kinglet/core':
+        specifier: workspace:*
+        version: link:../core
       '@modelcontextprotocol/sdk':
         specifier: ^1.32.2
         version: 1.32.2(zod@4.6.7)
-      '@parakeet/core':
-        specifier: workspace:*
-        version: link:../core
       zod:
         specifier: ^4.6.7
         version: 4.6.7

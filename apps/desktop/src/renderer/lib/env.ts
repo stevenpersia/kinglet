@@ -1,4 +1,4 @@
-import { previewsByBranch, t as tr, samePageOn, type VercelDeployment } from '@parakeet/core';
+import { previewsByBranch, t as tr, samePageOn, type VercelDeployment } from '@kinglet/core';
 import type { EnvId, VercelTeamProject } from '../../shared/types';
 
 /** The Vercel side of one project: the project and its deployments. */

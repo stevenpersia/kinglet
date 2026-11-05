@@ -37,7 +37,7 @@ jobs:
 
       - name: Acceptance test (packaged app)
         working-directory: apps/desktop
-        run: PARAKEET_BIN=dist/linux-unpacked/parakeet node scripts/selftest.mjs
+        run: KINGLET_BIN=dist/linux-unpacked/kinglet node scripts/selftest.mjs
 
       - uses: actions/upload-artifact@v7
         if: always()
@@ -48,7 +48,7 @@ jobs:
 
       - uses: actions/upload-artifact@v7
         with:
-          name: parakeet-linux
+          name: kinglet-linux
           path: |
             apps/desktop/dist/*.AppImage
             apps/desktop/dist/*.pacman

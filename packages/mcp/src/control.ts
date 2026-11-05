@@ -1,10 +1,10 @@
-import type { ConsoleEntry } from '@parakeet/core';
+import type { ConsoleEntry } from '@kinglet/core';
 import { readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
 /**
- * The running Parakeet app exposes a small HTTP control server on 127.0.0.1.
+ * The running Kinglet app exposes a small HTTP control server on 127.0.0.1.
  * It writes where to find it (port + secret token) in its config folder.
  */
 export interface ControlFile {
@@ -59,11 +59,11 @@ export interface Activity {
   ms: number;
 }
 
-/** ~/.config/Parakeet on Linux (or $XDG_CONFIG_HOME/Parakeet), overridable for tests. */
+/** ~/.config/Kinglet on Linux (or $XDG_CONFIG_HOME/Kinglet), overridable for tests. */
 export function configDir(): string {
-  if (process.env.PARAKEET_CONFIG_DIR) return process.env.PARAKEET_CONFIG_DIR;
+  if (process.env.KINGLET_CONFIG_DIR) return process.env.KINGLET_CONFIG_DIR;
   const base = process.env.XDG_CONFIG_HOME || join(homedir(), '.config');
-  return join(base, 'Parakeet');
+  return join(base, 'Kinglet');
 }
 
 function alive(pid: number) {
@@ -133,7 +133,7 @@ export class AppControl {
   deployments() {
     return this.call<{ project: { name: string; productionUrl: string | null } | null; deployments: Deployment[] }>('GET', '/deployments');
   }
-  /** Ask the person in front of Parakeet whether Claude may use a tool (waits for the answer). */
+  /** Ask the person in front of Kinglet whether Claude may use a tool (waits for the answer). */
   approve(req: { tool: string; input: unknown; chat: string | null }) {
     return this.call<{ allow: boolean; message?: string }>('POST', '/approve', req, 30 * 60_000);
   }

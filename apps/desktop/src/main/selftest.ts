@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { app, BrowserWindow, safeStorage } from 'electron';
-import { checkShare, probeImage, readPageMeta } from '@parakeet/core';
+import { checkShare, probeImage, readPageMeta } from '@kinglet/core';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import type { DeviceManager } from './devices';
@@ -63,7 +63,7 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     await sleep(500);
     await shot('00b-accueil-claude');
     const fakeFound = await ui0<boolean>(`document.querySelector('[role=dialog]')?.textContent.includes('9.9.9') ?? false`);
-    await ui0(`window.parakeet.updateSettings({ onboarded: true })`);
+    await ui0(`window.kinglet.updateSettings({ onboarded: true })`);
     const onboardingGone = await waitFor(async () => !(await ui0<boolean>(`!!document.querySelector('[role=dialog][aria-modal=true]')`)) && devices.entries().every((d) => d.view.getVisible()), 5000);
     criteria.push({ id: 'onboarding', ok: onboardingShown && onboardingGone && fakeFound, detail: `affiché ${onboardingShown} · Claude Code trouvé ${fakeFound} · passé ${onboardingGone}` });
     await sleep(1500); // inspector fetch + fonts
@@ -99,13 +99,13 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     }
 
     // 3. Hot reload
-    const hmrFile = process.env.PARAKEET_HMR_FILE;
+    const hmrFile = process.env.KINGLET_HMR_FILE;
     if (hmrFile) {
       const original = readFileSync(hmrFile, 'utf8');
       const marker = 'Rechargé à chaud ✓';
       writeFileSync(hmrFile, `export const headline = '${marker}';\n`);
       const ok = await waitFor(async () => (await evalAll()).every((d) => d.headline === marker), 8000);
-      criteria.push({ id: 'hot-reload', ok, detail: ok ? 'titre mis à jour dans toutes les vues sans recharger Parakeet' : 'titre non mis à jour' });
+      criteria.push({ id: 'hot-reload', ok, detail: ok ? 'titre mis à jour dans toutes les vues sans recharger Kinglet' : 'titre non mis à jour' });
       await shot('03-rechargement-a-chaud');
       writeFileSync(hmrFile, original);
       await sleep(800);
@@ -125,13 +125,13 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     }
 
     // 5. Vercel protection bypass header injected in the preview session
-    const echo = process.env.PARAKEET_ECHO_URL;
+    const echo = process.env.KINGLET_ECHO_URL;
     if (echo) {
       const res = await devices.session.fetch(echo);
       const headers = (await res.json()) as Record<string, string>;
       criteria.push({
         id: 'vercel-bypass-header',
-        ok: headers['x-vercel-protection-bypass'] === process.env.PARAKEET_VERCEL_BYPASS,
+        ok: headers['x-vercel-protection-bypass'] === process.env.KINGLET_VERCEL_BYPASS,
         detail: `en-tête reçu par le serveur : ${headers['x-vercel-protection-bypass'] ?? 'absent'} (test local, pas sur un vrai déploiement Vercel)`,
       });
     }
@@ -191,7 +191,7 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
 
     // ---- Phase 2 ----
     type Report = { checks: { id: string; status: string; detail: string }[]; score: { passed: number; total: number } };
-    const analyze = (url: string) => win.webContents.executeJavaScript(`window.parakeet.analyze(${JSON.stringify(url)})`) as Promise<Report>;
+    const analyze = (url: string) => win.webContents.executeJavaScript(`window.kinglet.analyze(${JSON.stringify(url)})`) as Promise<Report>;
 
     // 11. Checks on a page with known defects (atelier.html, where devices are now)
     await sleep(1000);
@@ -212,7 +212,7 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     report['checks-atelier'] = atelier.checks;
 
     // 12. Crawl: pages found from the links
-    const pages = (await win.webContents.executeJavaScript(`window.parakeet.crawl('http://localhost:5173/', { force: true })`)) as { path: string }[];
+    const pages = (await win.webContents.executeJavaScript(`window.kinglet.crawl('http://localhost:5173/', { force: true })`)) as { path: string }[];
     const paths = pages.map((p) => p.path);
     criteria.push({ id: 'crawl', ok: paths.includes('/') && paths.includes('/atelier.html'), detail: paths.join(', ') });
 
@@ -230,7 +230,7 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     // ---- Phase 3 ----
     // 13. Share previews: 7 platforms, each fetched by its own bot, and a fix for the detected framework
     type Studio = { previews: { framework: string; cards: { platform: string; status: string; layout: string }[] }; fix: { code: string; changes: string[]; prompt: string } };
-    const studio = (await win.webContents.executeJavaScript(`window.parakeet.sharePreviews('http://localhost:5173/')`)) as Studio;
+    const studio = (await win.webContents.executeJavaScript(`window.kinglet.sharePreviews('http://localhost:5173/')`)) as Studio;
     criteria.push({
       id: 'share-previews',
       ok: studio.previews.cards.length === 7 && studio.previews.framework === 'vite' && studio.fix.code.includes('og:site_name') && studio.fix.prompt.includes('index.html'),
@@ -238,14 +238,14 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     });
 
     // ---- Phase 4 ----
-    // 14. MCP: launch `parakeet --mcp` exactly like Claude Code would, and drive the app through it
+    // 14. MCP: launch `kinglet --mcp` exactly like Claude Code would, and drive the app through it
     await devices.navigate('http://localhost:5173/');
     await sleep(1500);
     const { exe, args } = mcpLaunch();
     const transport = new StdioClientTransport({
       command: exe,
       args: [...args, ...(process.getuid?.() === 0 ? ['--no-sandbox'] : [])],
-      env: { ...process.env, PARAKEET_CONFIG_DIR: app.getPath('userData'), ELECTRON_RUN_AS_NODE: '', PARAKEET_SELFTEST: '' } as Record<string, string>,
+      env: { ...process.env, KINGLET_CONFIG_DIR: app.getPath('userData'), ELECTRON_RUN_AS_NODE: '', KINGLET_SELFTEST: '' } as Record<string, string>,
       stderr: 'ignore',
     });
     const client = new Client({ name: 'selftest', version: '0' });
@@ -287,7 +287,7 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     // 15. Vercel: connect with a token, link the project, deployments loaded (fake API)
     const js = <T,>(code: string) => win.webContents.executeJavaScript(code) as Promise<T>;
     const clickText = (selector: string, text: string) => js(`[...document.querySelectorAll(${JSON.stringify(selector)})].find((b) => (b.getAttribute('aria-label') || b.textContent).includes(${JSON.stringify(text)}))?.click()`);
-    await js(`window.parakeet.vercel.connect(${JSON.stringify(process.env.PARAKEET_VERCEL_TEST_TOKEN ?? '')})`);
+    await js(`window.kinglet.vercel.connect(${JSON.stringify(process.env.KINGLET_VERCEL_TEST_TOKEN ?? '')})`);
     // Link the active project to its Vercel project, from the settings page.
     type V = { projects: { id: string; productionUrl: string | null }[]; deployments: Record<string, unknown[]> };
     await clickText('nav button', 'Settings');
@@ -298,8 +298,8 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
       Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(el, 'prj_maisonsable');
       el.dispatchEvent(new Event('change', { bubbles: true }));
     })()`);
-    await waitFor(async () => (await js<V>(`window.parakeet.vercel.state()`)).deployments['prj_maisonsable']?.length === 6, 6000);
-    const vs = await js<V>(`window.parakeet.vercel.state()`);
+    await waitFor(async () => (await js<V>(`window.kinglet.vercel.state()`)).deployments['prj_maisonsable']?.length === 6, 6000);
+    const vs = await js<V>(`window.kinglet.vercel.state()`);
     const linkedProject = vs.projects.find((p) => p.id === 'prj_maisonsable');
     const linkedCount = vs.deployments['prj_maisonsable']?.length ?? 0;
     criteria.push({
@@ -314,7 +314,7 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     const vercelFile = join(app.getPath('userData'), 'vercel.json');
     const stored = JSON.parse(readFileSync(vercelFile, 'utf8')) as { encrypted: boolean; token: string };
     const mode = statSync(vercelFile).mode & 0o777;
-    const tokenOk = stored.encrypted ? stored.token !== process.env.PARAKEET_VERCEL_TEST_TOKEN : !safeStorage.isEncryptionAvailable() && mode === 0o600;
+    const tokenOk = stored.encrypted ? stored.token !== process.env.KINGLET_VERCEL_TEST_TOKEN : !safeStorage.isEncryptionAvailable() && mode === 0o600;
     criteria.push({ id: 'vercel-token-stored', ok: tokenOk, detail: stored.encrypted ? 'jeton chiffré (trousseau)' : `pas de trousseau ici : jeton en clair, fichier ${mode.toString(8)}` });
 
     // 16. Environment switch keeps the page: local /atelier.html → prod /atelier.html → preview
@@ -328,7 +328,7 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     const onPreview = await waitFor(() => devices.entries().every((d) => d.view.webContents.getURL() === 'http://127.0.0.1:5176/atelier.html'), 6000);
     // Protected preview: devices pass (cookie), and the 7 bots read it too (no cookie header for them).
     const previewTitle = (await devices.entries()[0]!.view.webContents.executeJavaScript('document.title')) as string;
-    const protectedShare = (await js(`window.parakeet.sharePreviews('http://127.0.0.1:5176/atelier.html')`)) as { previews: { cards: { httpStatus: number | null }[] } };
+    const protectedShare = (await js(`window.kinglet.sharePreviews('http://127.0.0.1:5176/atelier.html')`)) as { previews: { cards: { httpStatus: number | null }[] } };
     const statuses = protectedShare.previews.cards.map((c) => c.httpStatus);
     criteria.push({
       id: 'protected-preview',
@@ -340,15 +340,15 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     criteria.push({ id: 'env-switch', ok: onProd && onPreview && backLocal, detail: `prod ${onProd}, preview ${onPreview}, retour local ${backLocal} (même chemin /atelier.html)` });
 
     // 17. Bypass secret taken from the Vercel project (once the env variable is gone)
-    process.env.PARAKEET_VERCEL_BYPASS = '';
-    await js(`window.parakeet.vercel.generateBypass('prj_maisonsable')`);
-    const echoed = (await (await devices.session.fetch(process.env.PARAKEET_ECHO_URL ?? '')).json()) as Record<string, string>;
+    process.env.KINGLET_VERCEL_BYPASS = '';
+    await js(`window.kinglet.vercel.generateBypass('prj_maisonsable')`);
+    const echoed = (await (await devices.session.fetch(process.env.KINGLET_ECHO_URL ?? '')).json()) as Record<string, string>;
     criteria.push({ id: 'vercel-bypass-project', ok: echoed['x-vercel-protection-bypass'] === 'mock-bypass-secret', detail: `en-tête : ${echoed['x-vercel-protection-bypass'] ?? 'absent'}` });
 
     // 18. Compare: same path on the three environments, differences found
     type Col = { env: string; values: Record<string, string | null>; score: { passed: number } | null };
     const cols = (await js(
-      `window.parakeet.compare([{env:'local',label:'Local',url:'http://localhost:5173/'},{env:'preview',label:'Preview',url:'http://127.0.0.1:5176/'},{env:'prod',label:'Prod',url:'http://127.0.0.1:5175/'}])`,
+      `window.kinglet.compare([{env:'local',label:'Local',url:'http://localhost:5173/'},{env:'preview',label:'Preview',url:'http://127.0.0.1:5176/'},{env:'prod',label:'Prod',url:'http://127.0.0.1:5175/'}])`,
     )) as Col[];
     const titles = cols.map((c) => c.values['title']);
     criteria.push({
@@ -358,7 +358,7 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     });
 
     // GitHub: the pull request of each preview branch, with its CI.
-    await js(`window.parakeet.github.connect(${JSON.stringify(process.env.PARAKEET_VERCEL_TEST_TOKEN ?? '')})`);
+    await js(`window.kinglet.github.connect(${JSON.stringify(process.env.KINGLET_VERCEL_TEST_TOKEN ?? '')})`);
     await sleep(300);
     await clickText('nav button', 'Deployments');
     const prShown = await waitFor(() => js<boolean>(`document.querySelector('main')?.textContent.includes('#12') ?? false`), 6000);
@@ -389,8 +389,8 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     type Phone = { running: boolean; port: number; address: string; clients: unknown[] };
     await devices.navigate('http://localhost:5173/');
     await sleep(1200);
-    const phoneOn = (await js(`window.parakeet.phone.start()`)) as Phone;
-    const qr = (await js(`window.parakeet.phone.qr('http://localhost:5173/', true)`)) as { url: string; svg: string };
+    const phoneOn = (await js(`window.kinglet.phone.start()`)) as Phone;
+    const qr = (await js(`window.kinglet.phone.qr('http://localhost:5173/', true)`)) as { url: string; svg: string };
     const unpaired = await fetch(`http://${phoneOn.address}:${phoneOn.port}/`).then((r) => r.status);
     const phoneWin = new BrowserWindow({ show: false, width: 393, height: 852, webPreferences: { backgroundThrottling: false } });
     const phoneLog: string[] = [];
@@ -410,20 +410,20 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
         writeFileSync(hmrFile, original);
         await sleep(800);
       }
-      // Follow Parakeet's navigation
+      // Follow Kinglet's navigation
       await devices.navigate('http://localhost:5173/atelier.html');
       const followed = await waitFor(() => phoneWin.webContents.getURL().endsWith('/atelier.html'), 8000);
       // After a navigation the phone reconnects to the follow channel: wait for it.
-      let state = (await js(`window.parakeet.phone.state()`)) as Phone;
-      await waitFor(async () => (state = (await js(`window.parakeet.phone.state()`)) as Phone).clients.length >= 1, 5000);
+      let state = (await js(`window.kinglet.phone.state()`)) as Phone;
+      await waitFor(async () => (state = (await js(`window.kinglet.phone.state()`)) as Phone).clients.length >= 1, 5000);
       criteria.push({
         id: 'phone',
         ok: qr.svg.startsWith('<svg') && unpaired === 403 && loadedOnPhone && hmrOnPhone && followed && state.clients.length >= 1,
         detail: `${hmrOnPhone ? '' : `[console : ${phoneLog.slice(-3).join(' | ')}] `}${phoneOn.address}:${phoneOn.port} · non appairé ${unpaired} · page ${loadedOnPhone} · rechargement à chaud ${hmrOnPhone} · suit la navigation ${followed} · ${state.clients.length} appareil(s)`,
       });
       // Online pages: direct QR, with the bypass secret for a protected preview only
-      const prodQr = (await js(`window.parakeet.phone.qr('http://127.0.0.1:5175/', false)`)) as { url: string; withSecret: boolean };
-      const previewQr = (await js(`window.parakeet.phone.qr('http://127.0.0.1:5176/', false)`)) as { url: string; withSecret: boolean };
+      const prodQr = (await js(`window.kinglet.phone.qr('http://127.0.0.1:5175/', false)`)) as { url: string; withSecret: boolean };
+      const previewQr = (await js(`window.kinglet.phone.qr('http://127.0.0.1:5176/', false)`)) as { url: string; withSecret: boolean };
       const previewPhone = new BrowserWindow({ show: false, webPreferences: { backgroundThrottling: false } });
       await previewPhone.loadURL(previewQr.url);
       const previewTitle = (await previewPhone.webContents.executeJavaScript('document.title')) as string;
@@ -445,7 +445,7 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     await js(`window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))`);
     const closed = await waitFor(async () => !(await js<boolean>(`!!document.querySelector('[aria-label="On my phone"][role=dialog]')`)) && devices.entries().every((d) => d.view.getVisible()), 3000);
     criteria.push({ id: 'phone-dialog', ok: closed, detail: closed ? 'fermé avec Échap, aperçus réaffichés' : 'toujours ouvert' });
-    await js(`window.parakeet.phone.stop()`);
+    await js(`window.kinglet.phone.stop()`);
 
     // 20. Title bar fits at any window width (worst case: a preview with a long branch name)
     await clickText('nav button', 'Devices');
@@ -476,9 +476,9 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     // 21. Updates: packaged app → finds 9.9.9 on the fake feed, downloads and verifies it (no install);
     //     dev build → updates disabled
     type Upd = { status: string; latest: string | null; kind: string };
-    let upd = (await js(`window.parakeet.update.state()`)) as Upd;
+    let upd = (await js(`window.kinglet.update.state()`)) as Upd;
     if (app.isPackaged) {
-      await waitFor(async () => ['ready', 'error'].includes((upd = (await js(`window.parakeet.update.state()`)) as Upd).status), 30_000, 500);
+      await waitFor(async () => ['ready', 'error'].includes((upd = (await js(`window.kinglet.update.state()`)) as Upd).status), 30_000, 500);
       criteria.push({ id: 'update', ok: upd.status === 'ready' && upd.latest === '9.9.9', detail: `${upd.kind} : ${upd.status} ${upd.latest ?? ''} (téléchargée et vérifiée, non installée)` });
     } else {
       criteria.push({ id: 'update', ok: upd.status === 'unsupported', detail: `version de dev : mises à jour ${upd.status === 'unsupported' ? 'désactivées' : upd.status}` });
@@ -515,9 +515,9 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     //     marks its tab as working, Stop marks it done.
     const folder = join(outDir, 'projet-maison-sable');
     mkdirSync(folder, { recursive: true });
-    const hooks = await js<{ installed: boolean; file: string }>(`window.parakeet.claude.install()`);
-    const current = await js<{ projects: { id: string; folder: string | null }[]; activeId: string }>(`window.parakeet.updateSettings({})`);
-    await js(`window.parakeet.updateSettings(${JSON.stringify({ projects: current.projects.map((p) => (p.id === current.activeId ? { ...p, folder } : p)) })})`);
+    const hooks = await js<{ installed: boolean; file: string }>(`window.kinglet.claude.install()`);
+    const current = await js<{ projects: { id: string; folder: string | null }[]; activeId: string }>(`window.kinglet.updateSettings({})`);
+    await js(`window.kinglet.updateSettings(${JSON.stringify({ projects: current.projects.map((p) => (p.id === current.activeId ? { ...p, folder } : p)) })})`);
     const script = join(app.getPath('userData'), 'claude-hook.sh');
     const fire = (payload: object) => execFileSync('sh', [script], { input: JSON.stringify(payload) });
     fire({ hook_event_name: 'UserPromptSubmit', session_id: 'selftest', cwd: join(folder, 'src'), prompt: 'Corrige le débordement sur iPhone' });
@@ -525,12 +525,12 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     const working = await waitFor(() => js<boolean>(`!!document.querySelector('[aria-label="Open projects"] [aria-selected=true] .claude-dot')`), 3000);
     await sleep(1200);
     await shot('21-claude-travaille');
-    const thumb = await js<string | null>(`window.parakeet.thumbnail()`);
+    const thumb = await js<string | null>(`window.kinglet.thumbnail()`);
     if (thumb) writeFileSync(join(outDir, 'thumbnail.jpg'), Buffer.from(thumb.split(',')[1]!, 'base64'));
     fire({ hook_event_name: 'Stop', session_id: 'selftest', cwd: folder });
     type CS = { projects: Record<string, { status: string; files: string[] }> };
-    const done = await waitFor(async () => (await js<CS>(`window.parakeet.claude.state()`)).projects[current.activeId]?.status === 'done', 3000);
-    const cs = (await js<CS>(`window.parakeet.claude.state()`)).projects[current.activeId];
+    const done = await waitFor(async () => (await js<CS>(`window.kinglet.claude.state()`)).projects[current.activeId]?.status === 'done', 3000);
+    const cs = (await js<CS>(`window.kinglet.claude.state()`)).projects[current.activeId];
     criteria.push({
       id: 'claude-hooks',
       ok: hooks.installed && hooks.file.startsWith(outDir) && working && done && cs?.files[0] === 'src/Hero.tsx',
@@ -539,14 +539,14 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     ui({ type: 'shortcut', action: 'overview' });
     await sleep(900);
     await shot('22-tous-les-projets');
-    const uninstalled = await js<{ installed: boolean }>(`window.parakeet.claude.uninstall()`);
+    const uninstalled = await js<{ installed: boolean }>(`window.kinglet.claude.uninstall()`);
     criteria.push({ id: 'claude-hooks-uninstall', ok: !uninstalled.installed && JSON.stringify(JSON.parse(readFileSync(hooks.file, 'utf8'))) === '{}', detail: 'hooks retirés, réglages de Claude Code laissés vides comme avant' });
     ui({ type: 'shortcut', action: 'overview' });
     await sleep(500);
 
     // ---- Devtools ----
     // 24. Favicon of the site kept on the project (its tab shows it).
-    const cur = await js<{ projects: { id: string; favicon?: string | null }[]; activeId: string }>(`window.parakeet.updateSettings({})`);
+    const cur = await js<{ projects: { id: string; favicon?: string | null }[]; activeId: string }>(`window.kinglet.updateSettings({})`);
     const fav = cur.projects.find((p) => p.id === cur.activeId)?.favicon ?? '';
     const tabImg = await js<boolean>(`!!document.querySelector('[aria-label="Open projects"] [aria-selected=true] img[src^="data:image/"]')`);
     criteria.push({ id: 'favicon', ok: fav.startsWith('data:image/') && tabImg, detail: `${fav.slice(0, 26)}… · ${tabImg ? 'shown in the tab' : 'not in the tab'}` });
@@ -555,25 +555,25 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     await devices.navigate('http://localhost:5173/atelier.html');
     await waitFor(() => devices.entries().every((d) => !d.view.webContents.isLoading()), 8000);
     await sleep(800);
-    await devices.entries()[0]!.view.webContents.executeJavaScript(`fetch('http://127.0.0.1:9/parakeet-missing.png').catch(() => {}); console.warn('parakeet selftest warning'); 1`);
+    await devices.entries()[0]!.view.webContents.executeJavaScript(`fetch('http://127.0.0.1:9/kinglet-missing.png').catch(() => {}); console.warn('kinglet selftest warning'); 1`);
     type L = { deviceId: string; source: string; level: string; status?: number; text: string };
     let logs: L[] = [];
     const gotLogs = await waitFor(async () => {
-      logs = await js<L[]>(`window.parakeet.logs()`);
-      return logs.some((l) => l.source === 'network' && l.text !== '' && JSON.stringify(l).includes('parakeet-missing')) && devices.entries().every((d) => logs.some((l) => l.deviceId === d.preset.id && l.source === 'console' && l.level === 'error'));
+      logs = await js<L[]>(`window.kinglet.logs()`);
+      return logs.some((l) => l.source === 'network' && l.text !== '' && JSON.stringify(l).includes('kinglet-missing')) && devices.entries().every((d) => logs.some((l) => l.deviceId === d.preset.id && l.source === 'console' && l.level === 'error'));
     }, 5000);
     const uiCount = await waitFor(async () => {
       // The console is a drawer under the devices, opened from the left bar.
       if (!(await js<boolean>(`!!document.querySelector('[aria-label="Console drawer"]')`))) await clickText('nav button', 'Console');
-      return js<boolean>(`[...document.querySelectorAll('[aria-label=Console] li')].some((li) => li.textContent.includes('parakeet-missing.png'))`);
+      return js<boolean>(`[...document.querySelectorAll('[aria-label=Console] li')].some((li) => li.textContent.includes('kinglet-missing.png'))`);
     }, 3000);
     await sleep(500);
     await shot('23-console');
     const firstId = devices.entries()[0]!.preset.id;
     criteria.push({
       id: 'console',
-      ok: gotLogs && uiCount && logs.some((l) => l.deviceId === firstId && l.level === 'warning' && l.text.includes('parakeet selftest')),
-      detail: devices.entries().map((d) => `${d.preset.id}: ${logs.filter((l) => l.deviceId === d.preset.id && l.level === 'error').length} errors`).join(', ') + ` · failed request ${logs.some((l) => l.source === 'network' && JSON.stringify(l).includes('parakeet-missing')) ? 'seen' : 'missing'} · ${uiCount ? 'listed in the Console tab' : 'not in the tab'}`,
+      ok: gotLogs && uiCount && logs.some((l) => l.deviceId === firstId && l.level === 'warning' && l.text.includes('kinglet selftest')),
+      detail: devices.entries().map((d) => `${d.preset.id}: ${logs.filter((l) => l.deviceId === d.preset.id && l.level === 'error').length} errors`).join(', ') + ` · failed request ${logs.some((l) => l.source === 'network' && JSON.stringify(l).includes('kinglet-missing')) ? 'seen' : 'missing'} · ${uiCount ? 'listed in the Console tab' : 'not in the tab'}`,
     });
 
     // 26. Slow 3G + mid-range phone CPU: one request and a fixed computation, timed in the phone
@@ -581,7 +581,7 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     const probe = () =>
       devices.entries()[0]!.view.webContents.executeJavaScript(`(async () => {
         let t = performance.now();
-        await fetch('/?parakeet-probe=' + Math.random(), { cache: 'no-store' });
+        await fetch('/?kinglet-probe=' + Math.random(), { cache: 'no-store' });
         const net = Math.round(performance.now() - t);
         t = performance.now();
         let x = 0;
@@ -589,12 +589,12 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
         return { net, cpu: Math.round(performance.now() - t), x };
       })()`) as Promise<{ net: number; cpu: number }>;
     const fast = await probe();
-    await js(`window.parakeet.updateSettings({ throttle: { network: '3g', cpu: 4 } })`);
+    await js(`window.kinglet.updateSettings({ throttle: { network: '3g', cpu: 4 } })`);
     await sleep(600);
     const slow = await probe();
     await sleep(300);
     await shot('24-3g-lente');
-    await js(`window.parakeet.updateSettings({ throttle: { network: 'off', cpu: 1 } })`);
+    await js(`window.kinglet.updateSettings({ throttle: { network: 'off', cpu: 1 } })`);
     await sleep(600);
     const back = await probe();
     criteria.push({
@@ -605,18 +605,18 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     await clickText('nav button', 'Console'); // close the drawer
 
     // 26-media. Dark mode, reduced motion, high contrast: what the pages see in their media queries.
-    await js(`window.parakeet.updateSettings({ media: { colorScheme: 'dark', reducedMotion: true, moreContrast: true } })`);
+    await js(`window.kinglet.updateSettings({ media: { colorScheme: 'dark', reducedMotion: true, moreContrast: true } })`);
     const mq = `[matchMedia('(prefers-color-scheme: dark)').matches, matchMedia('(prefers-reduced-motion: reduce)').matches, matchMedia('(prefers-contrast: more)').matches]`;
     const mediaOn = await waitFor(async () => (await Promise.all(devices.entries().map((d) => d.view.webContents.executeJavaScript(mq) as Promise<boolean[]>))).every((r) => r.every(Boolean)), 3000);
     await sleep(300);
     await shot('31-mode-sombre');
-    await js(`window.parakeet.updateSettings({ media: { colorScheme: 'light', reducedMotion: false, moreContrast: false } })`);
+    await js(`window.kinglet.updateSettings({ media: { colorScheme: 'light', reducedMotion: false, moreContrast: false } })`);
     const mediaOff = await waitFor(async () => (await Promise.all(devices.entries().map((d) => d.view.webContents.executeJavaScript(mq) as Promise<boolean[]>))).every((r) => r.every((x) => !x)), 3000);
-    await js(`window.parakeet.updateSettings({ media: { colorScheme: 'auto', reducedMotion: false, moreContrast: false } })`);
+    await js(`window.kinglet.updateSettings({ media: { colorScheme: 'auto', reducedMotion: false, moreContrast: false } })`);
     criteria.push({ id: 'media', ok: mediaOn && mediaOff, detail: `sombre + animations réduites + contraste : ${mediaOn ? 'vus par les pages' : 'absents'} · clair : ${mediaOff ? 'ok' : 'échec'}` });
 
     // 26-network. Simulated API responses and offline mode, on every device.
-    await js(`window.parakeet.updateSettings({ mocks: [{ id: 'm1', enabled: true, method: 'GET', pattern: '*/api/plans*', status: 503, contentType: 'application/json', body: '{"down":true}', delayMs: 300 }] })`);
+    await js(`window.kinglet.updateSettings({ mocks: [{ id: 'm1', enabled: true, method: 'GET', pattern: '*/api/plans*', status: 503, contentType: 'application/json', body: '{"down":true}', delayMs: 300 }] })`);
     await sleep(600);
     const probeApi = `fetch('/api/plans?x=1').then(async (r) => r.status + ' ' + (await r.text())).catch((e) => 'failed ' + e.message)`;
     const mocked = (await Promise.all(devices.entries().map((d) => d.view.webContents.executeJavaScript(probeApi) as Promise<string>))) as string[];
@@ -627,10 +627,10 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     await sleep(400);
     await shot('33-reponses-simulees');
     await js(`document.querySelector('[role=dialog][aria-label="Simulated API responses"] button[aria-label=Close]')?.click()`);
-    await js(`window.parakeet.updateSettings({ mocks: [], offline: true })`);
+    await js(`window.kinglet.updateSettings({ mocks: [], offline: true })`);
     await sleep(600);
     const offline = (await Promise.all(devices.entries().map((d) => d.view.webContents.executeJavaScript(probeApi) as Promise<string>))) as string[];
-    await js(`window.parakeet.updateSettings({ offline: false })`);
+    await js(`window.kinglet.updateSettings({ offline: false })`);
     await sleep(600);
     const online = (await devices.entries()[0]!.view.webContents.executeJavaScript(`fetch('/').then((r) => r.status).catch(() => 0)`)) as number;
     criteria.push({
@@ -679,10 +679,10 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     criteria.push({ id: 'feedback-pins', ok: pinAdded && issued, detail: `épingle ${pinAdded ? 'posée' : 'absente'} · issue ${issued ? 'ouverte (#7)' : 'non ouverte'}` });
     await clickText('nav button', 'Feedback');
 
-    // 26a. Claude panel: Claude Code (a stand-in here) in the project folder, with Parakeet's MCP, a pointed spot joined.
+    // 26a. Claude panel: Claude Code (a stand-in here) in the project folder, with Kinglet's MCP, a pointed spot joined.
     await js(`(async () => {
-      const s = await window.parakeet.updateSettings({});
-      await window.parakeet.updateSettings({ projects: s.projects.map((p) => (p.id === s.activeId ? { ...p, folder: ${JSON.stringify(process.env.PARAKEET_DEMO_DIR ?? '/tmp')} } : p)) });
+      const s = await window.kinglet.updateSettings({});
+      await window.kinglet.updateSettings({ projects: s.projects.map((p) => (p.id === s.activeId ? { ...p, folder: ${JSON.stringify(process.env.KINGLET_DEMO_DIR ?? '/tmp')} } : p)) });
     })()`);
     await clickText('nav button', 'Claude');
     await waitFor(() => js<boolean>(`!!document.querySelector('textarea[aria-label="Message to Claude"]')`), 4000);
@@ -712,7 +712,7 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     await shot('29-claude-reponse');
     criteria.push({
       id: 'claude-panel',
-      ok: pinned && pointMs < 3000 && replied && reply.includes('1 image') && reply.includes('mcp parakeet') && reply.includes('pointed yes') && reply.includes(process.env.PARAKEET_DEMO_DIR ?? '/tmp'),
+      ok: pinned && pointMs < 3000 && replied && reply.includes('1 image') && reply.includes('mcp kinglet') && reply.includes('pointed yes') && reply.includes(process.env.KINGLET_DEMO_DIR ?? '/tmp'),
       detail: `${reply || `épingle ${pinned}, pas de réponse`} · épingle en ${pointMs} ms`,
     });
     // A second message resumes the same Claude Code session.
@@ -738,11 +738,11 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     await clickText('[role=alertdialog] button', 'Allow');
     let approval = '';
     const allowed = await waitFor(async () => (approval = await js<string>(`[...document.querySelectorAll('aside[aria-label=Claude] p')].map((p) => p.textContent).find((x) => x.includes('approval')) ?? ''`)) !== '', 8000);
-    criteria.push({ id: 'claude-approval', ok: asked && allowed && approval.includes('allowed') && approval.includes('mcp__parakeet__approve'), detail: approval || `question ${asked ? 'affichée' : 'absente'}` });
+    criteria.push({ id: 'claude-approval', ok: asked && allowed && approval.includes('allowed') && approval.includes('mcp__kinglet__approve'), detail: approval || `question ${asked ? 'affichée' : 'absente'}` });
     await clickText('nav button', 'Claude'); // close the panel
 
     // 26b. Settings: a custom device is emulated like the built-in ones, then removed.
-    await js(`window.parakeet.updateSettings({ customDevices: [{ id: 'custom-selftest', label: 'Fold', width: 673, height: 841, dpr: 2.625, kind: 'phone' }], active: ['iphone-16', 'ipad-air', 'custom-selftest'] })`);
+    await js(`window.kinglet.updateSettings({ customDevices: [{ id: 'custom-selftest', label: 'Fold', width: 673, height: 841, dpr: 2.625, kind: 'phone' }], active: ['iphone-16', 'ipad-air', 'custom-selftest'] })`);
     const customOn = await waitFor(() => devices.entries().some((d) => d.preset.id === 'custom-selftest' && d.preset.width === 673), 3000);
     await clickText('nav button', 'Settings');
     await clickText('[aria-label="Settings pages"] button', 'Devices');
@@ -751,18 +751,18 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     await clickText('[aria-label="Settings pages"] button', 'General');
     await sleep(400);
     await shot('27-reglages-general');
-    await js(`window.parakeet.updateSettings({ customDevices: [], active: ['iphone-16', 'ipad-air'] })`);
+    await js(`window.kinglet.updateSettings({ customDevices: [], active: ['iphone-16', 'ipad-air'] })`);
     const customOff = await waitFor(() => !devices.entries().some((d) => d.preset.id === 'custom-selftest'), 3000);
     criteria.push({ id: 'custom-device', ok: customOn && customOff, detail: `ajout ${customOn ? 'ok' : 'absent'} · retrait ${customOff ? 'ok' : 'échoué'}` });
     await clickText('nav button', 'Devices');
 
     // 27. Language: French, then back to English (default).
-    await js(`window.parakeet.updateSettings({ language: 'fr' })`);
+    await js(`window.kinglet.updateSettings({ language: 'fr' })`);
     const fr = await waitFor(() => js<boolean>(`document.documentElement.lang === 'fr' && !!document.querySelector('nav button[aria-label="Réglages"]')`), 3000);
     await clickText('nav button', 'Réglages');
     await sleep(600);
     await shot('25-francais');
-    await js(`window.parakeet.updateSettings({ language: 'en' })`);
+    await js(`window.kinglet.updateSettings({ language: 'en' })`);
     const en = await waitFor(() => js<boolean>(`document.documentElement.lang === 'en' && !!document.querySelector('nav button[aria-label="Settings"]')`), 3000);
     criteria.push({ id: 'language', ok: fr && en, detail: `français ${fr ? 'ok' : 'absent'} · back to English ${en ? 'ok' : 'failed'}` });
     await clickText('nav button', 'Devices');

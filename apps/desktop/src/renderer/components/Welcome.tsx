@@ -1,12 +1,12 @@
-import { t } from '@parakeet/core';
+import { t } from '@kinglet/core';
 import { useEffect, useState } from 'react';
 import type { LocalServer } from '../../shared/types';
 import { api, useStore } from '../store';
-import { Icon, Kbd } from './Icons';
+import { Icon, Kbd, KingletBird } from './Icons';
 
 const tilde = (p: string) => p.replace(/^\/home\/[^/]+|^\/Users\/[^/]+/, '~');
 
-/** No site open yet: what Parakeet does, and the ways to open a first site. */
+/** No site open yet: what Kinglet does, and the ways to open a first site. */
 export function Welcome() {
   const s = useStore();
   const [servers, setServers] = useState<LocalServer[] | null>(null);
@@ -35,9 +35,10 @@ export function Welcome() {
   return (
     <main className="stage-bg flex min-w-0 flex-1 items-center justify-center overflow-y-auto p-8">
       <div className="flex w-full max-w-[720px] flex-col items-center gap-6 text-center">
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col items-center gap-2">
+          <KingletBird width={112} />
           <h1 className="m-0 text-[22px] font-semibold tracking-[-0.02em]">{t('Open your first site', 'Ouvre ton premier site')}</h1>
-          <p className="m-0 text-muted">{t('Parakeet shows it on all your devices, locally, in preview and in production.', 'Parakeet l’affichera sur tous tes appareils, en local, en preview et en prod.')}</p>
+          <p className="m-0 text-muted">{t('Kinglet shows it on all your devices, locally, in preview and in production.', 'Kinglet l’affichera sur tous tes appareils, en local, en preview et en prod.')}</p>
         </div>
         <div className="grid w-full grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-2.5">
           <div className={card}>

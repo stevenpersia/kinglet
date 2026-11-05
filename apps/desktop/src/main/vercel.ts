@@ -1,21 +1,21 @@
 import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { safeStorage } from 'electron';
-import { t, VercelClient, type VercelDeployment } from '@parakeet/core';
+import { t, VercelClient, type VercelDeployment } from '@kinglet/core';
 import type { VercelState, VercelTeamProject } from '../shared/types';
 
 interface Stored {
   /** Token encrypted with safeStorage (base64), or in clear when no encryption is available. */
   token: string;
   encrypted: boolean;
-  /** Before multi-project: the one linked project (migrated into a Parakeet project). */
+  /** Before multi-project: the one linked project (migrated into a Kinglet project). */
   teamId?: string | null;
   projectId?: string | null;
 }
 
 const REFRESH_MS = 30_000;
 
-/** Which Vercel projects to follow: the ones open in Parakeet's tabs. */
+/** Which Vercel projects to follow: the ones open in Kinglet's tabs. */
 export interface Watched {
   projectId: string;
   teamId: string | null;
@@ -37,7 +37,7 @@ export class VercelService {
   constructor(
     userData: string,
     private emit: (s: VercelState) => void,
-    private baseUrl = process.env.PARAKEET_VERCEL_API,
+    private baseUrl = process.env.KINGLET_VERCEL_API,
   ) {
     this.file = join(userData, 'vercel.json');
   }

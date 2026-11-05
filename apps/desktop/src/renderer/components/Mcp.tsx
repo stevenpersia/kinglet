@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { locale, t } from '@parakeet/core';
+import { locale, t } from '@kinglet/core';
 import type { McpActivity } from '../../shared/types';
 import { api, useStore } from '../store';
 import { Dot } from './Icons';
 
-export const SLASH = { share: '/mcp__parakeet__fix_share', checks: '/mcp__parakeet__fix_checks' } as const;
+export const SLASH = { share: '/mcp__kinglet__fix_share', checks: '/mcp__kinglet__fix_checks' } as const;
 
 /** A button that copies a text and says so for a moment. */
 export function CopyButton({ text, label, done = t('Copied ✓', 'Copié ✓'), primary = false, className = '' }: { text: string; label: string; done?: string; primary?: boolean; className?: string }) {

@@ -58,7 +58,7 @@ jobs:
       # Test the packaged app (update check included) before anything is published.
       - name: Acceptance test (packaged app)
         working-directory: apps/desktop
-        run: PARAKEET_BIN=dist/linux-unpacked/parakeet node scripts/selftest.mjs
+        run: KINGLET_BIN=dist/linux-unpacked/kinglet node scripts/selftest.mjs
 
       # latest-linux.yml is what the app's updater reads.
       - name: Publish the release
@@ -66,4 +66,4 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         # --target creates the tag on this commit when it does not exist yet (manual run).
-        run: gh release create "$TAG" dist/*.AppImage dist/*.pacman dist/latest-linux.yml --target "$GITHUB_SHA" --title "Parakeet ${TAG#v}" --generate-notes
+        run: gh release create "$TAG" dist/*.AppImage dist/*.pacman dist/latest-linux.yml --target "$GITHUB_SHA" --title "Kinglet ${TAG#v}" --generate-notes

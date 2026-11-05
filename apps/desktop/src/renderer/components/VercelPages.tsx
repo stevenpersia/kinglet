@@ -1,6 +1,6 @@
 import { PrBadge, usePullRequests } from './PullRequest';
 import { CompareVisual } from './CompareVisual';
-import { samePageOn, t, type VercelDeployment } from '@parakeet/core';
+import { samePageOn, t, type VercelDeployment } from '@kinglet/core';
 import { useEffect, useState } from 'react';
 import type { CompareColumn, EnvId } from '../../shared/types';
 import { ENV_DOT, envTargets, timeAgo, urlOnEnv } from '../lib/env';

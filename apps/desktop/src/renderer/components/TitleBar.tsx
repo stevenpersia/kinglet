@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { t } from '@parakeet/core';
+import { t } from '@kinglet/core';
 import type { Project } from '../../shared/types';
 import { ENV_DOT, envOf } from '../lib/env';
 import { initials, projectColor, projectStatus } from '../lib/status';

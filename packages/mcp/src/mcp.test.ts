@@ -28,7 +28,7 @@ beforeAll(async () => {
   });
   await new Promise<void>((r) => site.listen(0, '127.0.0.1', r));
   siteUrl = `http://127.0.0.1:${(site.address() as { port: number }).port}/`;
-  dir = mkdtempSync(join(tmpdir(), 'parakeet-mcp-'));
+  dir = mkdtempSync(join(tmpdir(), 'kinglet-mcp-'));
 });
 
 afterAll(() => {
@@ -40,7 +40,7 @@ async function connect() {
   const transport = new StdioClientTransport({
     command: process.execPath,
     args: [resolve(__dirname, 'cli.ts')],
-    env: { ...process.env, PARAKEET_CONFIG_DIR: dir } as Record<string, string>,
+    env: { ...process.env, KINGLET_CONFIG_DIR: dir } as Record<string, string>,
     stderr: 'pipe',
   });
   const client = new Client({ name: 'test', version: '0' });

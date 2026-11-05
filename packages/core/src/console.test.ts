@@ -20,7 +20,7 @@ describe('console prompt', () => {
     expect(p).toContain('[network] 404 Not Found (GET /og.png) · iPad Air');
     expect(p).toContain('slow 3G');
     setLanguage('fr');
-    expect(consolePrompt(entries, { pageUrl: 'http://localhost:5173/' })).toContain('Parakeet a vu ces erreurs');
+    expect(consolePrompt(entries, { pageUrl: 'http://localhost:5173/' })).toContain('Kinglet a vu ces erreurs');
     setLanguage('en');
     expect(consolePrompt([], { pageUrl: null })).toBe('No errors in the console of the page.');
   });

@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { locale, t } from '@parakeet/core';
+import { locale, t } from '@kinglet/core';
 import type { DevicePreset, Throttle } from '../../shared/types';
 import { BEZEL, fitScale, viewportOf } from '../lib/layout';
 import { activePresets, api, devicePresets, useStore } from '../store';
