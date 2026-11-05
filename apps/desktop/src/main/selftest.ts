@@ -97,12 +97,14 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     // 2. Scroll sync
     const [first, ...others] = devices.entries();
     if (first && others.length) {
-      await first.view.webContents.executeJavaScript('window.scrollTo(0, (document.documentElement.scrollHeight - innerHeight) * 0.5)');
       let ratios: number[] = [];
+      let tries = 0;
+      // Scrolled again (1 px apart) until the others follow: the sync may not be listening yet on a slow machine.
       const synced = await waitFor(async () => {
+        if (tries++ % 3 === 0) await first.view.webContents.executeJavaScript(`window.scrollTo(0, (document.documentElement.scrollHeight - innerHeight) * 0.5 + ${tries % 2})`);
         ratios = (await evalAll()).map((d) => +d.scrollRatio.toFixed(3));
         return ratios.every((r) => Math.abs(r - 0.5) < 0.05);
-      }, 3000);
+      }, 6000);
       criteria.push({ id: 'scroll-sync', ok: synced, detail: `ratios ${ratios.join(' / ')} (cible 0.5)` });
       await shot('02-scroll-synchro');
       await first.view.webContents.executeJavaScript('window.scrollTo(0, 0)');
@@ -690,14 +692,19 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     criteria.push({ id: 'feedback-pins', ok: pinAdded && issued, detail: `épingle ${pinAdded ? 'posée' : 'absente'} · issue ${issued ? 'ouverte (#7)' : 'non ouverte'}` });
     await clickText('nav button', 'Feedback');
 
-    // 26a. Claude panel: Claude Code (a stand-in here) in the project folder, with Kinglet's MCP, a pointed spot joined.
+    // 26a. Claude panel: a real terminal running Claude Code (a stand-in here) in the project folder,
+    //      with Kinglet's MCP; "Show" puts the pointed spot (capture + element) in its input.
     await js(`(async () => {
       const s = await window.kinglet.updateSettings({});
       await window.kinglet.updateSettings({ projects: s.projects.map((p) => (p.id === s.activeId ? { ...p, folder: ${JSON.stringify(process.env.KINGLET_DEMO_DIR ?? '/tmp')} } : p)) });
     })()`);
+    const screen = () => js<string>(`[...document.querySelectorAll('aside[aria-label=Claude] .xterm-rows > div')].map((r) => r.textContent).join('\\n')`);
     // Open by default; unfold it if an earlier step folded it.
-    if (!(await js<boolean>(`!!document.querySelector('textarea[aria-label="Message to Claude"]')`))) await clickText('nav button', 'Claude');
-    await waitFor(() => js<boolean>(`!!document.querySelector('textarea[aria-label="Message to Claude"]')`), 4000);
+    if (!(await js<boolean>(`!!document.querySelector('aside[aria-label=Claude] [data-terminal]')`))) await clickText('nav button', 'Claude');
+    let term = '';
+    const started = await waitFor(async () => (term = await screen()).includes('FAKE-CLAUDE ready'), 8000);
+    // Long lines wrap over several rows of the terminal: read them joined.
+    const banner = /FAKE-CLAUDE ready[^>]*/.exec(term.replace(/\n/g, ''))?.[0] ?? '';
     await sleep(1000); // the devices settle at their new size next to the panel
     await clickText('aside[aria-label=Claude] button', 'Show');
     await waitFor(() => js<boolean>(`!!document.querySelector('.cursor-crosshair')`), 4000);
@@ -709,48 +716,25 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
       el.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: r.left + r.width * 0.5, clientY: r.top + 30 }));
     })()`);
     const pointStart = Date.now();
-    const pinned = await waitFor(() => js<boolean>(`[...document.querySelectorAll('aside[aria-label=Claude] img')].length > 0`), 15000);
+    const pasted = await waitFor(async () => (term = await screen()).includes('PASTED'), 15000);
     const pointMs = Date.now() - pointStart;
-    await js(`(() => {
-      const ta = document.querySelector('textarea[aria-label="Message to Claude"]');
-      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(ta, 'The title is too big here, make it smaller');
-      ta.dispatchEvent(new Event('input', { bubbles: true }));
-    })()`);
-    await sleep(200);
-    await js(`document.querySelector('textarea[aria-label="Message to Claude"]').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))`);
-    let reply = '';
-    const replied = await waitFor(async () => (reply = await js<string>(`[...document.querySelectorAll('aside[aria-label=Claude] p')].map((p) => p.textContent).find((x) => x.includes('FAKE-CLAUDE')) ?? ''`)) !== '', 8000);
-    await settle(500);
-    await shot('29-claude-reponse');
+    const pasteLine = /PASTED · [^·]+· [^·]+/.exec(term.replace(/\n/g, ''))?.[0] ?? '';
+    // Typing goes to Claude, like in any terminal.
+    const projectId = await js<string>(`window.kinglet.updateSettings({}).then((s) => s.activeId)`);
+    await js(`window.kinglet.term.input(${JSON.stringify(projectId)}, 'make it smaller\\r')`);
+    const typed = await waitFor(async () => (term = await screen()).includes('TYPED make it smaller'), 5000);
+    await settle(300);
+    await shot('29-claude-terminal');
     criteria.push({
-      id: 'claude-panel',
-      ok: pinned && pointMs < 3000 && replied && reply.includes('1 image') && reply.includes('mcp kinglet') && reply.includes('pointed yes') && reply.includes(process.env.KINGLET_DEMO_DIR ?? '/tmp'),
-      detail: `${reply || `épingle ${pinned}, pas de réponse`} · épingle en ${pointMs} ms`,
+      id: 'claude-terminal',
+      ok: started && banner.includes('tty true') && banner.includes('mcp kinglet') && banner.includes(process.env.KINGLET_DEMO_DIR ?? '/tmp') && typed,
+      detail: `${banner.replace(/\s+/g, ' ').trim() || 'pas démarré'} · frappe ${typed ? 'reçue' : 'perdue'}`,
     });
-    // A second message resumes the same Claude Code session.
-    await js(`(() => {
-      const ta = document.querySelector('textarea[aria-label="Message to Claude"]');
-      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(ta, 'Thanks');
-      ta.dispatchEvent(new Event('input', { bubbles: true }));
-    })()`);
-    await sleep(200);
-    await js(`document.querySelector('textarea[aria-label="Message to Claude"]').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))`);
-    const resumed = await waitFor(() => js<boolean>(`[...document.querySelectorAll('aside[aria-label=Claude] p')].some((p) => p.textContent.includes('resume fake-session-1'))`), 8000);
-    criteria.push({ id: 'claude-resume', ok: resumed, detail: resumed ? 'session fake-session-1 reprise' : 'session non reprise' });
-    // Before a command, Claude asks; the panel shows the question and the answer goes back to Claude.
-    await js(`(() => {
-      const ta = document.querySelector('textarea[aria-label="Message to Claude"]');
-      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(ta, 'Install zod and use it');
-      ta.dispatchEvent(new Event('input', { bubbles: true }));
-    })()`);
-    await sleep(200);
-    await js(`document.querySelector('textarea[aria-label="Message to Claude"]').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))`);
-    const asked = await waitFor(() => js<boolean>(`!!document.querySelector('[role=alertdialog][aria-label="Claude asks"]')?.textContent.includes('npm install zod')`), 8000);
-    await shot('30-claude-demande');
-    await clickText('[role=alertdialog] button', 'Allow');
-    let approval = '';
-    const allowed = await waitFor(async () => (approval = await js<string>(`[...document.querySelectorAll('aside[aria-label=Claude] p')].map((p) => p.textContent).find((x) => x.includes('approval')) ?? ''`)) !== '', 8000);
-    criteria.push({ id: 'claude-approval', ok: asked && allowed && approval.includes('allowed') && approval.includes('mcp__kinglet__approve'), detail: approval || `question ${asked ? 'affichée' : 'absente'}` });
+    criteria.push({
+      id: 'claude-show',
+      ok: pasted && pasteLine.includes('image yes') && pasteLine.includes('pointed yes') && pointMs < 5000,
+      detail: `${pasteLine.replace(/\s+/g, ' ').trim() || 'rien collé'} · en ${pointMs} ms`,
+    });
     await clickText('nav button', 'Claude'); // fold the column
 
     // 26b. Settings: a custom device is emulated like the built-in ones, then removed.

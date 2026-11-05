@@ -70,12 +70,15 @@ const api: KingletApi = {
   },
   chat: {
     cli: () => ipcRenderer.invoke('chat:cli'),
-    state: (projectId) => ipcRenderer.invoke('chat:state', projectId),
-    send: (projectId, text, attachments) => ipcRenderer.invoke('chat:send', projectId, text, attachments),
-    stop: (projectId) => ipcRenderer.send('chat:stop', projectId),
-    clear: (projectId) => ipcRenderer.send('chat:clear', projectId),
-    approve: (projectId, id, allow, all) => ipcRenderer.send('chat:approve', projectId, id, allow, !!all),
     installMcp: () => ipcRenderer.invoke('chat:install-mcp'),
+  },
+  term: {
+    start: (projectId, cols, rows) => ipcRenderer.invoke('term:start', projectId, cols, rows),
+    restart: (projectId, cols, rows) => ipcRenderer.invoke('term:restart', projectId, cols, rows),
+    input: (projectId, data) => ipcRenderer.send('term:input', projectId, data),
+    resize: (projectId, cols, rows) => ipcRenderer.send('term:resize', projectId, cols, rows),
+    paste: (projectId, text, attachments) => ipcRenderer.invoke('term:paste', projectId, text, attachments),
+    focus: (on) => ipcRenderer.send('term:focus', on),
   },
   onEvent: (cb) => {
     const listener = (_e: unknown, ev: PreviewEvent) => cb(ev);

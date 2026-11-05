@@ -35,21 +35,9 @@ export function ClaudePanelSettings() {
       <div className={row}>
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <span className="font-medium">{t('Claude panel', 'Panneau Claude')}</span>
-          <span className="text-xs text-muted">{t('A Claude column, open by default in every project. Fold it with Ctrl J.', 'Une colonne Claude, ouverte par défaut dans chaque projet. Ctrl J pour la replier.')}</span>
+          <span className="text-xs text-muted">{t('A terminal running your claude in the project folder, open by default in every project: your login, your commands, your settings. “Ask Claude” and “Show” put their context in its input. Fold it with Ctrl J.', 'Un terminal qui lance ton claude dans le dossier du projet, ouvert par défaut dans chaque projet : ton compte, tes commandes, tes réglages. « Demander à Claude » et « Montrer » mettent leur contexte dans sa saisie. Ctrl J pour le replier.')}</span>
         </div>
         <Switch label={t('Claude panel', 'Panneau Claude')} on={settings.claudePanel} onChange={(claudePanel) => void updateSettings({ claudePanel })} />
-      </div>
-      <div className={row}>
-        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <span className="font-medium">{t('Let Claude run commands', 'Laisser Claude lancer des commandes')}</span>
-          <span className="text-xs text-muted">
-            {t(
-              'Off: Claude edits files in the project folder and uses Kinglet freely, and asks you in the panel before any command (npm install, git…). On: everything runs without asking.',
-              'Désactivé : Claude modifie les fichiers du dossier et utilise Kinglet librement, et te demande dans le panneau avant chaque commande (npm install, git…). Activé : tout s’exécute sans demander.',
-            )}
-          </span>
-        </div>
-        <Switch label={t('Let Claude run commands', 'Laisser Claude lancer des commandes')} on={settings.claudeAllowCommands} onChange={(claudeAllowCommands) => void updateSettings({ claudeAllowCommands })} />
       </div>
     </div>
   );

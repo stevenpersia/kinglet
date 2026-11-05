@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { ChatAttachment, ChatState, FeedbackPin, GitHubState, InspectState, ClaudeProjectState, AnalyzeReport, CrawledPage, DevicePreset, EnvId, InitState, McpActivity, McpInfo, KingletApi, PhoneState, Project, Settings, ShareReport, UpdateState, VercelState, VercelTeamProject } from '../shared/types';
+import type { ChatAttachment, FeedbackPin, GitHubState, InspectState, ClaudeProjectState, AnalyzeReport, CrawledPage, DevicePreset, EnvId, InitState, McpActivity, McpInfo, KingletApi, PhoneState, Project, Settings, ShareReport, UpdateState, VercelState, VercelTeamProject } from '../shared/types';
 import { activeProject, closeProject as closeTab, openProject, patchProject, projectFromUrl } from '../shared/projects';
 import { envOf, envTargets, urlOnEnv, type ProjectVercel } from './lib/env';
 import { activeIds, allPresets, listedIds } from '../shared/devices';
@@ -43,9 +43,9 @@ interface State {
   consoleOpen: boolean;
   settingsTab: SettingsTab;
   /** Conversation with Claude, per project id. */
-  chats: Record<string, ChatState>;
   /** Message being written in the Claude panel, per project id. */
-  drafts: Record<string, { text: string; attachments: ChatAttachment[] }>;
+  /** Spots shown to Claude in each project, to number the pins. */
+  shown: Record<string, number>;
   /** "Show Claude": the next click on a device points at a spot. */
   pointing: boolean;
   /** What the pointed spot is for: a message to Claude, or a review pin. */
@@ -110,7 +110,6 @@ interface State {
   toggleClaude(open?: boolean): void;
   /** Open the Claude panel with a message (and things joined to it) ready to send. */
   askClaude(text: string, attachments?: ChatAttachment[]): void;
-  setDraft(projectId: string, draft: { text: string; attachments: ChatAttachment[] }): void;
   startPointing(forWhat?: 'claude' | 'feedback'): Promise<void>;
   stopPointing(): void;
   /** Freeze native views as images while a menu or dialog covers the stage. */
@@ -142,8 +141,7 @@ export const useStore = create<State>((set, get) => ({
   panel: null,
   consoleOpen: false,
   settingsTab: 'general',
-  chats: {},
-  drafts: {},
+  shown: {},
   pointing: false,
   pointingFor: 'claude',
   pins: {},
@@ -334,8 +332,9 @@ export const useStore = create<State>((set, get) => ({
     const s = get();
     const id = s.settings.activeId;
     if (!id) return;
-    const prev = s.drafts[id] ?? { text: '', attachments: [] };
-    set({ drafts: { ...s.drafts, [id]: { text: !text ? prev.text : prev.text ? `${prev.text}\n${text}` : text, attachments: [...prev.attachments, ...attachments] } } });
+    // Straight into Claude's input in the project's terminal: the user completes and sends.
+    void api().term.paste(id, text, attachments).catch(() => undefined);
+    if (attachments.some((a) => a.kind === 'image')) set({ shown: { ...s.shown, [id]: (s.shown[id] ?? 0) + 1 } });
     // The column is there on every section but the projects and the settings.
     if (s.section === 'projets' || s.section === 'reglages') s.setSection('apercu');
     s.toggleClaude(true);
@@ -347,10 +346,6 @@ export const useStore = create<State>((set, get) => ({
     if (!project) return;
     const closed = !(open ?? !!project.claudeClosed);
     if (closed !== !!project.claudeClosed) void s.updateSettings(patchProject(s.settings, project.id, { claudeClosed: closed }));
-  },
-
-  setDraft(projectId, draft) {
-    set({ drafts: { ...get().drafts, [projectId]: draft } });
   },
 
   async startPointing(forWhat = 'claude') {
