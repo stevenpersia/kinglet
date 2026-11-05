@@ -1,4 +1,5 @@
 import { locale, t } from '@kinglet/core';
+import { useEffect } from 'react';
 import type { ClaudeEvent, Project } from '../../shared/types';
 import { ENV_DOT, envOf, timeAgo } from '../lib/env';
 import { projectStatus, type ProjectStatus } from '../lib/status';
@@ -165,6 +166,16 @@ export function ProjectsPage() {
     count('error') && t(`${count('error')} failed build${count('error') > 1 ? 's' : ''}`, `${count('error')} build${count('error') > 1 ? 's' : ''} en erreur`),
   ].filter(Boolean);
   const name = (id: string | null) => s.settings.projects.find((p) => p.id === id)?.name ?? t('No project', 'Hors projet');
+  const close = () => s.setSection('apercu');
+  // Escape leaves the page, unless a dialog or a field has it.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || e.defaultPrevented || document.querySelector('[role="dialog"]') || (e.target as HTMLElement | null)?.closest('input, textarea, select')) return;
+      useStore.getState().setSection('apercu');
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
   const feed = Object.values(s.claude)
     .flatMap((c) => c.events)
     .filter((e) => e.kind !== 'tool' || e.file)
@@ -178,7 +189,13 @@ export function ProjectsPage() {
           <h1 className="m-0 text-xl font-semibold tracking-[-0.02em]">
             {t(`${open.length} open project${open.length > 1 ? 's' : ''}`, `${open.length} projet${open.length > 1 ? 's' : ''} ouvert${open.length > 1 ? 's' : ''}`)}
           </h1>
-          <span className="text-[12.5px] text-muted">{summary.length ? summary.join(' · ') : t('Nothing running.', 'Rien en cours.')}</span>
+          <span className="flex items-center gap-3">
+            <span className="text-[12.5px] text-muted">{summary.length ? summary.join(' · ') : t('Nothing running.', 'Rien en cours.')}</span>
+            <button onClick={close} title={t('Close (Esc)', 'Fermer (Échap)')} className="flex h-7 items-center gap-2 rounded-ui border border-[#2a2a2f] bg-active px-2.5 text-xs font-medium text-fg hover:border-line-strong">
+              {t('Close', 'Fermer')}
+              <span className="font-mono text-[10px] text-ghost">{t('Esc', 'Échap')}</span>
+            </button>
+          </span>
         </div>
         {open.length ? (
           <div className="grid grid-cols-1 gap-3.5 xl:grid-cols-2">
