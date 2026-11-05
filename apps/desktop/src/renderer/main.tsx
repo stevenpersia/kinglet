@@ -1,7 +1,7 @@
 import '@fontsource-variable/geist';
 import '@fontsource-variable/geist-mono';
 import './app.css';
-import { resolveLanguage, setLanguage } from '@parakeet/core';
+import { resolveLanguage, setLanguage } from '@kinglet/core';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';

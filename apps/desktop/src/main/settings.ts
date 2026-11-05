@@ -29,7 +29,7 @@ export const DEFAULTS: Settings = {
   claudeAllowCommands: false,
 };
 
-/** Small JSON file in the user data folder (~/.config/Parakeet on Linux). */
+/** Small JSON file in the user data folder (~/.config/Kinglet on Linux). */
 export class SettingsStore {
   private file = join(app.getPath('userData'), 'settings.json');
   private timer: NodeJS.Timeout | null = null;
@@ -45,7 +45,7 @@ export class SettingsStore {
     }
     const known = new Set([...PRESETS.map((p) => p.id), ...(stored.customDevices ?? []).map((d) => d.id)]);
     const active = (stored.active ?? DEFAULTS.active).filter((id) => known.has(id));
-    // People who used Parakeet before the first-run window don't need it.
+    // People who used Kinglet before the first-run window don't need it.
     const onboarded = stored.onboarded ?? (stored.projects?.length ?? 0) > 0;
     this.value = { ...DEFAULTS, ...stored, onboarded, active: active.length ? active : DEFAULTS.active };
   }

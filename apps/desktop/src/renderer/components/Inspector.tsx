@@ -1,4 +1,4 @@
-import { t, type Issue } from '@parakeet/core';
+import { t, type Issue } from '@kinglet/core';
 import { useStore } from '../store';
 import { CheckGroups } from './Checks';
 import { Dot, Icon } from './Icons';

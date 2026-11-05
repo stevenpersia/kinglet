@@ -1,4 +1,4 @@
-import { t } from '@parakeet/core';
+import { t } from '@kinglet/core';
 import { useEffect, useState } from 'react';
 import { api, useStore } from '../store';
 
@@ -13,7 +13,7 @@ function Switch({ label, on, onChange }: { label: string; on: boolean; onChange:
   );
 }
 
-/** Claude in Parakeet: the panel, what it may do, and the Claude Code it runs. */
+/** Claude in Kinglet: the panel, what it may do, and the Claude Code it runs. */
 export function ClaudePanelSettings() {
   const { settings, updateSettings } = useStore();
   const [cli, setCli] = useState<import('../../shared/types').ClaudeCli | null>(null);
@@ -44,8 +44,8 @@ export function ClaudePanelSettings() {
           <span className="font-medium">{t('Let Claude run commands', 'Laisser Claude lancer des commandes')}</span>
           <span className="text-xs text-muted">
             {t(
-              'Off: Claude edits files in the project folder and uses Parakeet freely, and asks you in the panel before any command (npm install, git…). On: everything runs without asking.',
-              'Désactivé : Claude modifie les fichiers du dossier et utilise Parakeet librement, et te demande dans le panneau avant chaque commande (npm install, git…). Activé : tout s’exécute sans demander.',
+              'Off: Claude edits files in the project folder and uses Kinglet freely, and asks you in the panel before any command (npm install, git…). On: everything runs without asking.',
+              'Désactivé : Claude modifie les fichiers du dossier et utilise Kinglet librement, et te demande dans le panneau avant chaque commande (npm install, git…). Activé : tout s’exécute sans demander.',
             )}
           </span>
         </div>
@@ -55,7 +55,7 @@ export function ClaudePanelSettings() {
   );
 }
 
-/** Opt-in: Claude Code hooks that tell Parakeet what Claude is doing on each project. */
+/** Opt-in: Claude Code hooks that tell Kinglet what Claude is doing on each project. */
 export function ClaudeSettings() {
   const hooks = useStore((s) => s.claudeHooks);
   const [busy, setBusy] = useState(false);
@@ -72,10 +72,10 @@ export function ClaudeSettings() {
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <span className="font-medium">{hooks?.installed ? t('Tracking on', 'Suivi activé') : t('Tracking off', 'Suivi désactivé')}</span>
           <span className="text-xs leading-5 text-muted">
-            {t('Parakeet adds hooks to', 'Parakeet ajoute des hooks à')} <span className="font-mono text-fg">{file}</span>{' '}
+            {t('Kinglet adds hooks to', 'Kinglet ajoute des hooks à')} <span className="font-mono text-fg">{file}</span>{' '}
             {t(
-              '(a backup copy is kept next to it). On each request, changed file or task end, Claude Code sends the event to Parakeet, on your machine only. Each session is attached to the project whose folder contains it. Sessions already open must be restarted.',
-              '(une copie de sauvegarde est gardée à côté). À chaque demande, fichier modifié ou fin de tâche, Claude Code envoie l’évènement à Parakeet, sur ta machine uniquement. Chaque session est rattachée au projet dont le dossier la contient. Les sessions déjà ouvertes doivent être relancées.',
+              '(a backup copy is kept next to it). On each request, changed file or task end, Claude Code sends the event to Kinglet, on your machine only. Each session is attached to the project whose folder contains it. Sessions already open must be restarted.',
+              '(une copie de sauvegarde est gardée à côté). À chaque demande, fichier modifié ou fin de tâche, Claude Code envoie l’évènement à Kinglet, sur ta machine uniquement. Chaque session est rattachée au projet dont le dossier la contient. Les sessions déjà ouvertes doivent être relancées.',
             )}
           </span>
         </div>

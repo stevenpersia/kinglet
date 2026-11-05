@@ -1,4 +1,4 @@
-import type { Vitals, CheckResult, CrawledPage, ImageProbe, Issue, PageMeta, ShareFix, SharePreviews, SiteFiles, VercelDeployment, VercelProject, VercelTeam, VercelUser } from '@parakeet/core';
+import type { Vitals, CheckResult, CrawledPage, ImageProbe, Issue, PageMeta, ShareFix, SharePreviews, SiteFiles, VercelDeployment, VercelProject, VercelTeam, VercelUser } from '@kinglet/core';
 
 export interface DevicePreset {
   id: string;
@@ -304,7 +304,7 @@ export interface McpActivity {
 }
 
 export interface McpInfo {
-  /** Command to register Parakeet in Claude Code. */
+  /** Command to register Kinglet in Claude Code. */
   command: string;
   /** How Claude Code launches the server (shown for information). */
   launch: string;
@@ -446,7 +446,7 @@ export interface ElementInfo {
   rect: { x: number; y: number; width: number; height: number };
 }
 
-export interface ParakeetApi {
+export interface KingletApi {
   init(): Promise<InitState>;
   navigate(url: string): Promise<void>;
   reload(): Promise<void>;
@@ -487,7 +487,7 @@ export interface ParakeetApi {
   compareVisual(targets: { env: EnvId; label: string; url: string }[], deviceId: string): Promise<VisualColumn[]>;
   claude: {
     state(): Promise<{ hooks: ClaudeHookState; projects: Record<string, ClaudeProjectState> }>;
-    /** Add Parakeet's hooks to ~/.claude/settings.json (a backup is kept). */
+    /** Add Kinglet's hooks to ~/.claude/settings.json (a backup is kept). */
     install(): Promise<ClaudeHookState>;
     uninstall(): Promise<ClaudeHookState>;
     /** The user looked at the result of the last task on this project. */
@@ -542,7 +542,7 @@ export interface ParakeetApi {
     clear(projectId: string): void;
     /** Answer Claude's request to run a tool; `all`: allow everything for this conversation. */
     approve(projectId: string, id: string, allow: boolean, all?: boolean): void;
-    /** Run `claude mcp add` (user scope) so Claude in a terminal sees Parakeet too. */
+    /** Run `claude mcp add` (user scope) so Claude in a terminal sees Kinglet too. */
     installMcp(): Promise<{ ok: boolean; output: string }>;
   };
   onEvent(cb: (e: PreviewEvent) => void): () => void;

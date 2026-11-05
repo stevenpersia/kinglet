@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { app } from 'electron';
 import { autoUpdater, type ProgressInfo, type UpdateInfo } from 'electron-updater';
-import { t } from '@parakeet/core';
+import { t } from '@kinglet/core';
 import type { UpdateState } from '../shared/types';
 
 const SIX_HOURS = 6 * 60 * 60 * 1000;
@@ -40,8 +40,8 @@ export class Updater {
     autoUpdater.autoInstallOnAppQuit = false;
     autoUpdater.logger = null;
     // Tests point the updater at a local server; a private repository needs a token.
-    if (process.env.PARAKEET_UPDATE_URL) autoUpdater.setFeedURL({ provider: 'generic', url: process.env.PARAKEET_UPDATE_URL });
-    else if (process.env.PARAKEET_GH_TOKEN) autoUpdater.setFeedURL({ provider: 'github', owner: 'stevenpersia', repo: 'parakeet', private: true, token: process.env.PARAKEET_GH_TOKEN });
+    if (process.env.KINGLET_UPDATE_URL) autoUpdater.setFeedURL({ provider: 'generic', url: process.env.KINGLET_UPDATE_URL });
+    else if (process.env.KINGLET_GH_TOKEN) autoUpdater.setFeedURL({ provider: 'github', owner: 'stevenpersia', repo: 'parakeet', private: true, token: process.env.KINGLET_GH_TOKEN });
 
     autoUpdater.on('checking-for-update', () => this.set({ status: 'checking', error: null }));
     autoUpdater.on('update-not-available', () => this.set({ status: 'none', checkedAt: Date.now() }));

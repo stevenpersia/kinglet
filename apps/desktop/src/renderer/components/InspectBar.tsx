@@ -1,4 +1,4 @@
-import { t } from '@parakeet/core';
+import { t } from '@kinglet/core';
 import { useEffect } from 'react';
 import { activePresets, useStore } from '../store';
 import { Icon } from './Icons';

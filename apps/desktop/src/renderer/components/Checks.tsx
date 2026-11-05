@@ -1,4 +1,4 @@
-import { CHECK_GROUPS, score, t, type CheckResult, type CheckStatus } from '@parakeet/core';
+import { CHECK_GROUPS, score, t, type CheckResult, type CheckStatus } from '@kinglet/core';
 import { Dot } from './Icons';
 
 export const STATUS_DOT: Record<CheckStatus, string> = {

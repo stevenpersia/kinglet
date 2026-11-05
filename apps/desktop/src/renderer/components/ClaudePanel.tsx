@@ -1,4 +1,4 @@
-import { t } from '@parakeet/core';
+import { t } from '@kinglet/core';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { ChatAttachment, ChatItem, ClaudeCli } from '../../shared/types';
 import { activeProject, patchProject } from '../../shared/projects';
@@ -116,7 +116,7 @@ function ClaudeStrip() {
   );
 }
 
-/** Claude Code in Parakeet: ask, show a spot on a device, watch Claude fix and verify. */
+/** Claude Code in Kinglet: ask, show a spot on a device, watch Claude fix and verify. */
 function ClaudePanel() {
   const s = useStore();
   const project = activeProject(s.settings);
@@ -175,7 +175,7 @@ function ClaudePanel() {
     body = (
       <div className="flex flex-col gap-2.5 rounded-[10px] border border-line bg-card p-3 text-xs leading-relaxed text-muted">
         <span className="font-medium text-fg">{t('Claude Code isn’t installed', 'Claude Code n’est pas installé')}</span>
-        {t('Parakeet runs Claude Code on this computer, with your account. Install it, then reopen this panel:', 'Parakeet fait tourner Claude Code sur cet ordinateur, avec ton compte. Installe-le, puis rouvre ce panneau :')}
+        {t('Kinglet runs Claude Code on this computer, with your account. Install it, then reopen this panel:', 'Kinglet fait tourner Claude Code sur cet ordinateur, avec ton compte. Installe-le, puis rouvre ce panneau :')}
         <code className="rounded-md border border-line bg-bg px-2 py-1.5 font-mono text-[11px] text-fg">npm install -g @anthropic-ai/claude-code</code>
         <button onClick={() => api().openExternal('https://docs.claude.com/en/docs/claude-code/setup')} className="self-start text-fg underline-offset-2 hover:underline">
           {t('Installation guide →', 'Guide d’installation →')}
@@ -186,7 +186,7 @@ function ClaudePanel() {
     body = (
       <div className="flex flex-col gap-2.5 rounded-[10px] border border-line bg-card p-3 text-xs leading-relaxed text-muted">
         <span className="font-medium text-fg">{t('Where is the code?', 'Où est le code ?')}</span>
-        {t('Claude works in the project folder. Choose it once; Parakeet remembers it.', 'Claude travaille dans le dossier du projet. Choisis-le une fois, Parakeet s’en souvient.')}
+        {t('Claude works in the project folder. Choose it once; Kinglet remembers it.', 'Claude travaille dans le dossier du projet. Choisis-le une fois, Kinglet s’en souvient.')}
         <button onClick={() => void pickFolder()} className="h-8 self-start rounded-ui bg-fg px-3 font-semibold text-bg">
           {t('Choose the folder…', 'Choisir le dossier…')}
         </button>

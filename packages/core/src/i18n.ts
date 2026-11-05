@@ -1,5 +1,5 @@
 /**
- * Parakeet speaks English by default and French as a second language.
+ * Kinglet speaks English by default and French as a second language.
  * Strings are written in place as pairs: t('Reload', 'Recharger'). One language per process
  * (the app's main process, its window, the MCP server), set from the user's settings.
  */

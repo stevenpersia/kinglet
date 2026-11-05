@@ -1,4 +1,4 @@
-import { t } from '@parakeet/core';
+import { t } from '@kinglet/core';
 import { useState } from 'react';
 import { api, useStore } from '../store';
 

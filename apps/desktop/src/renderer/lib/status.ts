@@ -1,4 +1,4 @@
-import { t, type VercelDeployment } from '@parakeet/core';
+import { t, type VercelDeployment } from '@kinglet/core';
 import type { ClaudeProjectState } from '../../shared/types';
 
 export type ProjectStatusKind = 'working' | 'waiting' | 'review' | 'building' | 'error' | 'idle';

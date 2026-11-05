@@ -2,7 +2,7 @@ import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { createServer, request as httpRequest, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { connect, type Socket } from 'node:net';
 import { networkInterfaces } from 'node:os';
-import { getLanguage, t } from '@parakeet/core';
+import { getLanguage, t } from '@kinglet/core';
 
 /**
  * "On my phone": a reverse proxy on the local network (0.0.0.0) to the local dev server.
@@ -11,7 +11,7 @@ import { getLanguage, t } from '@parakeet/core';
  *   anyone else on the Wi-Fi gets a 403.
  * - Dev servers check Host/Origin (Vite allowedHosts, Next allowedDevOrigins): they are rewritten
  *   to the target, so the phone is seen as localhost. WebSocket upgrades (hot reload) go through.
- * - Optional "follow": a small script injected in HTML pages follows Parakeet's navigation.
+ * - Optional "follow": a small script injected in HTML pages follows Kinglet's navigation.
  */
 
 export interface LanAddress {
@@ -25,8 +25,8 @@ export interface LanClient {
   since: number;
 }
 
-const COOKIE = 'parakeet_pair';
-const PREFIX = '/__parakeet';
+const COOKIE = 'kinglet_pair';
+const PREFIX = '/__kinglet';
 const HOP = new Set(['connection', 'keep-alive', 'proxy-connection', 'transfer-encoding', 'upgrade', 'te', 'trailer']);
 
 const PRIVATE = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/;
@@ -48,8 +48,8 @@ const page = (title: string, body: string) =>
 <div style="max-width:340px"><div style="color:#ededef;font-weight:600;font-size:18px;margin-bottom:10px">${title}</div>${body}</div></body></html>`;
 
 const FOLLOW_JS = `(() => {
-  if (window.__parakeetFollow) return;
-  window.__parakeetFollow = true;
+  if (window.__kingletFollow) return;
+  window.__kingletFollow = true;
   const es = new EventSource('${PREFIX}/events');
   es.addEventListener('navigate', (e) => {
     const path = e.data;
@@ -119,7 +119,7 @@ export class LanProxy {
     return `http://${address}:${this.port}${PREFIX}/pair?t=${this.token}&next=${encodeURIComponent(path)}`;
   }
 
-  /** Parakeet moved to another page: paired phones that follow go there too. */
+  /** Kinglet moved to another page: paired phones that follow go there too. */
   notify(path: string) {
     this.lastPath = path;
     if (!this.follow) return;
@@ -138,7 +138,7 @@ export class LanProxy {
     if (url.pathname === `${PREFIX}/pair`) {
       if (url.searchParams.get('t') !== this.token) {
         res.writeHead(403, { 'content-type': 'text/html; charset=utf-8' });
-        return res.end(page(t('QR code expired', 'QR code expiré'), t('Reopen “On my phone” in Parakeet and scan the new code.', 'Rouvre « Sur mon téléphone » dans Parakeet et scanne le nouveau code.')));
+        return res.end(page(t('QR code expired', 'QR code expiré'), t('Reopen “On my phone” in Kinglet and scan the new code.', 'Rouvre « Sur mon téléphone » dans Kinglet et scanne le nouveau code.')));
       }
       const next = url.searchParams.get('next') ?? '/';
       res.writeHead(302, { 'set-cookie': `${COOKIE}=${this.token}; Path=/; HttpOnly; SameSite=Lax`, location: next.startsWith('/') ? next : '/' });
@@ -147,7 +147,7 @@ export class LanProxy {
 
     if (!this.paired(req)) {
       res.writeHead(403, { 'content-type': 'text/html; charset=utf-8' });
-      return res.end(page(t('Device not paired', 'Appareil non appairé'), t('To view this site, scan the QR code in Parakeet (“On my phone” button).', 'Pour voir ce site, scanne le QR code dans Parakeet (bouton « Sur mon téléphone »).')));
+      return res.end(page(t('Device not paired', 'Appareil non appairé'), t('To view this site, scan the QR code in Kinglet (“On my phone” button).', 'Pour voir ce site, scanne le QR code dans Kinglet (bouton « Sur mon téléphone »).')));
     }
 
     if (url.pathname === `${PREFIX}/follow.js`) {
@@ -156,7 +156,7 @@ export class LanProxy {
     }
     if (url.pathname === `${PREFIX}/events`) {
       res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-store', connection: 'keep-alive' });
-      res.write(': parakeet\n\n');
+      res.write(': kinglet\n\n');
       const id = this.nextId++;
       this.clients.set(id, { res, info: { id, userAgent: String(req.headers['user-agent'] ?? ''), since: Date.now() } });
       this.onClients([...this.clients.values()].map((c) => c.info));
@@ -171,7 +171,7 @@ export class LanProxy {
     const targetOrigin = this.target();
     if (!targetOrigin) {
       res.writeHead(503, { 'content-type': 'text/html; charset=utf-8' });
-      return res.end(page(t('No local server', 'Aucun serveur local'), t('Open your local site in Parakeet.', 'Ouvre ton site en local dans Parakeet.')));
+      return res.end(page(t('No local server', 'Aucun serveur local'), t('Open your local site in Kinglet.', 'Ouvre ton site en local dans Kinglet.')));
     }
     this.proxy(req, res, new URL(targetOrigin));
   }

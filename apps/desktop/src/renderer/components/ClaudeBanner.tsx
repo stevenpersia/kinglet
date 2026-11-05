@@ -1,4 +1,4 @@
-import { t } from '@parakeet/core';
+import { t } from '@kinglet/core';
 import { activeProject } from '../../shared/projects';
 import { projectStatus } from '../lib/status';
 import { useNow } from '../lib/useNow';

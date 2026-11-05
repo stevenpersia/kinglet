@@ -1,4 +1,4 @@
-import { locale, t } from '@parakeet/core';
+import { locale, t } from '@kinglet/core';
 import { useState } from 'react';
 import { activePresets, api, useStore, type SettingsTab } from '../store';
 import { Icon, type IconName } from './Icons';
@@ -33,7 +33,7 @@ function UpdateSettings() {
         : t('Automatic updates aren’t available for this type of install.', 'Mises à jour automatiques non disponibles pour ce type d’installation.'),
     idle: t('Checks at startup, then every 6 hours.', 'Vérification au démarrage, puis toutes les 6 heures.'),
     checking: t('Checking…', 'Vérification…'),
-    none: t('Parakeet is up to date.', 'Parakeet est à jour.'),
+    none: t('Kinglet is up to date.', 'Kinglet est à jour.'),
     available: t(`Version ${update.latest} available, downloading…`, `Version ${update.latest} disponible, téléchargement…`),
     downloading: t(`Downloading version ${update.latest}: ${update.percent ?? 0}%`, `Téléchargement de la version ${update.latest} : ${update.percent ?? 0} %`),
     ready: t(
@@ -46,7 +46,7 @@ function UpdateSettings() {
     <div className="flex flex-wrap items-center gap-3 rounded-[10px] border border-line bg-card p-3.5">
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="font-medium">
-          Parakeet {update.current} <span className="font-normal text-muted">· {KIND[update.kind]}</span>
+          Kinglet {update.current} <span className="font-normal text-muted">· {KIND[update.kind]}</span>
         </span>
         <span className={`text-xs ${update.status === 'error' ? 'text-err' : 'text-muted'}`}>{text[update.status]}</span>
       </div>
@@ -90,7 +90,7 @@ function McpSettings() {
                 <span className="text-xs text-muted">
                   {last
                     ? t(`Last call: ${last.tool}, ${new Date(last.at).toLocaleTimeString(locale())}`, `Dernier appel : ${last.tool}, ${new Date(last.at).toLocaleTimeString(locale())}`)
-                    : t('No calls since Parakeet started.', 'Aucun appel depuis le lancement de Parakeet.')}
+                    : t('No calls since Kinglet started.', 'Aucun appel depuis le lancement de Kinglet.')}
                 </span>
               </div>
             </div>
@@ -103,8 +103,8 @@ function McpSettings() {
               <span className="text-xs text-muted">
                 {t('Run it in a terminal.', 'À lancer dans un terminal.')} <span className="font-mono">--scope user</span>{' '}
                 {t(
-                  'makes Parakeet available in all your projects. The server also works with the app closed, except for screenshots and on-device measurements.',
-                  'rend Parakeet disponible dans tous tes projets. Le serveur marche aussi app fermée, sauf pour les captures et les mesures dans les appareils.',
+                  'makes Kinglet available in all your projects. The server also works with the app closed, except for screenshots and on-device measurements.',
+                  'rend Kinglet disponible dans tous tes projets. Le serveur marche aussi app fermée, sauf pour les captures et les mesures dans les appareils.',
                 )}
               </span>
             </div>
@@ -112,8 +112,8 @@ function McpSettings() {
               <span className="label">{t('2. Use', '2. Utiliser')}</span>
               <span className="text-xs text-muted">
                 {t(
-                  'Just ask Claude “check the home page on iPhone with Parakeet”, or run one of these commands in Claude Code:',
-                  'Demande simplement à Claude « vérifie la home sur iPhone avec Parakeet », ou lance une de ces commandes dans Claude Code :',
+                  'Just ask Claude “check the home page on iPhone with Kinglet”, or run one of these commands in Claude Code:',
+                  'Demande simplement à Claude « vérifie la home sur iPhone avec Kinglet », ou lance une de ces commandes dans Claude Code :',
                 )}
               </span>
               <div className="flex flex-col gap-1.5">
@@ -203,7 +203,7 @@ export function SettingsPage() {
         ))}
         <span className="flex-1" />
         <p className="m-0 px-2.5 pt-4 text-[11px] leading-normal text-ghost">
-          Parakeet {platform?.version} · {t('saved in', 'enregistré dans')} ~/.config/Parakeet
+          Kinglet {platform?.version} · {t('saved in', 'enregistré dans')} ~/.config/Kinglet
         </p>
       </nav>
       <main className="flex min-w-0 flex-1 justify-center overflow-y-auto p-7">

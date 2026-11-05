@@ -18,15 +18,15 @@ process.stdin.on('end', async () => {
   const session = resume ?? 'fake-session-1';
   const mcp = args.includes('--mcp-config') ? JSON.parse(args[args.indexOf('--mcp-config') + 1]) : null;
   out({ type: 'system', subtype: 'init', session_id: session, cwd: process.cwd() });
-  // "install": ask before a command, the way the parakeet approve tool does (through the app's control server).
+  // "install": ask before a command, the way the kinglet approve tool does (through the app's control server).
   if (/install/i.test(text)) {
-    const env = mcp?.mcpServers?.parakeet?.env ?? {};
+    const env = mcp?.mcpServers?.kinglet?.env ?? {};
     const { readFileSync } = await import('node:fs');
-    const ctl = JSON.parse(readFileSync(`${env.PARAKEET_CONFIG_DIR}/mcp.json`, 'utf8'));
+    const ctl = JSON.parse(readFileSync(`${env.KINGLET_CONFIG_DIR}/mcp.json`, 'utf8'));
     const res = await fetch(`http://127.0.0.1:${ctl.port}/approve`, {
       method: 'POST',
       headers: { authorization: `Bearer ${ctl.token}`, 'content-type': 'application/json' },
-      body: JSON.stringify({ tool: 'Bash', input: { command: 'npm install zod' }, chat: env.PARAKEET_CHAT_PROJECT ?? null }),
+      body: JSON.stringify({ tool: 'Bash', input: { command: 'npm install zod' }, chat: env.KINGLET_CHAT_PROJECT ?? null }),
     });
     const answer = await res.json();
     const asked = args.includes('--permission-prompt-tool') ? args[args.indexOf('--permission-prompt-tool') + 1] : 'none';
@@ -34,12 +34,12 @@ process.stdin.on('end', async () => {
     out({ type: 'result', subtype: 'success', is_error: false, session_id: session, result: 'done', permission_denials: [] });
     return;
   }
-  out({ type: 'assistant', session_id: session, message: { content: [{ type: 'tool_use', id: 'tu1', name: 'mcp__parakeet__screenshot', input: { device: 'iphone-16' } }] } });
+  out({ type: 'assistant', session_id: session, message: { content: [{ type: 'tool_use', id: 'tu1', name: 'mcp__kinglet__screenshot', input: { device: 'iphone-16' } }] } });
   out({ type: 'user', session_id: session, message: { content: [{ type: 'tool_result', tool_use_id: 'tu1', content: 'ok' }] } });
   out({
     type: 'assistant',
     session_id: session,
-    message: { content: [{ type: 'text', text: `FAKE-CLAUDE ok · ${images} image(s) · mcp ${mcp?.mcpServers?.parakeet ? 'parakeet' : 'none'} · resume ${resume ?? 'no'} · pointed ${/Element: /.test(text) ? 'yes' : 'no'} · cwd ${process.cwd()}` }] },
+    message: { content: [{ type: 'text', text: `FAKE-CLAUDE ok · ${images} image(s) · mcp ${mcp?.mcpServers?.kinglet ? 'kinglet' : 'none'} · resume ${resume ?? 'no'} · pointed ${/Element: /.test(text) ? 'yes' : 'no'} · cwd ${process.cwd()}` }] },
   });
   out({ type: 'result', subtype: 'success', is_error: false, session_id: session, result: 'done', permission_denials: [] });
 });

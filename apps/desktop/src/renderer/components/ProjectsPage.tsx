@@ -1,4 +1,4 @@
-import { locale, t } from '@parakeet/core';
+import { locale, t } from '@kinglet/core';
 import type { ClaudeEvent, Project } from '../../shared/types';
 import { ENV_DOT, envOf, timeAgo } from '../lib/env';
 import { projectStatus, type ProjectStatus } from '../lib/status';
@@ -215,8 +215,8 @@ export function ProjectsPage() {
         {!s.claudeHooks?.installed && (
           <div className="mt-auto flex flex-col items-start gap-2.5 rounded-[10px] border border-dashed border-[#2a2a2f] p-3 text-xs leading-normal text-muted">
             {t(
-              'Parakeet can track your Claude Code sessions (start, changed files, task end) with Claude Code hooks, and let you know when a task finishes.',
-              'Parakeet peut suivre tes sessions Claude Code (début, fichiers modifiés, fin de tâche) grâce aux hooks de Claude Code, et te prévenir quand une tâche se termine.',
+              'Kinglet can track your Claude Code sessions (start, changed files, task end) with Claude Code hooks, and let you know when a task finishes.',
+              'Kinglet peut suivre tes sessions Claude Code (début, fichiers modifiés, fin de tâche) grâce aux hooks de Claude Code, et te prévenir quand une tâche se termine.',
             )}
             <button className={btn()} onClick={() => s.openSettings('claude')}>
               {t('Turn on in settings', 'Activer dans les réglages')}

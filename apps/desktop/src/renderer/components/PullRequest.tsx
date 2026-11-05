@@ -1,4 +1,4 @@
-import { t } from '@parakeet/core';
+import { t } from '@kinglet/core';
 import { useEffect, useState } from 'react';
 import type { PullRequest } from '../../shared/types';
 import { api, projectVercel, useStore } from '../store';

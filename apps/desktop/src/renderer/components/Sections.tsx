@@ -1,4 +1,4 @@
-import { t } from '@parakeet/core';
+import { t } from '@kinglet/core';
 import { activePresets, useStore } from '../store';
 import { CheckGroups } from './Checks';
 import { askCheck } from './askCheck';

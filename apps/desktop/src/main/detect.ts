@@ -17,7 +17,7 @@ async function respondsWithHtml(url: string): Promise<boolean> {
 
 /** Find a running local dev server. Returns a http://localhost:PORT URL or null. */
 export async function detectLocalServer(): Promise<string | null> {
-  // In `pnpm dev`, Parakeet's own UI is served by Vite: never pick that one.
+  // In `pnpm dev`, Kinglet's own UI is served by Vite: never pick that one.
   const ownPort = process.env.ELECTRON_RENDERER_URL ? Number(new URL(process.env.ELECTRON_RENDERER_URL).port) : null;
   const checks = PORTS.filter((port) => port !== ownPort).map(async (port) => {
     for (const host of HOSTS) if (await respondsWithHtml(`http://${host}:${port}/`)) return port;

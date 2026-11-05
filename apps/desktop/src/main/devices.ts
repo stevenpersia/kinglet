@@ -1,10 +1,10 @@
 import { join } from 'node:path';
 import { BaseWindow, BrowserWindow, WebContentsView, ipcMain, screen, session, type Input, type Session } from 'electron';
-import { HEAVY_IMAGE_BYTES, getLanguage, t, type RenderedDevice } from '@parakeet/core';
+import { HEAVY_IMAGE_BYTES, getLanguage, t, type RenderedDevice } from '@kinglet/core';
 import { globMatch } from '../shared/mocks';
 import type { ApiMock, DeviceLog, DevicePreset, DeviceSlot, ElementInfo, ElementMetrics, InspectState, MediaPrefs, PreviewEvent, ShortcutAction, Throttle } from '../shared/types';
 
-export const PREVIEW_PARTITION = 'persist:parakeet-preview';
+export const PREVIEW_PARTITION = 'persist:kinglet-preview';
 
 interface DeviceEntry {
   preset: DevicePreset;
@@ -205,7 +205,7 @@ export class DeviceManager {
       this.emit({ type: 'inspect', state: { ...this.inspected, devices: { ...this.inspected.devices } } });
     });
     ipcMain.on('device:scroll', (event, ratio: number) => {
-      if (process.env.PARAKEET_DEBUG) console.log(`[scroll] from ${event.sender.id} ratio ${ratio}`);
+      if (process.env.KINGLET_DEBUG) console.log(`[scroll] from ${event.sender.id} ratio ${ratio}`);
       if (!this.scrollSync) return;
       for (const d of this.devices.values()) {
         if (d.view.webContents.id !== event.sender.id) d.view.webContents.send('device:scroll-to', ratio);
@@ -368,7 +368,7 @@ export class DeviceManager {
     wc.on('console-message', (e) => {
       const { level, message, lineNumber, sourceId } = e as unknown as { level: string; message: string; lineNumber: number; sourceId: string };
       if (level === 'error' && entry.consoleErrors.length < 50) entry.consoleErrors.push(message);
-      // Parakeet's own preload scripts.
+      // Kinglet's own preload scripts.
       if (sourceId?.startsWith('node:') || /preload/.test(sourceId ?? '')) return;
       this.log(entry, { source: 'console', level: LEVEL[level] ?? 'info', text: message, url: sourceId || undefined, line: lineNumber || undefined });
     });
@@ -524,7 +524,7 @@ export class DeviceManager {
     for (const d of this.devices.values()) void this.applyThrottle(d);
   }
 
-  /** Simulated API responses: matching requests are answered by Parakeet (Fetch domain). */
+  /** Simulated API responses: matching requests are answered by Kinglet (Fetch domain). */
   setMocks(mocks: ApiMock[]) {
     this.mocks = mocks;
     for (const d of this.devices.values()) void this.applyMocks(d);
@@ -552,7 +552,7 @@ export class DeviceManager {
         responseHeaders: [
           { name: 'content-type', value: mock.contentType || 'application/json' },
           { name: 'access-control-allow-origin', value: '*' },
-          { name: 'x-parakeet-mock', value: mock.id },
+          { name: 'x-kinglet-mock', value: mock.id },
         ],
         body: Buffer.from(mock.body, 'utf8').toString('base64'),
       });
@@ -748,7 +748,7 @@ export class DeviceManager {
   }
 
   openDevtools(id: string) {
-    this.devices.get(id)?.view.webContents.openDevTools({ mode: 'detach', title: `Parakeet — ${id}` });
+    this.devices.get(id)?.view.webContents.openDevTools({ mode: 'detach', title: `Kinglet — ${id}` });
   }
 
   async navigate(url: string) {

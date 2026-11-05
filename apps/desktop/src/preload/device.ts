@@ -52,7 +52,7 @@ function pathOf(el: Element): string {
 function outline(el: Element | null, color: string) {
   if (!box) {
     box = document.createElement('div');
-    box.setAttribute('data-parakeet-inspector', '');
+    box.setAttribute('data-kinglet-inspector', '');
     box.style.cssText = 'position:fixed;pointer-events:none;z-index:2147483647;border-radius:2px;transition:all 60ms;';
     document.documentElement.appendChild(box);
   }
@@ -87,7 +87,7 @@ function metrics(el: Element | null) {
 const onMove = (e: MouseEvent) => {
   const el = document.elementFromPoint(e.clientX, e.clientY);
   // The page itself (html, body) is not an element worth inspecting.
-  if (!el || el === hovered || el === document.documentElement || el === document.body || (el as HTMLElement).hasAttribute?.('data-parakeet-inspector')) return;
+  if (!el || el === hovered || el === document.documentElement || el === document.body || (el as HTMLElement).hasAttribute?.('data-kinglet-inspector')) return;
   hovered = el;
   ipcRenderer.send('device:inspect-hover', pathOf(el));
 };

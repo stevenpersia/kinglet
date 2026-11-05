@@ -10,7 +10,7 @@ import type { Plugin } from 'vite';
  */
 function csp(): Plugin {
   return {
-    name: 'parakeet-csp',
+    name: 'kinglet-csp',
     transformIndexHtml: {
       order: 'pre',
       handler(html, ctx) {
@@ -31,8 +31,8 @@ function csp(): Plugin {
 
 export default defineConfig({
   main: {
-    // @parakeet/core is TypeScript source in the workspace: bundle it instead of requiring it at runtime.
-    build: { externalizeDeps: { exclude: ['@parakeet/core', '@parakeet/mcp'] } },
+    // @kinglet/core is TypeScript source in the workspace: bundle it instead of requiring it at runtime.
+    build: { externalizeDeps: { exclude: ['@kinglet/core', '@kinglet/mcp'] } },
   },
   preload: {
     build: {

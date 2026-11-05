@@ -1,7 +1,7 @@
-import { t } from '@parakeet/core';
+import { t } from '@kinglet/core';
 import type { ClaudeEvent, ClaudeProjectState } from '../shared/types';
 
-/** Fields of a Claude Code hook payload that Parakeet reads. */
+/** Fields of a Claude Code hook payload that Kinglet reads. */
 export interface HookPayload {
   hook_event_name?: string;
   session_id?: string;

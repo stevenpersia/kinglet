@@ -1,4 +1,4 @@
-import { t } from '@parakeet/core';
+import { t } from '@kinglet/core';
 import { activePresets, useStore } from '../store';
 import { Dot } from './Icons';
 
@@ -24,12 +24,12 @@ export function StatusBar() {
         <button onClick={() => useStore.getState().openSettings('updates')} className="flex items-center gap-1.5 text-fg hover:underline">
           <Dot className={update.status === 'ready' ? 'bg-ok' : 'bg-local'} />
           {update.status === 'ready'
-            ? t(`Parakeet ${update.latest} ready to install`, `Parakeet ${update.latest} prêt à installer`)
+            ? t(`Kinglet ${update.latest} ready to install`, `Kinglet ${update.latest} prêt à installer`)
             : t(`Update ${update.latest}${update.percent != null ? ` · ${update.percent}%` : ''}`, `Mise à jour ${update.latest}${update.percent != null ? ` · ${update.percent} %` : ''}`)}
         </button>
       )}
       <span className="ml-auto">
-        Parakeet {platform?.version}
+        Kinglet {platform?.version}
         {platform?.isDev ? ' (dev)' : ''} · Electron {platform?.electron} · Chromium {platform?.chrome.split('.')[0]}
       </span>
     </footer>

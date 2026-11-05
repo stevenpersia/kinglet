@@ -1,4 +1,4 @@
-import { t as tr, type VercelDeployment } from '@parakeet/core';
+import { t as tr, type VercelDeployment } from '@kinglet/core';
 import { useState } from 'react';
 import type { EnvId } from '../../shared/types';
 import { ENV_DOT, ENV_LABEL, envOf, envTargets, oldProdOf, productionsOf, timeAgo } from '../lib/env';

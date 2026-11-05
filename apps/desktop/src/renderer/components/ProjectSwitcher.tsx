@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { t } from '@parakeet/core';
+import { t } from '@kinglet/core';
 import type { Project, VercelTeamProject } from '../../shared/types';
 import { timeAgo } from '../lib/env';
 import { projectStatus } from '../lib/status';

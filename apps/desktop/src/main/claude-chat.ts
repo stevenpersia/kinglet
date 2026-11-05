@@ -2,14 +2,14 @@ import { spawn, execFile, type ChildProcess } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { delimiter, join } from 'node:path';
-import { t } from '@parakeet/core';
+import { t } from '@kinglet/core';
 import type { ChatAttachment, ChatItem, ChatState, ClaudeCli } from '../shared/types';
 
 /** Where Claude Code is usually installed, besides $PATH. */
 const CANDIDATES = () => [join(homedir(), '.local/bin/claude'), join(homedir(), '.claude/local/claude'), '/usr/local/bin/claude', '/usr/bin/claude', '/opt/homebrew/bin/claude'];
 
 export function findClaude(env = process.env): string | null {
-  if (env.PARAKEET_CLAUDE_BIN) return existsSync(env.PARAKEET_CLAUDE_BIN) ? env.PARAKEET_CLAUDE_BIN : null;
+  if (env.KINGLET_CLAUDE_BIN) return existsSync(env.KINGLET_CLAUDE_BIN) ? env.KINGLET_CLAUDE_BIN : null;
   for (const dir of (env.PATH ?? '').split(delimiter).filter(Boolean)) {
     const p = join(dir, 'claude');
     if (existsSync(p)) return p;
@@ -19,7 +19,7 @@ export function findClaude(env = process.env): string | null {
 
 /** A short line for a tool call: "screenshot iphone-se", "Edit src/Header.tsx". */
 export function toolLabel(name: string, input: Record<string, unknown> = {}): { name: string; detail: string } {
-  const short = name.replace(/^mcp__parakeet__/, '');
+  const short = name.replace(/^mcp__kinglet__/, '');
   const str = (v: unknown) => (typeof v === 'string' ? v : '');
   const detail =
     str(input.file_path) ||
@@ -38,8 +38,8 @@ type Json = Record<string, unknown>;
 type NewItem = ChatItem extends infer I ? (I extends ChatItem ? Omit<I, 'id'> & { id?: string } : never) : never;
 
 /**
- * Claude Code inside Parakeet: one `claude -p` per message, in the project folder, with
- * Parakeet's MCP server attached and the previous session resumed. Its stream-json output
+ * Claude Code inside Kinglet: one `claude -p` per message, in the project folder, with
+ * Kinglet's MCP server attached and the previous session resumed. Its stream-json output
  * becomes the chat shown in the panel. The same session can be continued in a terminal.
  */
 export class ClaudeChat {
@@ -116,7 +116,7 @@ export class ClaudeChat {
     const asked = s.pending;
     this.patch(projectId, { pending: null, allowAll: s.allowAll || (allow && all) });
     if (asked) this.push(projectId, { kind: 'notice', level: allow ? 'info' : 'warning', text: `${allow ? t('Allowed', 'Autorisé') : t('Refused', 'Refusé')} : ${asked.name} ${asked.detail}`.trim() });
-    w.resolve(allow ? { allow: true } : { allow: false, message: t('The user refused this in Parakeet. Ask them what to do instead.', 'L’utilisateur a refusé dans Parakeet. Demande-lui quoi faire à la place.') });
+    w.resolve(allow ? { allow: true } : { allow: false, message: t('The user refused this in Kinglet. Ask them what to do instead.', 'L’utilisateur a refusé dans Kinglet. Demande-lui quoi faire à la place.') });
   }
 
   send(opts: { projectId: string; folder: string; sessionId: string | null; text: string; attachments: ChatAttachment[]; allowCommands: boolean; context: string }) {
@@ -149,13 +149,13 @@ export class ClaudeChat {
       'stream-json',
       '--verbose',
       '--mcp-config',
-      JSON.stringify({ mcpServers: { parakeet: this.mcpServer(projectId) } }),
+      JSON.stringify({ mcpServers: { kinglet: this.mcpServer(projectId) } }),
       '--allowedTools',
-      'mcp__parakeet',
+      'mcp__kinglet',
       '--permission-mode',
       opts.allowCommands ? 'bypassPermissions' : 'acceptEdits',
       // Anything else (commands, web…): Claude asks, and the panel shows the question.
-      ...(opts.allowCommands ? [] : ['--permission-prompt-tool', 'mcp__parakeet__approve']),
+      ...(opts.allowCommands ? [] : ['--permission-prompt-tool', 'mcp__kinglet__approve']),
       '--append-system-prompt',
       opts.context,
       ...(s.sessionId ? ['--resume', s.sessionId] : []),

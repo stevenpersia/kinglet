@@ -1,4 +1,4 @@
-import { t } from '@parakeet/core';
+import { t } from '@kinglet/core';
 import { useState } from 'react';
 import type { CustomDevice, DevicePreset, Language, Settings, Throttle } from '../../shared/types';
 import { setListedIds } from '../../shared/devices';
@@ -99,7 +99,7 @@ export function GeneralSettings() {
             ]}
           />
         </Row>
-        <Row title={t('At launch', 'Au lancement')} hint={t('What Parakeet opens when it starts.', 'Ce que Parakeet ouvre au démarrage.')}>
+        <Row title={t('At launch', 'Au lancement')} hint={t('What Kinglet opens when it starts.', 'Ce que Kinglet ouvre au démarrage.')}>
           <Select
             label={t('At launch', 'Au lancement')}
             value={settings.startup}

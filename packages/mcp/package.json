@@ -1,14 +1,14 @@
 {
-  "name": "@parakeet/mcp",
+  "name": "@kinglet/mcp",
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "MCP server: lets Claude Code read Parakeet's previews, share cards and checks",
+  "description": "MCP server: lets Claude Code read Kinglet's previews, share cards and checks",
   "exports": {
     ".": "./src/index.ts"
   },
   "bin": {
-    "parakeet-mcp": "./src/cli.ts"
+    "kinglet-mcp": "./src/cli.ts"
   },
   "scripts": {
     "start": "node src/cli.ts",
@@ -17,7 +17,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.2",
-    "@parakeet/core": "workspace:*",
+    "@kinglet/core": "workspace:*",
     "zod": "^4.6.7"
   },
   "devDependencies": {

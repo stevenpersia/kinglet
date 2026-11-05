@@ -1,10 +1,10 @@
 import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { t } from '@parakeet/core';
+import { t } from '@kinglet/core';
 import type { ClaudeHookState } from '../shared/types';
 
-/** Claude Code events Parakeet listens to. */
+/** Claude Code events Kinglet listens to. */
 export const HOOK_EVENTS = ['SessionStart', 'UserPromptSubmit', 'PostToolUse', 'Notification', 'Stop', 'StopFailure', 'SessionEnd'] as const;
 
 interface HookCommand {
@@ -41,7 +41,7 @@ export function addHooks(s: ClaudeSettings, command: string): ClaudeSettings {
   return { ...s, hooks };
 }
 
-/** Remove Parakeet's hooks, and only them. */
+/** Remove Kinglet's hooks, and only them. */
 export function removeHooks(s: ClaudeSettings, command: string): ClaudeSettings {
   if (!s.hooks) return s;
   const hooks: Record<string, HookGroup[]> = {};
@@ -54,12 +54,12 @@ export function removeHooks(s: ClaudeSettings, command: string): ClaudeSettings 
 }
 
 /**
- * The hook: forwards the event (JSON on stdin) to Parakeet's local server, if Parakeet runs.
+ * The hook: forwards the event (JSON on stdin) to Kinglet's local server, if Kinglet runs.
  * Never blocks or fails Claude Code: short timeout, no output, always exit 0.
  */
 export const hookScript = (envFile: string) => `#!/bin/sh
-# Parakeet: sends Claude Code hook events to the Parakeet app (127.0.0.1 only).
-# Installed from Parakeet's settings; remove it there (or delete the "hooks" entries pointing here).
+# Kinglet: sends Claude Code hook events to the Kinglet app (127.0.0.1 only).
+# Installed from Kinglet's settings; remove it there (or delete the "hooks" entries pointing here).
 ENV_FILE='${envFile.replace(/'/g, `'\\''`)}'
 [ -r "$ENV_FILE" ] || { cat >/dev/null; exit 0; }
 PORT=$(sed -n 's/^PORT=//p' "$ENV_FILE")
@@ -92,7 +92,7 @@ export class ClaudeHooks {
 
   private write(s: ClaudeSettings) {
     mkdirSync(dirname(this.file), { recursive: true });
-    const backup = `${this.file}.parakeet-backup`;
+    const backup = `${this.file}.kinglet-backup`;
     if (existsSync(this.file) && !existsSync(backup)) copyFileSync(this.file, backup);
     writeFileSync(this.file, `${JSON.stringify(s, null, 2)}\n`);
   }
@@ -116,6 +116,22 @@ export class ClaudeHooks {
       this.error = t(`Couldn’t install: ${(e as Error).message}`, `Installation impossible : ${(e as Error).message}`);
     }
     return this.state();
+  }
+
+  /** Hooks installed under the app's old name point to a script that is gone: point them here. */
+  repoint(oldScript: string): boolean {
+    if (oldScript === this.script) return false;
+    try {
+      const s = this.read();
+      if (!HOOK_EVENTS.some((e) => s.hooks?.[e]?.some((g) => g.hooks?.some((h) => ours(h, oldScript))))) return false;
+      mkdirSync(dirname(this.script), { recursive: true });
+      writeFileSync(this.script, hookScript(this.envFile), { mode: 0o700 });
+      chmodSync(this.script, 0o700);
+      this.write(addHooks(removeHooks(s, oldScript), this.script));
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   uninstall(): ClaudeHookState {

@@ -50,12 +50,12 @@ export function consolePrompt(entries: ConsoleEntry[], opts: { pageUrl: string |
   const lines = formatEntries(entries, opts);
   if (!lines.length) return t(`No errors in the console of ${opts.pageUrl ?? 'the page'}.`, `Aucune erreur dans la console de ${opts.pageUrl ?? 'la page'}.`);
   return [
-    t(`Parakeet saw these errors on ${opts.pageUrl ?? 'the page'} (emulated devices${opts.throttled ? `, ${opts.throttled}` : ''}):`, `Parakeet a vu ces erreurs sur ${opts.pageUrl ?? 'la page'} (appareils émulés${opts.throttled ? `, ${opts.throttled}` : ''}) :`),
+    t(`Kinglet saw these errors on ${opts.pageUrl ?? 'the page'} (emulated devices${opts.throttled ? `, ${opts.throttled}` : ''}):`, `Kinglet a vu ces erreurs sur ${opts.pageUrl ?? 'la page'} (appareils émulés${opts.throttled ? `, ${opts.throttled}` : ''}) :`),
     ...lines,
     '',
     t(
-      'Find the cause in the project’s code and fix it. If an error only happens on some devices, look at what differs (width, touch, user agent). Then reload the page in Parakeet and check the console is clean (the Parakeet MCP tool get_console reads it).',
-      'Trouve la cause dans le code du projet et corrige-la. Si une erreur n’arrive que sur certains appareils, regarde ce qui diffère (largeur, tactile, user agent). Ensuite recharge la page dans Parakeet et vérifie que la console est propre (l’outil MCP get_console de Parakeet la lit).',
+      'Find the cause in the project’s code and fix it. If an error only happens on some devices, look at what differs (width, touch, user agent). Then reload the page in Kinglet and check the console is clean (the Kinglet MCP tool get_console reads it).',
+      'Trouve la cause dans le code du projet et corrige-la. Si une erreur n’arrive que sur certains appareils, regarde ce qui diffère (largeur, tactile, user agent). Ensuite recharge la page dans Kinglet et vérifie que la console est propre (l’outil MCP get_console de Kinglet la lit).',
     ),
   ].join('\n');
 }

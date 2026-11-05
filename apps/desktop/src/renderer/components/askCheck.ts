@@ -1,4 +1,4 @@
-import { t, type CheckResult } from '@parakeet/core';
+import { t, type CheckResult } from '@kinglet/core';
 import { useStore } from '../store';
 
 /** "Ask Claude" on a failing check, when the Claude panel is on. */

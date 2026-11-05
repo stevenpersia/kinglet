@@ -1,6 +1,6 @@
-appId: dev.parakeet.app
-productName: Parakeet
-executableName: parakeet
+appId: dev.kinglet.app
+productName: Kinglet
+executableName: kinglet
 artifactName: ${productName}-${version}-${arch}.${ext}
 directories:
   output: dist
@@ -24,7 +24,7 @@ linux:
   maintainer: Steven Persia
   desktop:
     entry:
-      StartupWMClass: parakeet
+      StartupWMClass: kinglet
       Keywords: preview;responsive;mobile;opengraph;
 # Releases (and updates) come from GitHub Releases of this repository.
 publish:
@@ -33,7 +33,7 @@ publish:
   repo: parakeet
   releaseType: release
 pacman:
-  packageName: parakeet
+  packageName: kinglet
   # electron-builder's defaults name packages that are gone from Arch (http-parser, libappindicator-gtk3…).
   depends:
     - gtk3

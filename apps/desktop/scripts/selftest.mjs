@@ -90,9 +90,9 @@ const sha512 = createHash('sha512').update(fakePkg).digest('base64');
 const feed = createServer((req, res) => {
   if (req.url.startsWith('/latest-linux.yml')) {
     res.writeHead(200, { 'content-type': 'text/yaml' });
-    return res.end(`version: 9.9.9\nfiles:\n  - url: Parakeet-9.9.9-x64.pacman\n    sha512: ${sha512}\n    size: ${fakePkg.length}\n  - url: Parakeet-9.9.9-x86_64.AppImage\n    sha512: ${sha512}\n    size: ${fakePkg.length}\npath: Parakeet-9.9.9-x86_64.AppImage\nsha512: ${sha512}\nreleaseDate: '2026-11-04T00:00:00.000Z'\n`);
+    return res.end(`version: 9.9.9\nfiles:\n  - url: Kinglet-9.9.9-x64.pacman\n    sha512: ${sha512}\n    size: ${fakePkg.length}\n  - url: Kinglet-9.9.9-x86_64.AppImage\n    sha512: ${sha512}\n    size: ${fakePkg.length}\npath: Kinglet-9.9.9-x86_64.AppImage\nsha512: ${sha512}\nreleaseDate: '2026-11-04T00:00:00.000Z'\n`);
   }
-  if (req.url.startsWith('/Parakeet-9.9.9')) {
+  if (req.url.startsWith('/Kinglet-9.9.9')) {
     res.writeHead(200, { 'content-type': 'application/octet-stream', 'content-length': fakePkg.length });
     return res.end(fakePkg);
   }
@@ -110,9 +110,9 @@ if (!display && !process.env.WAYLAND_DISPLAY) {
   await new Promise((r) => setTimeout(r, 800));
 }
 
-// 4. Parakeet
-// PARAKEET_BIN=dist/linux-unpacked/parakeet runs the acceptance test against the packaged app.
-const packaged = process.env.PARAKEET_BIN ? resolve(appDir, process.env.PARAKEET_BIN) : null;
+// 4. Kinglet
+// KINGLET_BIN=dist/linux-unpacked/kinglet runs the acceptance test against the packaged app.
+const packaged = process.env.KINGLET_BIN ? resolve(appDir, process.env.KINGLET_BIN) : null;
 const args = packaged ? [] : ['.'];
 if (process.getuid?.() === 0) args.push('--no-sandbox'); // Chromium refuses to sandbox as root (containers)
 const app = spawn(packaged ?? electronBin, args, {
@@ -120,18 +120,18 @@ const app = spawn(packaged ?? electronBin, args, {
   env: {
     ...process.env,
     DISPLAY: display,
-    PARAKEET_SELFTEST: outDir,
-    PARAKEET_URL: 'http://localhost:5173/',
-    PARAKEET_HMR_FILE: join(demoDir, 'content.js'),
-    PARAKEET_VERCEL_BYPASS: 'secret-de-test',
-    PARAKEET_BYPASS_HOSTS: '127.0.0.1',  // the fake deployments and the echo server
-    PARAKEET_ECHO_URL: 'http://127.0.0.1:5199/',
-    PARAKEET_VERCEL_API: vercelMock.url,
-    PARAKEET_GITHUB_API: vercelMock.url,
-    PARAKEET_UPDATE_URL: 'http://127.0.0.1:5198/',
-    PARAKEET_VERCEL_TEST_TOKEN: VERCEL_TOKEN,
-    PARAKEET_CLAUDE_BIN: join(root, 'fixtures/fake-claude/claude'),
-    PARAKEET_DEMO_DIR: demoDir,
+    KINGLET_SELFTEST: outDir,
+    KINGLET_URL: 'http://localhost:5173/',
+    KINGLET_HMR_FILE: join(demoDir, 'content.js'),
+    KINGLET_VERCEL_BYPASS: 'secret-de-test',
+    KINGLET_BYPASS_HOSTS: '127.0.0.1',  // the fake deployments and the echo server
+    KINGLET_ECHO_URL: 'http://127.0.0.1:5199/',
+    KINGLET_VERCEL_API: vercelMock.url,
+    KINGLET_GITHUB_API: vercelMock.url,
+    KINGLET_UPDATE_URL: 'http://127.0.0.1:5198/',
+    KINGLET_VERCEL_TEST_TOKEN: VERCEL_TOKEN,
+    KINGLET_CLAUDE_BIN: join(root, 'fixtures/fake-claude/claude'),
+    KINGLET_DEMO_DIR: demoDir,
   },
   stdio: ['ignore', 'pipe', 'inherit'],
 });

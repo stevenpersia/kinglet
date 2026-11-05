@@ -1,8 +1,8 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, Notification, shell } from 'electron';
-import { resolveLanguage, setLanguage, t, buildShareFix, checkShare, crawl, probeImage, readPageMeta, readSharePreviews, readSiteFiles, runChecks, score, vercelBypassHeaders, type CrawledPage, type SiteFiles } from '@parakeet/core';
-import { startStdio } from '@parakeet/mcp';
+import { resolveLanguage, setLanguage, t, buildShareFix, checkShare, crawl, probeImage, readPageMeta, readSharePreviews, readSiteFiles, runChecks, score, vercelBypassHeaders, type CrawledPage, type SiteFiles } from '@kinglet/core';
+import { startStdio } from '@kinglet/mcp';
 import QRCode from 'qrcode';
 import type { AnalyzeReport, CompareColumn, DeviceSlot, EnvId, InitState, McpActivity, McpInfo, PhoneQr, PhoneState, PreviewEvent, Settings, ShareStudio } from '../shared/types';
 import { startControlServer } from './control';
@@ -23,18 +23,21 @@ import { PRESETS } from './presets';
 import { activeIds, allPresets, setActiveIds } from '../shared/devices';
 import { runSelftest } from './selftest';
 import { SettingsStore } from './settings';
+import { moveOldUserData, oldHookScript } from './rename';
 
-/** `parakeet --mcp`: run as the MCP server Claude Code launches (stdio, no window). */
+/** `kinglet --mcp`: run as the MCP server Claude Code launches (stdio, no window). */
 const MCP_MODE = process.argv.includes('--mcp');
 
-app.setName('Parakeet');
-// Same folder in dev and packaged: ~/.config/Parakeet (the MCP bridge looks there).
-app.setPath('userData', join(app.getPath('appData'), 'Parakeet'));
+app.setName('Kinglet');
+// Same folder in dev and packaged: ~/.config/Kinglet (the MCP bridge looks there).
+// Kinglet was called Parakeet: its folder (~/.config/Parakeet) moves over on first launch.
+if (!MCP_MODE && !process.env.KINGLET_SELFTEST) moveOldUserData(app.getPath('appData'));
+app.setPath('userData', join(app.getPath('appData'), 'Kinglet'));
 // The acceptance run must not read or write the user's real settings.
-if (process.env.PARAKEET_SELFTEST) {
-  app.setPath('userData', join(process.env.PARAKEET_SELFTEST, 'userdata'));
+if (process.env.KINGLET_SELFTEST) {
+  app.setPath('userData', join(process.env.KINGLET_SELFTEST, 'userdata'));
   // …nor the user's Claude Code settings (hooks).
-  process.env.CLAUDE_CONFIG_DIR = join(process.env.PARAKEET_SELFTEST, 'claude');
+  process.env.CLAUDE_CONFIG_DIR = join(process.env.KINGLET_SELFTEST, 'claude');
 }
 // Linux: let Chromium pick Wayland when the session is Wayland, X11 otherwise.
 // The MCP server needs no display: it is launched with --ozone-platform=headless (too late
@@ -44,11 +47,11 @@ else app.commandLine.appendSwitch('ozone-platform-hint', 'auto');
 
 /**
  * Vercel Deployment Protection bypass ("Protection Bypass for Automation" secret):
- * from PARAKEET_VERCEL_BYPASS, else from the linked Vercel project.
+ * from KINGLET_VERCEL_BYPASS, else from the linked Vercel project.
  */
 let projectBypass: (url: string) => string | null = () => null;
-const bypassSecret = (url: string) => process.env.PARAKEET_VERCEL_BYPASS || projectBypass(url) || '';
-const BYPASS_HOSTS = (process.env.PARAKEET_BYPASS_HOSTS ?? '*.vercel.app').split(',').map((h) => h.trim()).filter(Boolean);
+const bypassSecret = (url: string) => process.env.KINGLET_VERCEL_BYPASS || projectBypass(url) || '';
+const BYPASS_HOSTS = (process.env.KINGLET_BYPASS_HOSTS ?? '*.vercel.app').split(',').map((h) => h.trim()).filter(Boolean);
 
 /** Bots (tag reading, checks, compare): the secret only. Devices (real browsers) also get the cookie header. */
 const bypassHeaders = (url: string, browser = false) => vercelBypassHeaders(url, { secret: bypassSecret(url), hosts: BYPASS_HOSTS, browser });
@@ -67,7 +70,7 @@ async function createWindow() {
     minHeight: 640,
     frame: false,
     backgroundColor: '#0A0A0B',
-    title: 'Parakeet',
+    title: 'Kinglet',
     icon: join(__dirname, '../../build/icon.png'),
     show: false,
     webPreferences: {
@@ -147,7 +150,7 @@ async function createWindow() {
   /** System notification, unless the user is already looking at that project. */
   const notify = (projectId: string | null, title: string, body: string) => {
     if (win.isFocused() && activeProject(settings.value)?.id === projectId) return;
-    if (!Notification.isSupported() || process.env.PARAKEET_SELFTEST) return;
+    if (!Notification.isSupported() || process.env.KINGLET_SELFTEST) return;
     const n = new Notification({ title, body, silent: false });
     n.on('click', () => {
       win.show();
@@ -217,9 +220,9 @@ async function createWindow() {
     let url: string | null = null;
     let detectedFrom: string | null = null;
     const active = activeProject(settings.value);
-    if (process.env.PARAKEET_URL) {
-      url = process.env.PARAKEET_URL;
-      detectedFrom = 'PARAKEET_URL';
+    if (process.env.KINGLET_URL) {
+      url = process.env.KINGLET_URL;
+      detectedFrom = 'KINGLET_URL';
       openUrlProject(url);
     } else if (active?.lastUrl) {
       url = active.lastUrl;
@@ -327,6 +330,7 @@ async function createWindow() {
   });
   // Claude Code activity, through hooks (opt-in, see claude-hooks.ts).
   const claudeHooks = new ClaudeHooks(app.getPath('userData'));
+  if (!process.env.KINGLET_SELFTEST) claudeHooks.repoint(oldHookScript(app.getPath('appData')));
   const tracker = new ClaudeTracker();
   const emitClaude = () => emit({ type: 'claude', projects: tracker.projects });
   const expireTimer = setInterval(() => tracker.expire() && emitClaude(), 60_000);
@@ -388,7 +392,7 @@ async function createWindow() {
   });
   app.on('will-quit', () => control.close());
 
-  // Claude inside Parakeet: Claude Code in the project folder, with this app's MCP server.
+  // Claude inside Kinglet: Claude Code in the project folder, with this app's MCP server.
   const chat = new ClaudeChat(
     (state) => {
       emit({ type: 'chat', state });
@@ -401,15 +405,15 @@ async function createWindow() {
     },
     (projectId) => {
       const { exe, args } = mcpLaunch();
-      return { command: exe, args: [...args, ...(process.getuid?.() === 0 ? ['--no-sandbox'] : [])], env: { PARAKEET_CONFIG_DIR: app.getPath('userData'), PARAKEET_CHAT_PROJECT: projectId } };
+      return { command: exe, args: [...args, ...(process.getuid?.() === 0 ? ['--no-sandbox'] : [])], env: { KINGLET_CONFIG_DIR: app.getPath('userData'), KINGLET_CHAT_PROJECT: projectId } };
     },
   );
   const chatContext = () => {
     const ids = devices.entries().map((d) => `${d.preset.label} (${d.preset.width}×${d.preset.height}, id ${d.preset.id})`);
     return [
-      'You are running inside Parakeet, a desktop app that shows the user’s site on several emulated devices side by side.',
+      'You are running inside Kinglet, a desktop app that shows the user’s site on several emulated devices side by side.',
       `Page open now: ${devices.currentUrl ?? 'none'}. Devices shown: ${ids.join(', ') || 'none'}.`,
-      'The parakeet MCP tools see exactly what the user sees: after changing code, check the result yourself (screenshot, run_checks, get_console) before saying it is done. The dev server reloads the devices on its own.',
+      'The kinglet MCP tools see exactly what the user sees: after changing code, check the result yourself (screenshot, run_checks, get_console) before saying it is done. The dev server reloads the devices on its own.',
       'Images joined to a message are captures of a device; a numbered clay pin marks the spot the user pointed at.',
       `Answer in ${t('English', 'French')}, briefly.`,
     ].join('\n');
@@ -433,7 +437,7 @@ async function createWindow() {
     if (!bin) return { ok: false, output: t('Claude Code isn’t installed.', 'Claude Code n’est pas installé.') };
     const { exe, args } = mcpLaunch();
     return new Promise((resolve) =>
-      execFile(bin, ['mcp', 'add', '--scope', 'user', 'parakeet', '--', exe, ...args], { timeout: 20_000 }, (err, stdout, stderr) => {
+      execFile(bin, ['mcp', 'add', '--scope', 'user', 'kinglet', '--', exe, ...args], { timeout: 20_000 }, (err, stdout, stderr) => {
         const output = `${stdout}${stderr}`.trim();
         resolve({ ok: !err || /already exists/i.test(output), output });
       }),
@@ -470,7 +474,7 @@ async function createWindow() {
   ipcMain.handle('mcp:info', (): McpInfo => {
     const { exe, args } = mcpLaunch();
     const launch = [exe, ...args].map((a) => (/\s/.test(a) ? `"${a}"` : a)).join(' ');
-    return { command: `claude mcp add --scope user parakeet -- ${launch}`, launch, activity };
+    return { command: `claude mcp add --scope user kinglet -- ${launch}`, launch, activity };
   });
 
   // Vercel
@@ -490,7 +494,7 @@ async function createWindow() {
 
   // Updates (GitHub Releases)
   const updater = new Updater((state) => emit({ type: 'update', state }));
-  updater.start(process.env.PARAKEET_UPDATE_URL ? 1500 : 10_000);
+  updater.start(process.env.KINGLET_UPDATE_URL ? 1500 : 10_000);
   app.on('will-quit', () => updater.stop());
   ipcMain.handle('update:state', () => updater.state);
   ipcMain.handle('update:check', () => updater.check());
@@ -599,13 +603,13 @@ async function createWindow() {
   if (process.env.ELECTRON_RENDERER_URL) await win.loadURL(process.env.ELECTRON_RENDERER_URL);
   else await win.loadFile(join(__dirname, '../renderer/index.html'));
 
-  if (process.env.PARAKEET_SELFTEST) void runSelftest(win, devices, process.env.PARAKEET_SELFTEST);
+  if (process.env.KINGLET_SELFTEST) void runSelftest(win, devices, process.env.KINGLET_SELFTEST);
 }
 
 if (MCP_MODE) {
   // stdout belongs to the MCP protocol: no window, no app lifecycle.
   void startStdio(app.getVersion()).catch((e) => {
-    process.stderr.write(`parakeet --mcp: ${(e as Error).stack}\n`);
+    process.stderr.write(`kinglet --mcp: ${(e as Error).stack}\n`);
     app.exit(1);
   });
   process.stdin.on('end', () => app.exit(0));

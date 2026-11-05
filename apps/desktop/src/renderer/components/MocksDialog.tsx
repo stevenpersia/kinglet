@@ -1,4 +1,4 @@
-import { t } from '@parakeet/core';
+import { t } from '@kinglet/core';
 import { useEffect } from 'react';
 import type { ApiMock } from '../../shared/types';
 import { api, useStore } from '../store';

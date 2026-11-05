@@ -1,4 +1,4 @@
-// Fake Vercel REST API for tests: same shapes as the real one (subset Parakeet uses).
+// Fake Vercel REST API for tests: same shapes as the real one (subset Kinglet uses).
 import { createServer } from 'node:http';
 
 export const TOKEN = 'vercel-test-token';
