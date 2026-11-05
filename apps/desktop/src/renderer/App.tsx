@@ -8,13 +8,14 @@ import { SettingsPage } from './components/SettingsPage';
 import { SharePage } from './components/SharePage';
 import { Rail } from './components/Sidebar';
 import { ClaudeBanner } from './components/ClaudeBanner';
+import { ClaudeColumn } from './components/ClaudePanel';
 import { ProjectSwitcher } from './components/ProjectSwitcher';
 import { ProjectsPage } from './components/ProjectsPage';
 import { Stage } from './components/Stage';
 import { Onboarding } from './components/Onboarding';
 import { StatusBar } from './components/StatusBar';
 import { TitleBar } from './components/TitleBar';
-import { api, useStore } from './store';
+import { api, claudeShown, useStore } from './store';
 
 /** Read tags and run the checks after a load: always, or only when something on screen shows them. */
 function wantsAnalysis() {
@@ -24,6 +25,7 @@ function wantsAnalysis() {
 
 export function App() {
   const { ready, section } = useStore();
+  const withClaude = useStore(claudeShown);
   const onboarded = useStore((s) => s.settings.onboarded);
 
   useEffect(() => {
@@ -103,7 +105,7 @@ export function App() {
           else if (e.action === 'settings') s.setSection('reglages');
           else if (e.action === 'toggle-landscape') void s.updateSettings({ landscape: !s.settings.landscape });
           else if (e.action === 'toggle-scroll-sync') void s.updateSettings({ scrollSync: !s.settings.scrollSync });
-          else if (e.action === 'claude') s.settings.claudePanel && s.togglePanel('claude');
+          else if (e.action === 'claude') s.settings.claudePanel && s.toggleClaude();
           else if (e.action === 'switcher') useStore.setState({ switcherOpen: !s.switcherOpen, paletteOpen: false });
           else if (e.action === 'overview') s.setSection(s.section === 'projets' ? 'apercu' : 'projets');
           else if (e.action.startsWith('tab-')) {
@@ -131,6 +133,8 @@ export function App() {
       <ClaudeBanner />
       <div className="flex min-h-0 flex-1">
         {section !== 'projets' && <Rail />}
+        {/* Claude first: open by default, it stays in place across the sections. */}
+        {ready && withClaude && <ClaudeColumn />}
         {!ready ? (
           <main className="stage-bg flex-1" />
         ) : section === 'apercu' ? (

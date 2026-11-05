@@ -16,7 +16,7 @@ export const cleanError = (e: unknown) => String((e as Error)?.message ?? e).rep
 
 export type Section = 'apercu' | 'partage' | 'comparer' | 'deploiements' | 'checks' | 'reglages' | 'projets';
 /** Panel opened next to the devices from the left bar. */
-export type Panel = 'page' | 'checks' | 'claude' | 'feedback';
+export type Panel = 'page' | 'checks' | 'feedback';
 export type SettingsTab = 'general' | 'devices' | 'project' | 'vercel' | 'github' | 'claude' | 'mcp' | 'updates';
 export type LoadStatus = 'idle' | 'loading' | 'loaded' | 'failed';
 
@@ -106,6 +106,8 @@ interface State {
   /** Open or close a panel next to the devices (opens the devices if needed). */
   togglePanel(p: Panel): void;
   toggleConsole(open?: boolean): void;
+  /** Unfold or fold the Claude column of the active project (open by default). */
+  toggleClaude(open?: boolean): void;
   /** Open the Claude panel with a message (and things joined to it) ready to send. */
   askClaude(text: string, attachments?: ChatAttachment[]): void;
   setDraft(projectId: string, draft: { text: string; attachments: ChatAttachment[] }): void;
@@ -334,8 +336,17 @@ export const useStore = create<State>((set, get) => ({
     if (!id) return;
     const prev = s.drafts[id] ?? { text: '', attachments: [] };
     set({ drafts: { ...s.drafts, [id]: { text: !text ? prev.text : prev.text ? `${prev.text}\n${text}` : text, attachments: [...prev.attachments, ...attachments] } } });
-    if (s.section !== 'apercu') s.setSection('apercu');
-    set({ panel: 'claude' });
+    // The column is there on every section but the projects and the settings.
+    if (s.section === 'projets' || s.section === 'reglages') s.setSection('apercu');
+    s.toggleClaude(true);
+  },
+
+  toggleClaude(open) {
+    const s = get();
+    const project = activeProject(s.settings);
+    if (!project) return;
+    const closed = !(open ?? !!project.claudeClosed);
+    if (closed !== !!project.claudeClosed) void s.updateSettings(patchProject(s.settings, project.id, { claudeClosed: closed }));
   },
 
   setDraft(projectId, draft) {
@@ -404,5 +415,11 @@ export function projectVercel(s: Pick<State, 'settings' | 'vercel'>, projectId?:
   const vp = project?.vercelProjectId ? (s.vercel?.projects.find((p) => p.id === project.vercelProjectId) ?? null) : null;
   return { project: vp, deployments: vp ? (s.vercel?.deployments[vp.id] ?? []) : [] };
 }
+
+/** The Claude column has its place here (folded or not): every section but the projects and the settings. */
+export const claudeShown = (s: Pick<State, 'settings' | 'section'>) => s.settings.claudePanel && !!activeProject(s.settings) && s.section !== 'projets' && s.section !== 'reglages';
+
+/** The Claude column is unfolded: open by default, folded per project. */
+export const claudeOpen = (s: Pick<State, 'settings' | 'section'>) => claudeShown(s) && !activeProject(s.settings)!.claudeClosed;
 
 export const currentProject = (s: Pick<State, 'settings'>) => activeProject(s.settings);

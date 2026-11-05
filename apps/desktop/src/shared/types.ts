@@ -56,6 +56,8 @@ export interface Project {
   active?: string[];
   /** Devices listed in this project (ticked in the settings), when the settings keep one list per project. */
   listed?: string[];
+  /** The Claude column was folded for this project (it is open by default). */
+  claudeClosed?: boolean;
   /** Claude Code session of the panel, to resume it (here or in a terminal). */
   claudeSession?: string | null;
 }

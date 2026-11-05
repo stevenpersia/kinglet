@@ -684,7 +684,8 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
       const s = await window.parakeet.updateSettings({});
       await window.parakeet.updateSettings({ projects: s.projects.map((p) => (p.id === s.activeId ? { ...p, folder: ${JSON.stringify(process.env.PARAKEET_DEMO_DIR ?? '/tmp')} } : p)) });
     })()`);
-    await clickText('nav button', 'Claude');
+    // Open by default; unfold it if an earlier step folded it.
+    if (!(await js<boolean>(`!!document.querySelector('textarea[aria-label="Message to Claude"]')`))) await clickText('nav button', 'Claude');
     await waitFor(() => js<boolean>(`!!document.querySelector('textarea[aria-label="Message to Claude"]')`), 4000);
     await sleep(1000); // the devices settle at their new size next to the panel
     await clickText('aside[aria-label=Claude] button', 'Show');
@@ -739,7 +740,7 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     let approval = '';
     const allowed = await waitFor(async () => (approval = await js<string>(`[...document.querySelectorAll('aside[aria-label=Claude] p')].map((p) => p.textContent).find((x) => x.includes('approval')) ?? ''`)) !== '', 8000);
     criteria.push({ id: 'claude-approval', ok: asked && allowed && approval.includes('allowed') && approval.includes('mcp__parakeet__approve'), detail: approval || `question ${asked ? 'affichée' : 'absente'}` });
-    await clickText('nav button', 'Claude'); // close the panel
+    await clickText('nav button', 'Claude'); // fold the column
 
     // 26b. Settings: a custom device is emulated like the built-in ones, then removed.
     await js(`window.parakeet.updateSettings({ customDevices: [{ id: 'custom-selftest', label: 'Fold', width: 673, height: 841, dpr: 2.625, kind: 'phone' }], active: ['iphone-16', 'ipad-air', 'custom-selftest'] })`);
