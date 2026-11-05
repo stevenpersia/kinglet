@@ -281,6 +281,15 @@ export function Onboarding() {
                 {vercel?.connected && (
                   <>
                     <div className="label border-y border-line-soft bg-chrome px-3 py-2">{t('Your Vercel projects', 'Tes projets Vercel')}</div>
+                    {!vercelProjects.length && (
+                      <p className="m-0 px-3 py-2.5 text-xs text-faint">
+                        {vercel.error ??
+                          t(
+                            'No project found with this token. If your projects are in a team, create a token with the “Full Account” scope, or one for that team.',
+                            'Aucun projet trouvé avec ce jeton. Si tes projets sont dans une équipe, crée un jeton avec la portée « Full Account », ou un pour cette équipe.',
+                          )}
+                      </p>
+                    )}
                     {vercelProjects.map((vp) => {
                       const on = choice?.kind === 'vercel' && choice.project.id === vp.id;
                       return (

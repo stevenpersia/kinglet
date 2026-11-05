@@ -13,6 +13,8 @@ export interface VercelUser {
   id: string;
   username: string;
   name: string | null;
+  /** The account's default team: where a recent account's projects live. */
+  defaultTeamId?: string | null;
 }
 
 export interface VercelTeam {
@@ -134,7 +136,7 @@ export class VercelClient {
 
   async user(): Promise<VercelUser> {
     const { user } = await this.req<{ user: Json }>('GET', '/v2/user');
-    return { id: String(user.id ?? user.uid), username: String(user.username), name: str(user.name) };
+    return { id: String(user.id ?? user.uid), username: String(user.username), name: str(user.name), defaultTeamId: str(user.defaultTeamId) };
   }
 
   async teams(): Promise<VercelTeam[]> {
