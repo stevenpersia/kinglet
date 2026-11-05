@@ -16,6 +16,9 @@ export {
   type CheckInput,
   type RenderedDevice,
   type Vitals,
+  type AxeSummary,
+  type AxeViolation,
+  type AxeImpact,
 } from './checks.ts';
 export { readSiteFiles, parseRobots, parseSitemap, type SiteFiles } from './site.ts';
 export { crawl, type CrawledPage } from './crawl.ts';
@@ -40,3 +43,7 @@ export {
 export { fetchExplained } from './net.ts';
 export { t, setLanguage, getLanguage, locale, ago, resolveLanguage, type Language } from './i18n.ts';
 export { consolePrompt, formatEntries, groupEntries, type ConsoleEntry } from './console.ts';
+export { readStructuredData, flattenJsonLd, richKindLabel, type StructuredData, type StructuredItem, type RichPreview, type RichKind } from './structured.ts';
+export { readHreflang, checkHreflangTags, type HreflangReport, type HreflangIssue, type HreflangAlternate } from './hreflang.ts';
+export { auditSite, auditPrompt, type SiteAudit, type AuditPage, type BrokenLink, type Duplicate } from './audit.ts';
+export { evaluateBudgets, pathMatches, describeFailures, budgetMetricLabel, formatBudgetValue, DEFAULT_BUDGET, type Budget, type BudgetMeasure, type BudgetResult, type BudgetMetric } from './budgets.ts';

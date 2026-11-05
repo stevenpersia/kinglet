@@ -1,10 +1,12 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, Notification, shell } from 'electron';
-import { resolveLanguage, setLanguage, t, buildShareFix, checkShare, crawl, probeImage, readPageMeta, readSharePreviews, readSiteFiles, runChecks, score, vercelBypassHeaders, type CrawledPage, type SiteFiles } from '@kinglet/core';
+import { resolveLanguage, setLanguage, t, locale, buildShareFix, checkShare, crawl, probeImage, readPageMeta, readSharePreviews, readSiteFiles, runChecks, score, vercelBypassHeaders, auditSite, readHreflang, readStructuredData, evaluateBudgets, describeFailures, type AxeViolation, type BudgetMeasure, type CrawledPage, type HreflangReport, type SiteFiles } from '@kinglet/core';
 import { startStdio } from '@kinglet/mcp';
 import QRCode from 'qrcode';
-import type { AnalyzeReport, CompareColumn, DeviceSlot, EnvId, InitState, McpActivity, McpInfo, PhoneQr, PhoneState, PreviewEvent, Settings, ShareStudio } from '../shared/types';
+import type { AnalyzeReport, CompareColumn, DeviceSlot, EnvId, ExportShot, FeedbackPin, HistoryEntry, InitState, McpActivity, McpInfo, PhoneQr, PhoneState, PreviewEvent, Settings, ShareStudio } from '../shared/types';
+import { HistoryStore } from './history';
+import { ReviewServer } from './review';
 import { startControlServer } from './control';
 import { mcpLaunch } from './mcp-launch';
 import { activeProject, isLocalUrl, openProject, patchProject, projectForFolder, projectFromUrl, visit } from '../shared/projects';
@@ -119,6 +121,9 @@ async function createWindow() {
   devices.setOffline(settings.value.offline);
   devices.setMocks(settings.value.mocks);
   devices.setScrollSync(settings.value.scrollSync);
+  devices.setRegion(settings.value.region, settings.value.regionPerDevice);
+  devices.setText(settings.value.textSize);
+  devices.setKeyboard(settings.value.keyboard);
   /** The site's favicon, kept on the project for its tab (also when closed). */
   async function saveFavicon(url: string, pageUrl: string) {
     const project = activeProject(settings.value);
@@ -174,6 +179,11 @@ async function createWindow() {
       if (before && before !== key && d.state === 'ERROR') {
         const project = settings.value.projects.find((p) => p.vercelProjectId === vpId);
         notify(project?.id ?? null, t(`Build failed · ${project?.name ?? 'Vercel'}`, `Build en erreur · ${project?.name ?? 'Vercel'}`), `${d.branch ?? ''} ${d.commitMessage ?? ''}`.trim());
+      }
+      // A build just went live: measure it (history) and check the budgets.
+      if (before && before !== key && d.state === 'READY') {
+        const project = settings.value.projects.find((p) => p.vercelProjectId === vpId);
+        if (project) void measureDeployment(project.id, { url: d.url, deploymentId: d.id, production: d.production, branch: d.branch, commit: d.commitMessage }, true).catch((e) => console.error('history', e));
       }
     }
   });
@@ -276,6 +286,10 @@ async function createWindow() {
     if (patch.media) devices.setMedia(patch.media);
     if (patch.offline !== undefined) devices.setOffline(patch.offline);
     if (patch.mocks) devices.setMocks(patch.mocks);
+    if (patch.region || patch.regionPerDevice) devices.setRegion(next.region, next.regionPerDevice);
+    if (patch.textSize) devices.setText(patch.textSize);
+    if (patch.keyboard !== undefined) devices.setKeyboard(patch.keyboard);
+    if (patch.reviewPublicUrl !== undefined) emit({ type: 'review', state: review.state() });
     if (patch.openIds || patch.projects) watchOpenProjects();
     emit({ type: 'settings', settings: next });
     return next;
@@ -297,16 +311,43 @@ async function createWindow() {
   const crawlCache = new Map<string, Promise<CrawledPage[]>>();
   const origin = (u: string) => new URL(u).origin;
 
+  /** Alternates of a page (hreflang return links), kept a minute: they don't change while you work. */
+  const hreflangCache = new Map<string, { at: number; job: Promise<HreflangReport | null> }>();
+  const hreflangOf = (meta: Awaited<ReturnType<typeof readPageMeta>>, refresh = false) => {
+    if (!meta.hreflang.length) return Promise.resolve(null);
+    const hit = hreflangCache.get(meta.finalUrl);
+    if (!refresh && hit && Date.now() - hit.at < 60_000) return hit.job;
+    const job = readHreflang(meta, { headers: bypassHeaders(meta.finalUrl) }).catch(() => null);
+    hreflangCache.set(meta.finalUrl, { at: Date.now(), job });
+    return job;
+  };
+
+  /** What each device measured on the current page, for the budgets. */
+  const budgetMeasures = (vitals: Record<string, { lcpMs: number | null; cls: number | null }>): BudgetMeasure[] =>
+    devices.perfs().map((p) => ({ deviceId: p.deviceId, label: p.label, bytes: p.bytes, requests: p.requests, lcpMs: vitals[p.deviceId]?.lcpMs ?? null, cls: vitals[p.deviceId]?.cls ?? null }));
+
   async function analyzePage(url: string, opts: { refreshSite?: boolean } = {}): Promise<AnalyzeReport> {
     const headers = bypassHeaders(url);
     const [meta, rendered] = await Promise.all([readPageMeta(url, { headers }), devices.measure()]);
-    const image = meta.ogImageUrl ? await probeImage(meta.ogImageUrl, { headers: bypassHeaders(meta.ogImageUrl) }) : null;
+    const [image, hreflang] = await Promise.all([meta.ogImageUrl ? probeImage(meta.ogImageUrl, { headers: bypassHeaders(meta.ogImageUrl) }) : Promise.resolve(null), hreflangOf(meta, opts.refreshSite)]);
     const key = origin(meta.finalUrl);
     if (opts.refreshSite || !siteCache.has(key)) siteCache.set(key, readSiteFiles(meta.finalUrl, { manifest: meta.manifest, favicon: meta.icons[0] ?? null }, { headers }));
     const site = await siteCache.get(key)!.catch(() => null);
-    const checks = runChecks({ meta, image, site, rendered: rendered.devices });
+    const checks = runChecks({ meta, image, site, rendered: rendered.devices, hreflang });
     const vitals = Object.fromEntries(rendered.devices.filter((r) => r.vitals).map((r) => [r.id, r.vitals!]));
-    return { url, share: { meta, image, issues: checkShare(meta, image) }, site, checks, score: score(checks), vitals };
+    // Accessibility: violations merged across devices, focus from the worst device.
+    const byRule = new Map<string, AxeViolation>();
+    for (const r of rendered.devices)
+      for (const v of r.axe?.violations ?? []) {
+        const had = byRule.get(v.id);
+        byRule.set(v.id, had ? { ...had, nodes: Math.max(had.nodes, v.nodes), targets: [...new Set([...had.targets, ...v.targets])].slice(0, 5), devices: [...new Set([...had.devices, ...v.devices])] } : v);
+      }
+    const order = { critical: 0, serious: 1, moderate: 2, minor: 3 } as const;
+    const focus = rendered.devices.filter((r) => r.focusMissing).sort((a, b) => b.focusMissing!.count - a.focusMissing!.count)[0]?.focusMissing ?? null;
+    const a11y = rendered.devices.some((r) => r.axe || r.focusMissing) ? { violations: [...byRule.values()].sort((a, b) => order[a.impact] - order[b.impact] || b.nodes - a.nodes), focus } : null;
+    const project = activeProject(settings.value);
+    const budgets = project?.budgets?.length ? evaluateBudgets(project.budgets, new URL(meta.finalUrl).pathname, budgetMeasures(vitals)) : [];
+    return { url, share: { meta, image, issues: checkShare(meta, image) }, site, checks, score: score(checks), vitals, a11y, structured: readStructuredData(meta.jsonLd, meta.jsonLdErrors, locale()), hreflang, budgets };
   }
   ipcMain.handle('page:analyze', (_e, url: string, opts: { refreshSite?: boolean }) => analyzePage(url, opts));
 
@@ -330,6 +371,177 @@ async function createWindow() {
     }
     return crawlCache.get(key);
   });
+  ipcMain.handle('site:audit', async (_e, url: string, opts: { limit?: number }) => {
+    const key = origin(url);
+    const headers = bypassHeaders(url);
+    if (!siteCache.has(key)) {
+      const meta = await readPageMeta(url, { headers }).catch(() => null);
+      if (meta) siteCache.set(key, readSiteFiles(meta.finalUrl, { manifest: meta.manifest, favicon: meta.icons[0] ?? null }, { headers }));
+    }
+    const site = await (siteCache.get(key) ?? Promise.resolve(null)).catch(() => null);
+    const { links } = await devices.measure({ a11y: false });
+    let last = 0;
+    return auditSite(`${key}/`, {
+      headers,
+      site,
+      seeds: [url, ...links],
+      limit: opts.limit ?? 80,
+      onProgress: (done, queued) => {
+        if (Date.now() - last < 150 && done < queued) return;
+        last = Date.now();
+        emit({ type: 'audit', done, queued });
+      },
+    });
+  });
+  ipcMain.on('preview:taborder', (_e, on: boolean) => devices.setTabOrder(on));
+
+  // Export: captures of the devices, as a sheet (PNG), a PDF, a folder of images, or a video.
+  const exportDir = () => {
+    for (const k of ['pictures', 'downloads', 'home'] as const) {
+      try {
+        const p = app.getPath(k);
+        if (existsSync(p)) return p;
+      } catch {
+        /* unknown on this system */
+      }
+    }
+    return app.getPath('home');
+  };
+  const FILTERS: Record<string, Electron.FileFilter> = { png: { name: 'PNG', extensions: ['png'] }, pdf: { name: 'PDF', extensions: ['pdf'] }, webm: { name: 'WebM', extensions: ['webm'] }, gif: { name: 'GIF', extensions: ['gif'] } };
+  const askSave = async (name: string, kind: string) => {
+    // The acceptance run saves without asking (no one to answer the dialog).
+    if (process.env.KINGLET_SELFTEST) return join(process.env.KINGLET_SELFTEST, `export-${name}`);
+    const r = await dialog.showSaveDialog(win, { title: t('Export', 'Exporter'), defaultPath: join(exportDir(), name), filters: [FILTERS[kind]!] });
+    return r.canceled || !r.filePath ? null : r.filePath;
+  };
+  ipcMain.handle('export:shots', async (_e, full: boolean) => {
+    const shots: ExportShot[] = [];
+    for (const d of devices.entries()) {
+      const shot = await devices.shot(d.preset.id, full);
+      if (shot) shots.push(shot);
+    }
+    return shots;
+  });
+  ipcMain.handle('export:frames', () => devices.frames());
+  ipcMain.on('export:scroll', (_e, ratio: number) => devices.scrollAll(Math.min(1, Math.max(0, Number(ratio) || 0))));
+  ipcMain.handle('export:save', async (_e, data: Uint8Array, name: string, kind: string) => {
+    const file = await askSave(name, kind);
+    if (file) writeFileSync(file, Buffer.from(data));
+    return file;
+  });
+  ipcMain.handle('export:folder', async (_e, shots: ExportShot[]) => {
+    const r = await dialog.showOpenDialog(win, { title: t('Folder for the captures', 'Dossier des captures'), defaultPath: exportDir(), properties: ['openDirectory', 'createDirectory'] });
+    const dir = r.canceled ? null : (r.filePaths[0] ?? null);
+    if (!dir) return null;
+    const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');
+    for (const sh of shots) writeFileSync(join(dir, `${stamp}-${sh.id}.png`), Buffer.from(sh.dataUrl.split(',')[1] ?? '', 'base64'));
+    return dir;
+  });
+  ipcMain.handle('export:pdf', async (_e, shots: ExportShot[], title: string, name: string) => {
+    const file = await askSave(`${String(name || 'kinglet').replace(/[^\w.-]+/g, '-')}.pdf`, 'pdf');
+    if (!file) return null;
+    const esc = (x: string) => x.replace(/[&<>"]/g, (c) => `&#${c.charCodeAt(0)};`);
+    const date = new Date().toLocaleString(locale(), { dateStyle: 'long', timeStyle: 'short' });
+    const html = `<!doctype html><html><head><meta charset="utf-8"><style>
+@page{size:A4;margin:14mm}body{margin:0;font:11px system-ui,sans-serif;color:#18181b}
+section{page-break-after:always;display:flex;flex-direction:column;align-items:center;gap:8px}section:last-child{page-break-after:auto}
+header{width:100%;display:flex;justify-content:space-between;color:#71717a;border-bottom:1px solid #e4e4e7;padding-bottom:6px;margin-bottom:6px}
+h1{font-size:13px;margin:0;color:#18181b}img{max-width:100%;max-height:250mm;border:1px solid #e4e4e7;border-radius:6px}</style></head><body>
+${shots.map((sh) => `<section><header><h1>${esc(title)}</h1><span>${esc(sh.label)} · ${sh.width}×${sh.height}${sh.cut ? ` · ${esc(t('cut', 'coupée'))}` : ''} · ${esc(date)}</span></header><img src="${sh.dataUrl}"></section>`).join('\n')}
+</body></html>`;
+    const tmp = join(app.getPath('userData'), 'tmp');
+    mkdirSync(tmp, { recursive: true });
+    const page = join(tmp, 'export.html');
+    writeFileSync(page, html);
+    const pdfWin = new BrowserWindow({ show: false, webPreferences: { sandbox: true, javascript: false } });
+    try {
+      await pdfWin.loadFile(page);
+      writeFileSync(file, await pdfWin.webContents.printToPDF({ printBackground: true, pageSize: 'A4' }));
+    } finally {
+      pdfWin.destroy();
+    }
+    return file;
+  });
+
+  // History: score, Web Vitals and weight of each deployment, measured off screen like a phone.
+  const history = new HistoryStore(join(app.getPath('userData'), 'history'));
+  ipcMain.handle('history:load', (_e, projectId: string) => history.load(projectId));
+  const historyDevice = () => {
+    const phone = devices.entries().find((d) => d.preset.kind === 'phone')?.preset.id;
+    return phone ?? PRESETS.find((p) => p.kind === 'phone')?.id ?? PRESETS[0]!.id;
+  };
+  async function measureDeployment(projectId: string, target: { url: string; deploymentId: string | null; production: boolean; branch: string | null; commit: string | null }, auto = false): Promise<HistoryEntry> {
+    const project = settings.value.projects.find((p) => p.id === projectId);
+    const device = historyDevice();
+    const label = PRESETS.find((p) => p.id === device)?.label ?? device;
+    const root = new URL(target.url);
+    const at = Date.now();
+    const snap = await devices.snapshot(root.toString(), device);
+    let checksScore: HistoryEntry['score'] = null;
+    try {
+      const meta = await readPageMeta(root.toString(), { headers: bypassHeaders(root.toString()) });
+      checksScore = score(runChecks({ meta, image: null, site: null, rendered: snap.measured ? [snap.measured] : [] }));
+    } catch {
+      /* unreachable: the snapshot says why */
+    }
+    const measure = (perf: typeof snap.perf, vitals: typeof snap.vitals): BudgetMeasure => ({ deviceId: device, label, bytes: perf?.bytes ?? null, requests: perf?.requests ?? null, lcpMs: vitals?.lcpMs ?? null, cls: vitals?.cls ?? null });
+    const budgets = project?.budgets ?? [];
+    const failures = describeFailures(evaluateBudgets(budgets, root.pathname, [measure(snap.perf, snap.vitals)]));
+    // Budgets on other pages: measured too (a few, exact paths only).
+    for (const path of [...new Set(budgets.map((b) => b.path.trim()).filter((p) => p.startsWith('/') && !p.includes('*') && p !== root.pathname))].slice(0, 3)) {
+      const other = await devices.snapshot(new URL(path, root).toString(), device);
+      failures.push(...describeFailures(evaluateBudgets(budgets, path, [measure(other.perf, other.vitals)])));
+    }
+    const entry: HistoryEntry = { at, ...target, device: label, score: checksScore, lcpMs: snap.vitals?.lcpMs ?? null, cls: snap.vitals?.cls ?? null, bytes: snap.perf?.bytes ?? null, requests: snap.perf?.requests ?? null, budgetFailures: failures, error: snap.error };
+    const entries = history.add(projectId, entry);
+    emit({ type: 'history', projectId, entries });
+    if (failures.length && auto) notify(projectId, t(`Budget exceeded · ${project?.name ?? ''}`, `Budget dépassé · ${project?.name ?? ''}`), failures.slice(0, 3).join('\n'));
+    return entry;
+  }
+  ipcMain.handle('history:measure', (_e, projectId: string, target: Parameters<typeof measureDeployment>[1] | null) => {
+    const url = target?.url ?? devices.currentUrl;
+    if (!url) throw new Error(t('No page shown.', 'Aucune page affichée.'));
+    return measureDeployment(projectId, target ?? { url, deploymentId: null, production: false, branch: null, commit: null });
+  });
+
+  // Review link: the client answers and pins comments from a browser, into the Feedback panel.
+  const readPins = (projectId: string): FeedbackPin[] => {
+    try {
+      return JSON.parse(readFileSync(feedbackFile(projectId), 'utf8'));
+    } catch {
+      return [];
+    }
+  };
+  const writePins = (projectId: string, pins: FeedbackPin[]) => {
+    mkdirSync(join(app.getPath('userData'), 'feedback'), { recursive: true });
+    writeFileSync(feedbackFile(projectId), JSON.stringify(pins));
+  };
+  const review = new ReviewServer({
+    dir: join(app.getPath('userData'), 'review'),
+    loadPins: readPins,
+    savePins: (projectId, pins) => {
+      writePins(projectId, pins);
+      emit({ type: 'feedback', projectId, pins });
+      const project = settings.value.projects.find((p) => p.id === projectId);
+      notify(projectId, t(`New feedback · ${project?.name ?? ''}`, `Nouveau retour · ${project?.name ?? ''}`), t('A client answered on the review link.', 'Un client a répondu sur le lien de relecture.'));
+    },
+    publicUrl: () => settings.value.reviewPublicUrl,
+    onChange: (state) => emit({ type: 'review', state }),
+  });
+  app.on('will-quit', () => review.stop());
+  ipcMain.handle('review:state', () => review.state());
+  ipcMain.handle('review:close', (_e, projectId: string) => review.close(projectId));
+  ipcMain.handle('review:open', async (_e, projectId: string) => {
+    const project = settings.value.projects.find((p) => p.id === projectId);
+    if (!project) throw new Error(t('Unknown project.', 'Projet inconnu.'));
+    const shots = [];
+    for (const d of devices.entries()) {
+      const data = await devices.capture(d.preset.id, Math.min(1, 2 / d.preset.dpr));
+      if (data) shots.push({ id: d.preset.id, label: d.preset.label, ...devices.viewport(d.preset), jpeg: Buffer.from(data, 'base64') });
+    }
+    return review.open(projectId, project.name, devices.currentUrl ?? project.lastUrl ?? '', shots);
+  });
+
   // Claude Code activity, through hooks (opt-in, see claude-hooks.ts).
   const claudeHooks = new ClaudeHooks(app.getPath('userData'));
   if (!process.env.KINGLET_SELFTEST) claudeHooks.repoint(oldHookScript(app.getPath('appData')));
@@ -553,7 +765,12 @@ async function createWindow() {
     ['lang', (m) => m.lang],
   ];
   ipcMain.handle('compare:visual', (_e, targets: { env: EnvId; label: string; url: string }[], deviceId: string) =>
-    Promise.all(targets.map(async (x) => ({ ...x, ...(await devices.snapshot(x.url, deviceId)) }))),
+    Promise.all(
+      targets.map(async (x) => {
+        const { image, vitals, error } = await devices.snapshot(x.url, deviceId);
+        return { ...x, image, vitals, error };
+      }),
+    ),
   );
   ipcMain.handle('compare:run', (_e, targets: { env: EnvId; label: string; url: string }[]): Promise<CompareColumn[]> =>
     Promise.all(

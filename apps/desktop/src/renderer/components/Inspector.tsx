@@ -4,6 +4,7 @@ import { CheckGroups } from './Checks';
 import { Dot, Icon } from './Icons';
 import { FeedbackPanel } from './FeedbackPanel';
 import { askCheck } from './askCheck';
+import { HreflangCard, StructuredDataCard } from './PageExtras';
 
 const formatBytes = (b: number) => (b < 1024 ? t(`${b} B`, `${b} o`) : t(`${Math.round(b / 1024)} KB`, `${Math.round(b / 1024)} Ko`));
 const sevColor = { error: 'bg-err', warning: 'bg-warn' } as const;
@@ -87,6 +88,8 @@ function PageTab() {
         <Row k="theme-color" v={meta.themeColor} />
         <Row k={t('icons', 'icônes')} v={meta.icons.length ? meta.icons.map((u) => u.split('/').pop()).join(', ') : null} />
       </div>
+      <StructuredDataCard />
+      <HreflangCard />
     </div>
   );
 }

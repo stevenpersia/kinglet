@@ -1,24 +1,29 @@
 # Kinglet
 
-Voir son site sur tous les écrans (iPhone, Android, iPad, desktop), en local, en preview et en prod, et vérifier l'aperçu de ses liens (WhatsApp, LinkedIn, Slack…) avant de les partager. Pensé pour les sites construits avec Claude.
+Voir son site sur tous les écrans (iPhone, Android, iPad, desktop), en local, en preview et en prod, et vérifier l'aperçu de ses liens (WhatsApp, LinkedIn, Slack, Bluesky…) avant de les partager. Pensé pour les sites construits avec Claude.
 
-> Site : [getkinglet.com](https://getkinglet.com). État actuel : **phase 7**, version 0.1.0. Aperçu multi-appareils, ton site sur ton vrai téléphone, local / preview / prod via Vercel, aperçus de partage sur 7 plateformes avec correctif, 30 checks, exploration des pages et serveur MCP pour Claude Code. Releases GitHub avec mises à jour automatiques, landing page, intégration continue.
+> Site : [getkinglet.com](https://getkinglet.com). État actuel : **phase 7**, version 0.1.0. Aperçu multi-appareils, ton site sur ton vrai téléphone, local / preview / prod via Vercel, aperçus de partage sur 10 plateformes avec correctif, 36 checks, audit de tout le site, accessibilité, exploration des pages et serveur MCP pour Claude Code. Releases GitHub avec mises à jour automatiques, landing page, intégration continue.
 
 ## Ce que fait Kinglet
 
 - **Aperçu** : ton site sur 10 appareils émulés (largeur, densité, tactile, user agent), en portrait ou paysage. Le scroll et la navigation sont synchronisés entre appareils, et chacun a ses DevTools.
-- **Partage** : l'aperçu de ton lien sur WhatsApp, iMessage, Slack, Discord, LinkedIn, X et Google.
-  - Une plateforme à la fois, en taille réelle et en situation (conversation WhatsApp ou iMessage, message Slack ou Discord, post LinkedIn ou X, résultats Google), avec ses problèmes à côté. Flèches haut et bas pour passer d'une plateforme à l'autre.
+- **Partage** : l'aperçu de ton lien sur WhatsApp, iMessage, Slack, Discord, Telegram, LinkedIn, X, Facebook, Bluesky et Google.
+  - Une plateforme à la fois, en taille réelle et en situation (conversation WhatsApp, iMessage ou Telegram, message Slack ou Discord, post LinkedIn, X, Facebook ou Bluesky, résultats Google), avec ses problèmes à côté. Flèches haut et bas pour passer d'une plateforme à l'autre.
   - La page est lue par le robot de chaque plateforme, avec son user agent et sans JavaScript.
   - Chaque rendu suit les règles de sa plateforme : textes coupés, recadrage en 1,91:1, carte X selon `twitter:card`, bordure Discord selon `theme-color`. Les rendus et les limites restent approximatifs.
+  - Le résultat Google montre aussi ce que les données structurées (JSON-LD) ajoutent : fil d'Ariane à la place de l'URL, étoiles et nombre d'avis, prix et stock, date d'un article ou d'un événement, questions d'une FAQ.
   - Kinglet détecte le framework (Next.js, Nuxt, Astro, SvelteKit, Vite/HTML) et propose le correctif à coller au bon endroit, avec un prompt prêt pour Claude.
-- **Checks** : 30 vérifications en 4 familles.
-  - **SEO** : titre, description, lang, canonical, h1, indexation, robots.txt, sitemap.
+- **Checks** : 36 vérifications en 5 familles.
+  - **SEO** : titre, description, lang, canonical, h1, indexation, robots.txt, sitemap, données structurées (JSON-LD : propriétés exigées et conseillées par Google pour produit, article, FAQ, fil d'Ariane, événement, recette, commerce local, vidéo…), hreflang (codes valides, autoréférence, x-default, canonique, et chaque version lue pour vérifier qu'elle renvoie bien vers la page).
   - **Partage** : og:title, og:description, og:site_name, image, format de l'image, twitter:card.
-  - **Mobile** : viewport, débordement horizontal, zones tactiles trop petites (moins de 24×24 px), texte sous 12 px, encoche (viewport-fit=cover sans safe-area), theme-color, apple-touch-icon, manifest.
+  - **Mobile** : viewport, débordement horizontal, zones tactiles trop petites (moins de 24×24 px), texte sous 12 px, encoche (viewport-fit=cover sans safe-area), texte agrandi (ce qui est coupé ou ne grossit pas, mesuré quand le texte agrandi est activé), theme-color, apple-touch-icon, manifest.
+  - **Accessibilité** : audit axe-core dans les appareils (labels de formulaires, rôles ARIA, ordre des titres, contraste, noms des boutons et liens…), séparé en problèmes bloquants (critiques et graves) et autres ; focus visible (les éléments qui ne montrent rien quand on y arrive avec Tab). Le détail de chaque règle, avec les éléments concernés et sa documentation, est sous les checks.
   - **Technique** : statut HTTP, favicon, textes alternatifs, contraste du texte, erreurs JavaScript, poids des images, Core Web Vitals (LCP et CLS, aussi affichés sous chaque appareil).
 
-  Le débordement, les erreurs JavaScript et le poids des images sont mesurés dans les appareils, sur la page rendue. Le `noindex` est considéré comme normal en local et sur les previews.
+  Le débordement, les erreurs JavaScript, le poids des images et l'accessibilité sont mesurés dans les appareils, sur la page rendue (axe-core et le focus sur le premier appareil de chaque type : téléphone, tablette, écran). Le `noindex` est considéré comme normal en local et sur les previews.
+- **Audit de tout le site** (Checks → Tout le site, ou `Ctrl K` « Auditer ») : toutes les pages trouvées par les liens, le sitemap et la page rendue (jusqu'à 300), lues comme Google. Liens internes cassés (avec les pages qui les contiennent), ancres mortes (`#id` absent du HTML), titres et descriptions en double, pages absentes du sitemap et URL du sitemap en erreur, hreflang à sens unique, et les checks qui échouent page par page. « Demander à Claude » envoie la liste ; `/mcp__kinglet__fix_site` fait pareil depuis le terminal.
+- **Budgets de performance** (sous les checks) : par exemple « l'accueil sous 500 Ko et LCP sous 2,5 s ». Un budget vise un chemin (`/`, `/blog/*`, `*`) et limite le poids, le LCP, le CLS ou le nombre de requêtes. Il est vérifié sur la page affichée (le pire appareil, avec le ralentissement choisi) et sur chaque nouveau déploiement Vercel, avec une notification quand il est dépassé.
+- **Historique** (Déploiements) : chaque déploiement Vercel qui passe en « Prêt » est mesuré hors écran sur un téléphone (score des checks, LCP, CLS, poids, requêtes). Une petite courbe par mesure montre l'évolution, avec la flèche du dernier changement ; un bouton mesure un déploiement à la demande.
 - **Sur mon téléphone** : un QR code ouvre la page affichée sur ton vrai téléphone.
   - **En local**, Kinglet relaie ton serveur de dev sur le Wi-Fi. Seul un appareil qui a scanné le code y a accès, le rechargement à chaud marche aussi, et le téléphone peut suivre la navigation de Kinglet.
   - **En preview ou en prod**, le QR code ouvre directement l'URL. Pour une preview protégée, il contient le secret de contournement.
@@ -34,8 +39,14 @@ Voir son site sur tous les écrans (iPhone, Android, iPad, desktop), en local, e
 - **Suivi de Claude Code** (à activer dans les réglages) : des hooks de Claude Code préviennent Kinglet de chaque demande, fichier modifié et fin de tâche, avec une notification système quand Claude termine ou qu'un build échoue (détails plus bas).
 - **Inspecteur** : « Inspecter » dans la barre des appareils. L'élément survolé s'allume sur tous les appareils, et une barre donne sa taille, ses marges, sa police et sa couleur sur chacun (ou qu'il y est masqué). Un clic le garde, « Demander à Claude » envoie le tableau.
 - **Apparence** : thème clair ou sombre, animations réduites, contraste élevé, vus par les media queries de tous les appareils, sans recharger.
+  - **Taille du texte** 130, 150 ou 200 % (comme le réglage du téléphone : ce qui est en rem, em ou % grossit, le px reste) et **zoom de la page à 200 %** (la page se remet en page à la moitié de la largeur, critère WCAG 1.4.10). Le check « Texte agrandi » dit alors ce qui est coupé, ce qui déborde, et si la taille de base est figée en px.
+  - **Parcours au clavier** : chaque élément atteignable avec Tab est numéroté dans l'ordre sur tous les appareils, relié au suivant ; en rouge ceux qui ne montrent aucun focus, en orange ceux avec un `tabindex` positif. « Demander à Claude » prépare la correction.
+- **Région** (barre des appareils) : langue, fuseau horaire et position, pour tous les appareils ou un seul (par exemple l'iPhone au Japon et l'iPad en Allemagne). La langue change `navigator.language`, `Intl` (dates, nombres, devises) et l'en-tête `Accept-Language` ; la position répond à `navigator.geolocation` (sans position, la permission est refusée). Des raccourcis par pays règlent les trois d'un coup.
+- **Clavier virtuel** (barre des appareils) : un clavier iOS ou Android ouvert sur les téléphones et tablettes, dessiné dans la page comme sur le vrai appareil (il recouvre le bas de l'écran), en AZERTY si la langue est le français. Un champ qui prend le focus remonte au-dessus. Pour voir les barres fixées en bas et les formulaires cachés.
+- **Exporter** (barre des appareils) : une planche PNG de tous les appareils côte à côte (écran ou pages entières, jusqu'à 10 000 px), un PDF avec un appareil par page, les images séparées dans un dossier, ou une vidéo (WebM) ou un GIF de tous les appareils qui défilent ensemble du haut en bas.
 - **Hors ligne et réponses simulées** (menu réseau) : tous les appareils sans réseau, ou des réponses d'API inventées (méthode, URL avec `*`, statut, délai, corps) pour voir les états d'erreur, vides ou lents sans toucher au backend.
 - **Retours** (barre de gauche) : épingle des commentaires sur les appareils ; chacun garde l'appareil, la page, l'élément et une capture. Envoie-les en issue GitHub, en Markdown ou à Claude.
+  - **Lien de relecture** : un lien à envoyer à un client, qui l'ouvre dans son navigateur, sans l'app ni compte. Il voit les retours avec leurs captures, y répond, et épingle de nouveaux commentaires en cliquant sur une capture de chaque appareil. Tout arrive dans le panneau Retours, avec une notification, et tu peux répondre dans le fil. Le lien marche sur le réseau local (port 47900) ; pour un client ailleurs, mets un tunnel devant (`cloudflared tunnel --url http://localhost:47900`) et colle son adresse publique sous le lien. Le lien porte un jeton aléatoire et se ferme d'un clic.
 - **Pull requests** : avec GitHub relié, le menu Preview et les déploiements montrent la PR de chaque branche, son état et sa CI.
 - **Réseau et CPU ralentis** : 4G ou 3G lente, CPU d'un téléphone moyen (×4) ou d'entrée de gamme (×6), sur les téléphones et tablettes (les écrans restent à pleine vitesse). Le temps de chargement et le poids de la page s'affichent sous chaque appareil.
 - **Barre de gauche** : en haut ce qui sert pendant le dev (Appareils, Console, Déploiements), en dessous, plus discret, ce qui sert avant de publier (Page, Partage, Checks, Comparer). Page et Checks s'ouvrent en panneau à côté des appareils, la Console en tiroir sous les appareils.
@@ -113,11 +124,13 @@ En développement, depuis le dépôt, Node suffit :
 claude mcp add --scope user kinglet -- node /chemin/vers/kinglet/packages/mcp/src/cli.ts
 ```
 
-Outils exposés : `status`, `open_url`, `set_devices`, `screenshot`, `get_page_meta`, `get_share_preview`, `run_checks`, `list_pages`, `list_deployments`, `get_console`. Trois commandes sont aussi disponibles dans Claude Code :
+Outils exposés : `status`, `open_url`, `set_devices`, `screenshot`, `get_page_meta`, `get_share_preview`, `run_checks`, `audit_site`, `get_accessibility`, `get_structured_data`, `list_pages`, `list_deployments`, `get_console`. Cinq commandes sont aussi disponibles dans Claude Code :
 
 - `/mcp__kinglet__fix_share` corrige les aperçus de partage de la page ouverte, puis vérifie ;
 - `/mcp__kinglet__fix_checks` corrige les problèmes trouvés par les checks, puis les relance ;
-- `/mcp__kinglet__fix_console` corrige les erreurs JavaScript et réseau vues dans les appareils, puis revérifie la console.
+- `/mcp__kinglet__fix_console` corrige les erreurs JavaScript et réseau vues dans les appareils, puis revérifie la console ;
+- `/mcp__kinglet__fix_site` audite toutes les pages du site (liens cassés, ancres mortes, doublons, sitemap, hreflang, checks), corrige, puis réaudite ;
+- `/mcp__kinglet__fix_accessibility` corrige les violations axe-core et le focus clavier manquant, puis revérifie.
 
 Le serveur MCP marche app fermée, sur une URL donnée. Avec l'app ouverte, il utilise la page affichée et les appareils émulés : captures, débordement horizontal, erreurs JavaScript. Il parle à l'app par un serveur local (`127.0.0.1`, jeton aléatoire dans `~/.config/Kinglet/mcp.json`), et chaque appel de Claude apparaît dans **Réglages → Serveur MCP** et dans la barre d'état.
 
@@ -162,7 +175,7 @@ Le workflow `release.yml` refait les tests, construit, teste l'app packagée (mi
 pnpm --filter @kinglet/web preview    # http://localhost:4173
 ```
 
-Ses tests la passent aux 30 checks et aux 7 aperçus de partage de Kinglet : tout doit être vert.
+Ses tests la passent aux checks mesurables sans navigateur et aux 10 aperçus de partage de Kinglet : tout doit être vert.
 
 ## Claude dans Kinglet
 
@@ -198,9 +211,9 @@ L'autotest lance le site de démo et Kinglet, puis vérifie :
 - le mode paysage et l'enregistrement des réglages ;
 - le gel des aperçus sous la palette ;
 - la synchro de navigation ;
-- les 30 checks sur une page aux défauts connus (débordement, erreur JavaScript) ;
+- les 36 checks sur une page aux défauts connus (débordement, erreur JavaScript) ;
 - l'exploration des pages ;
-- les 7 aperçus de partage et le correctif pour le framework détecté ;
+- les 10 aperçus de partage et le correctif pour le framework détecté ;
 - le serveur MCP lancé comme le ferait Claude Code (`kinglet --mcp`), avec capture et checks via l'app ;
 - Vercel contre une fausse API : connexion, projet relié depuis les réglages, bascule local → prod → preview → local sur le même chemin, secret de contournement du projet, comparaison des trois environnements, preview protégée (appareils et robots) ;
 - la barre du haut à 1600, 1280 et 960 px de large ;
@@ -211,6 +224,12 @@ L'autotest lance le site de démo et Kinglet, puis vérifie :
 - les projets : un 2e onglet ouvert depuis `Ctrl P`, retour au 1er avec `Ctrl 1` ;
 - le suivi de Claude Code (dans un `CLAUDE_CONFIG_DIR` temporaire) : hooks installés, demande puis édition jouées par le vrai script, onglet « en cours », fin de tâche, puis désinstallation propre ;
 - les mises à jour : sur l'app packagée, une 9.9.9 trouvée sur un faux flux, téléchargée et vérifiée (sans installation) ;
+- la région : langue, fuseau et position vus par la page, avec une langue propre à la tablette ;
+- le texte agrandi (taille de base à 32 px) et le zoom à 200 % (page remise à la moitié de la largeur) ;
+- le clavier virtuel (hauteur iPhone et iPad) et le parcours au clavier ;
+- l'accessibilité : axe-core trouve le lien peu contrasté de la page atelier ;
+- l'export : planche PNG, PDF, GIF et vidéo WebM enregistrés depuis le menu ;
+- l'audit du site, la mesure d'un déploiement pour l'historique, et le lien de relecture (page client, captures, épingle postée par le client, jeton refusé) ;
 - le téléphone, joué par une fenêtre Chromium cachée : refus sans appairage, page via le QR code, rechargement à chaud à travers le relais, suivi de la navigation, QR code de preview protégée.
 
 Sans écran, il utilise Xvfb et prend des captures avec ImageMagick dans `apps/desktop/selftest-output/`. Pour tester l'app packagée : `KINGLET_BIN=dist/linux-unpacked/kinglet node scripts/selftest.mjs` depuis `apps/desktop`. `KINGLET_SELFTEST_SHOTS=0` le lance sans captures (environ 30 s de moins).
@@ -223,7 +242,7 @@ apps/desktop        app Electron (electron-vite)
   src/preload       ponts sécurisés vers l'interface et les pages émulées
   src/renderer      interface React + Tailwind (design « Graphite »)
 packages/mcp        serveur MCP (stdio) pour Claude Code, client du serveur de contrôle de l'app
-packages/core       lecture des balises comme les robots, aperçus des 7 plateformes, correctifs, fichiers du site, exploration, 30 checks
+packages/core       lecture des balises comme les robots, aperçus des 10 plateformes, correctifs, fichiers du site, exploration, 36 checks, données structurées, hreflang, audit du site, budgets
 apps/web            landing page statique (Vercel)
 fixtures/demo-site  site de test (Vite)
 fixtures/vercel-mock  fausse API Vercel pour les tests

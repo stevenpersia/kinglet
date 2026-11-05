@@ -47,7 +47,7 @@ describe('readSharePreviews', () => {
   it('builds one card per platform, each from its own bot', async () => {
     const r = await readSharePreviews(`${base}/`);
     expect(r.framework).toBe('next');
-    expect(r.cards.map((c) => c.platform)).toEqual(['whatsapp', 'imessage', 'slack', 'discord', 'linkedin', 'x', 'google']);
+    expect(r.cards.map((c) => c.platform)).toEqual(['whatsapp', 'imessage', 'slack', 'discord', 'telegram', 'linkedin', 'x', 'facebook', 'bluesky', 'google']);
     const by = Object.fromEntries(r.cards.map((c) => [c.platform, c]));
 
     expect(by.linkedin).toMatchObject({ status: 'error', httpStatus: 403, layout: 'text' });

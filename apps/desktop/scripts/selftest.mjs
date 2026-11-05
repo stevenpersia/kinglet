@@ -140,7 +140,7 @@ children.push(app);
 const timeout = setTimeout(() => {
   console.error('selftest: timeout');
   process.exit(1);
-}, 180_000);
+}, 300_000);
 
 for await (const line of createInterface({ input: app.stdout })) {
   if (line.startsWith('SHOT:')) {

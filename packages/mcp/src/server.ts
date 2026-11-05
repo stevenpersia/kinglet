@@ -14,8 +14,15 @@ import {
   readSiteFiles,
   runChecks,
   score,
+  auditSite,
+  auditPrompt,
+  readHreflang,
+  readStructuredData,
+  richKindLabel,
+  type AxeViolation,
   type CheckResult,
   type Platform,
+  type SiteAudit,
 } from '@kinglet/core';
 import { z } from 'zod';
 import { AppControl } from './control.ts';
@@ -272,8 +279,8 @@ export function createKingletServer(opts: Options = {}) {
     {
       title: t('Share previews', 'Aperçus de partage'),
       description: t(
-        'Simulates the link preview on WhatsApp, iMessage, Slack, Discord, LinkedIn, X and Google (each bot reads the page), lists the problems and suggests the fix for the site’s framework.',
-        'Simule l’aperçu du lien sur WhatsApp, iMessage, Slack, Discord, LinkedIn, X et Google (chaque robot lit la page), liste les problèmes et propose le correctif pour le framework du site.',
+        'Simulates the link preview on WhatsApp, iMessage, Slack, Discord, Telegram, LinkedIn, X, Facebook, Bluesky and Google (each bot reads the page), lists the problems and suggests the fix for the site’s framework.',
+        'Simule l’aperçu du lien sur WhatsApp, iMessage, Slack, Discord, Telegram, LinkedIn, X, Facebook, Bluesky et Google (chaque robot lit la page), liste les problèmes et propose le correctif pour le framework du site.',
       ),
       inputSchema: { url: urlArg, platform: z.enum(PLATFORMS.map((p) => p.id) as [Platform, ...Platform[]]).optional() },
     },
@@ -302,10 +309,10 @@ export function createKingletServer(opts: Options = {}) {
   server.registerTool(
     'run_checks',
     {
-      title: t('Run the 30 checks', 'Lancer les 30 checks'),
+      title: t('Run the 36 checks', 'Lancer les 36 checks'),
       description: t(
-        'SEO, sharing, mobile and technical. With the app open, includes the measures in the devices (horizontal overflow, JavaScript errors, heavy images).',
-        'SEO, partage, mobile et technique. Avec l’app ouverte, inclut les mesures dans les appareils (débordement horizontal, erreurs JavaScript, images lourdes).',
+        'SEO (with structured data and hreflang), sharing, mobile, accessibility and technical. With the app open, includes the measures in the devices (horizontal overflow, JavaScript errors, heavy images, axe-core accessibility audit, keyboard focus).',
+        'SEO (avec données structurées et hreflang), partage, mobile, accessibilité et technique. Avec l’app ouverte, inclut les mesures dans les appareils (débordement horizontal, erreurs JavaScript, images lourdes, audit d’accessibilité axe-core, focus clavier).',
       ),
       inputSchema: { url: urlArg },
     },
@@ -320,7 +327,8 @@ export function createKingletServer(opts: Options = {}) {
       const meta = await readPageMeta(r.url, { headers });
       const image = meta.ogImageUrl ? await probeImage(meta.ogImageUrl, { headers }) : null;
       const site = await readSiteFiles(meta.finalUrl, { manifest: meta.manifest, favicon: meta.icons[0] ?? null }, { headers }).catch(() => null);
-      return text(formatChecks(meta.finalUrl, runChecks({ meta, image, site }), false));
+      const hreflang = meta.hreflang.length ? await readHreflang(meta, { headers }).catch(() => null) : null;
+      return text(formatChecks(meta.finalUrl, runChecks({ meta, image, site, hreflang }), false));
     },
   );
 
@@ -359,6 +367,114 @@ export function createKingletServer(opts: Options = {}) {
     },
   );
 
+  server.registerTool(
+    'audit_site',
+    {
+      title: t('Audit the whole site', 'Auditer tout le site'),
+      description: t(
+        'Reads every page of the site (links, sitemap) like Google and reports what only shows across pages: broken links (404), dead anchors (#id missing), duplicate titles and descriptions, pages missing from the sitemap, one-way hreflang, and the checks that fail on each page.',
+        'Lit toutes les pages du site (liens, sitemap) comme Google et signale ce qui ne se voit qu’à l’échelle du site : liens cassés (404), ancres mortes (#id absent), titres et descriptions en double, pages absentes du sitemap, hreflang à sens unique, et les checks qui échouent sur chaque page.',
+      ),
+      inputSchema: { url: urlArg, limit: z.number().int().min(1).max(300).optional().describe(t('Maximum pages (default 80).', 'Nombre de pages maximum (80 par défaut).')) },
+    },
+    async ({ url, limit }) => {
+      const r = await resolveUrl(url);
+      if ('error' in r) return fail(r.error);
+      const audit = await runAudit(r.url, limit);
+      return text(formatAudit(audit));
+    },
+  );
+
+  server.registerTool(
+    'get_structured_data',
+    {
+      title: t('Structured data', 'Données structurées'),
+      description: t(
+        'Reads the JSON-LD (schema.org) of the page, checks the properties Google requires for rich results (product, article, FAQ, breadcrumb, event, recipe…) and describes the rich result.',
+        'Lit le JSON-LD (schema.org) de la page, vérifie les propriétés que Google exige pour les résultats enrichis (produit, article, FAQ, fil d’Ariane, événement, recette…) et décrit le résultat enrichi.',
+      ),
+      inputSchema: { url: urlArg },
+    },
+    async ({ url }) => {
+      const r = await resolveUrl(url);
+      if ('error' in r) return fail(r.error);
+      const m = await readPageMeta(r.url, { headers: headersFor(r.url), bot: 'google' });
+      const sd = readStructuredData(m.jsonLd, m.jsonLdErrors);
+      if (!sd.items.length && !sd.errors.length) return text(t(`No JSON-LD on ${m.finalUrl}.`, `Aucun JSON-LD sur ${m.finalUrl}.`));
+      const p = sd.preview;
+      return text(
+        [
+          ...sd.errors.map((e) => `✗ ${t('Invalid JSON-LD', 'JSON-LD invalide')}${sep()}${e}`),
+          ...sd.items.map(
+            (i) =>
+              `${i.missing.length ? '✗' : i.recommended.length ? '⚠' : '✓'} ${i.type} (${richKindLabel(i.kind)})${i.name ? ` “${i.name}”` : ''}${i.missing.length ? `\n    ${t('missing', 'manquant')}${sep()}${i.missing.join(', ')}` : ''}${i.recommended.length ? `\n    ${t('recommended', 'conseillé')}${sep()}${i.recommended.join(', ')}` : ''}`,
+          ),
+          '',
+          t('Rich result:', 'Résultat enrichi :'),
+          p.breadcrumb ? `  ${t('breadcrumb', 'fil d’Ariane')}${sep()}${p.breadcrumb.join(' › ')}` : '',
+          p.rating ? `  ${t('rating', 'note')}${sep()}${p.rating.value}/${p.rating.best}${p.rating.count ? ` (${p.rating.count})` : ''}` : '',
+          p.price ? `  ${t('price', 'prix')}${sep()}${p.price}${p.availability ? ` · ${p.availability}` : ''}` : '',
+          p.date ? `  date${sep()}${p.date}` : '',
+          ...p.faq.map((f) => `  FAQ${sep()}${f.q}`),
+        ]
+          .filter((l) => l !== '')
+          .join('\n'),
+      );
+    },
+  );
+
+  server.registerTool(
+    'get_accessibility',
+    {
+      title: t('Accessibility audit', 'Audit d’accessibilité'),
+      description: t(
+        'axe-core audit of the page rendered in Kinglet’s devices (labels, ARIA roles, heading order, contrast, names of buttons and links…) and the elements that show no visible keyboard focus. Needs the app open.',
+        'Audit axe-core de la page rendue dans les appareils de Kinglet (labels, rôles ARIA, ordre des titres, contraste, noms des boutons et liens…) et les éléments sans focus clavier visible. Nécessite l’app ouverte.',
+      ),
+      inputSchema: { url: urlArg },
+    },
+    async ({ url }) => {
+      const r = await resolveUrl(url);
+      if ('error' in r) return fail(r.error);
+      if (!r.app) return fail(appClosed());
+      const report = await r.app.analyze<{ url: string; a11y?: { violations: AxeViolation[]; focus: { count: number; total: number; examples: string[] } | null } }>(r.url);
+      const a = report.a11y;
+      if (!a) return fail(t('No accessibility measure: the devices show no page.', 'Pas de mesure d’accessibilité : les appareils n’affichent aucune page.'));
+      return text(
+        [
+          t(`Accessibility of ${report.url}`, `Accessibilité de ${report.url}`),
+          '',
+          ...(a.violations.length
+            ? a.violations.map((v) => `${v.impact === 'critical' || v.impact === 'serious' ? '✗' : '⚠'} [${v.impact}] ${v.id}${sep()}${v.help} (${v.nodes}, ${v.devices.join(', ')})\n    ${v.targets.join('\n    ')}\n    ${v.helpUrl}`)
+            : [t('✓ No axe-core violation.', '✓ Aucune violation axe-core.')]),
+          '',
+          a.focus
+            ? a.focus.count
+              ? `⚠ ${t('No visible focus', 'Pas de focus visible')}${sep()}${a.focus.count}/${a.focus.total}${sep()}${a.focus.examples.join(', ')}`
+              : t('✓ Every focusable element shows the keyboard focus.', '✓ Chaque élément focusable montre le focus clavier.')
+            : '',
+        ].join('\n'),
+      );
+    },
+  );
+
+  async function runAudit(url: string, limit?: number): Promise<SiteAudit> {
+    const headers = headersFor(url);
+    const meta = await readPageMeta(url, { headers, bot: 'google' }).catch(() => null);
+    const site = meta ? await readSiteFiles(meta.finalUrl, { manifest: meta.manifest, favicon: meta.icons[0] ?? null }, { headers }).catch(() => null) : null;
+    return auditSite(`${new URL(url).origin}/`, { headers, seeds: [url], site, limit: limit ?? 80 });
+  }
+
+  function formatAudit(a: SiteAudit) {
+    const bad = a.pages.filter((p) => p.errors || p.warnings);
+    return [
+      t(`Site audit of ${a.origin}: ${a.pages.length} pages${a.truncated ? ` (stopped at ${a.limit})` : ''}.`, `Audit du site ${a.origin} : ${a.pages.length} pages${a.truncated ? ` (arrêté à ${a.limit})` : ''}.`),
+      t(`${a.brokenLinks.length} broken links or anchors, ${a.duplicateTitles.length} duplicate titles, ${a.duplicateDescriptions.length} duplicate descriptions, ${a.notInSitemap.length} pages missing from the sitemap, ${bad.length} pages with problems.`, `${a.brokenLinks.length} liens ou ancres cassés, ${a.duplicateTitles.length} titres en double, ${a.duplicateDescriptions.length} descriptions en double, ${a.notInSitemap.length} pages absentes du sitemap, ${bad.length} pages avec des problèmes.`),
+      '',
+      auditPrompt(a) || t('Nothing to fix.', 'Rien à corriger.'),
+    ].join('\n');
+  }
+
   // Prompts become slash commands in Claude Code: /mcp__kinglet__fix_share, /mcp__kinglet__fix_checks
   server.registerPrompt(
     'fix_share',
@@ -383,7 +499,7 @@ export function createKingletServer(opts: Options = {}) {
     'fix_checks',
     {
       title: t('Fix the checks', 'Corriger les checks'),
-      description: t('Fixes the problems found by the 30 checks on the page open in Kinglet, then runs the checks again.', 'Corrige les problèmes trouvés par les 30 checks sur la page ouverte dans Kinglet, puis relance les checks.'),
+      description: t('Fixes the problems found by the 36 checks on the page open in Kinglet, then runs the checks again.', 'Corrige les problèmes trouvés par les 36 checks sur la page ouverte dans Kinglet, puis relance les checks.'),
       argsSchema: { url: z.string().optional() },
     },
     async ({ url }) => {
@@ -411,6 +527,52 @@ export function createKingletServer(opts: Options = {}) {
             ),
           ].join('\n')
         : t(`All checks pass on ${r.url}. Nothing to do.`, `Tous les checks passent sur ${r.url}. Rien à faire.`);
+      return { messages: [{ role: 'user', content: { type: 'text', text: body } }] };
+    },
+  );
+
+  server.registerPrompt(
+    'fix_site',
+    {
+      title: t('Fix the whole site', 'Corriger tout le site'),
+      description: t('Audits every page of the site (broken links, dead anchors, duplicates, sitemap, hreflang, checks), fixes the problems, then audits again.', 'Audite toutes les pages du site (liens cassés, ancres mortes, doublons, sitemap, hreflang, checks), corrige les problèmes, puis réaudite.'),
+      argsSchema: { url: z.string().optional() },
+    },
+    async ({ url }) => {
+      const r = await resolveUrl(url);
+      if ('error' in r) return { messages: [{ role: 'user', content: { type: 'text', text: r.error } }] };
+      const a = await runAudit(r.url);
+      const list = auditPrompt(a);
+      const body = list
+        ? [
+            t(`Kinglet audited ${a.pages.length} pages of ${a.origin} and found:`, `Kinglet a audité ${a.pages.length} pages de ${a.origin} et a trouvé :`),
+            list,
+            '',
+            t('Fix them in the project’s code (links, ids, titles and descriptions unique to each page, the sitemap generator), without changing the design. Then call audit_site to check.', 'Corrige-les dans le code du projet (liens, ids, titres et descriptions propres à chaque page, générateur du sitemap), sans changer le design. Ensuite appelle audit_site pour vérifier.'),
+          ].join('\n')
+        : t(`Nothing to fix on the ${a.pages.length} pages of ${a.origin}.`, `Rien à corriger sur les ${a.pages.length} pages de ${a.origin}.`);
+      return { messages: [{ role: 'user', content: { type: 'text', text: body } }] };
+    },
+  );
+
+  server.registerPrompt(
+    'fix_accessibility',
+    {
+      title: t('Fix accessibility', 'Corriger l’accessibilité'),
+      description: t('Fixes the axe-core violations and missing keyboard focus found in Kinglet’s devices, then audits again.', 'Corrige les violations axe-core et le focus clavier manquant trouvés dans les appareils de Kinglet, puis réaudite.'),
+      argsSchema: {},
+    },
+    async () => {
+      const r = await resolveUrl(undefined);
+      if ('error' in r) return { messages: [{ role: 'user', content: { type: 'text', text: r.error } }] };
+      if (!r.app) return { messages: [{ role: 'user', content: { type: 'text', text: appClosed() } }] };
+      const report = await r.app.analyze<{ a11y?: { violations: AxeViolation[]; focus: { count: number; examples: string[] } | null } }>(r.url);
+      const v = report.a11y?.violations ?? [];
+      const f = report.a11y?.focus;
+      const lines = [...v.map((x) => `- [${x.impact}] ${x.id}: ${x.help} — ${x.targets.join(', ')} (${x.helpUrl})`), ...(f?.count ? [`- No visible keyboard focus on ${f.count} elements: ${f.examples.join(', ')} (add a :focus-visible style)`] : [])];
+      const body = lines.length
+        ? [t(`Accessibility problems on ${r.url}:`, `Problèmes d’accessibilité sur ${r.url} :`), ...lines, '', t('Fix them in the code without changing the design more than needed, then call get_accessibility to check.', 'Corrige-les dans le code sans changer le design plus que nécessaire, puis appelle get_accessibility pour vérifier.')].join('\n')
+        : t(`No accessibility problem found on ${r.url}.`, `Aucun problème d’accessibilité trouvé sur ${r.url}.`);
       return { messages: [{ role: 'user', content: { type: 'text', text: body } }] };
     },
   );

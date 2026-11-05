@@ -191,7 +191,7 @@ describe('crawl', () => {
 });
 
 describe('runChecks', () => {
-  it('produces the 30 checks and scores what can be measured', async () => {
+  it('produces the 36 checks and scores what can be measured', async () => {
     const meta = await readPageMeta(`${base}/`);
     const image = await probeImage(meta.ogImageUrl!);
     const site = await readSiteFiles(meta.finalUrl, { manifest: meta.manifest, favicon: meta.icons[0] ?? null });
@@ -211,14 +211,15 @@ describe('runChecks', () => {
       },
     ];
     const results = runChecks({ meta, image, site, rendered });
-    expect(results).toHaveLength(30);
+    expect(results).toHaveLength(36);
     expect(Object.fromEntries(results.map((r) => [r.id, r.status]))).toMatchObject({ 'tap-targets': 'warning', 'small-text': 'ok', contrast: 'warning', 'safe-area': 'ok', lcp: 'warning', cls: 'ok' });
     expect(results.find((r) => r.id === 'lcp')!.detail).toBe('3.1 s on iPhone (good under 2.5 s).');
     const by = Object.fromEntries(results.map((r) => [r.id, r.status]));
     expect(by).toMatchObject({ h1: 'ok', robots: 'ok', sitemap: 'ok', manifest: 'ok', 'og-site-name': 'warning', overflow: 'error', console: 'error', 'img-alt': 'warning', 'heavy-images': 'ok' });
-    expect(score(results).total).toBe(30);
+    // structured-data and hreflang are info (one language, no JSON-LD); text zoom and accessibility need the devices.
+    expect(score(results).total).toBe(32);
     expect(runChecks({ meta, image, site: null }).filter((r) => r.status === 'skip').map((r) => r.id)).toEqual(
-      expect.arrayContaining(['robots', 'sitemap', 'overflow', 'console', 'heavy-images', 'favicon', 'tap-targets', 'small-text', 'contrast', 'safe-area', 'lcp', 'cls']),
+      expect.arrayContaining(['robots', 'sitemap', 'overflow', 'console', 'heavy-images', 'favicon', 'tap-targets', 'small-text', 'contrast', 'safe-area', 'lcp', 'cls', 'text-zoom', 'a11y-serious', 'a11y-minor', 'focus-visible']),
     );
   });
 
@@ -237,13 +238,13 @@ describe('runChecks', () => {
     expect(get('title')).toMatchObject({ label: 'Page title', detail: 'No <title>.' });
     expect(get('img-alt').detail).toBe('2 of 2 images without alt.');
     expect(get('overflow').detail).toBe('iPhone: +24 px');
-    expect(CHECK_GROUPS.map((g) => g.label)).toEqual(['SEO', 'Share', 'Mobile', 'Technical']);
+    expect(CHECK_GROUPS.map((g) => g.label)).toEqual(['SEO', 'Share', 'Mobile', 'Accessibility', 'Technical']);
     setLanguage('fr');
     try {
       expect(get('title')).toMatchObject({ label: 'Titre de la page', detail: 'Pas de <title>.' });
       expect(get('img-alt').detail).toBe('2 images sur 2 sans alt.');
       expect(get('overflow').detail).toBe('iPhone : +24 px');
-      expect(CHECK_GROUPS.map((g) => g.label)).toEqual(['SEO', 'Partage', 'Mobile', 'Technique']);
+      expect(CHECK_GROUPS.map((g) => g.label)).toEqual(['SEO', 'Partage', 'Mobile', 'Accessibilité', 'Technique']);
       expect(checkShare(meta).find((i) => i.id === 'og-image-missing')!.message).toBe('Pas d’image de partage : l’aperçu sera du texte seul.');
     } finally {
       setLanguage('en');

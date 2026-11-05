@@ -7,6 +7,7 @@ import { ENV_DOT, envTargets, timeAgo, urlOnEnv } from '../lib/env';
 import { activeProject } from '../../shared/projects';
 import { api, projectVercel, useStore } from '../store';
 import { Dot, Icon } from './Icons';
+import { HistoryCard } from './History';
 
 const stateInfo = (): Record<string, { dot: string; label: string }> => ({
   READY: { dot: 'bg-ok', label: t('Ready', 'Prêt') },
@@ -82,6 +83,7 @@ export function DeploymentsPage() {
         </div>
       </div>
       {vercel.error && <p className="m-0 text-err">{vercel.error}</p>}
+      {s.settings.activeId && <HistoryCard projectId={s.settings.activeId} deployments={vercel.deployments} />}
       {/* shrink-0: in the scrolling column, an overflow-hidden box would otherwise shrink to the window and clip the list. */}
       <div className="shrink-0 overflow-hidden rounded-[10px] border border-line bg-card">
         {list.length === 0 && <p className="m-0 p-4 text-faint">{t('No deployments.', 'Aucun déploiement.')}</p>}
@@ -111,6 +113,15 @@ export function DeploymentsPage() {
                 {timeAgo(d.createdAt)}
               </span>
               <span className="flex shrink-0 gap-1.5">
+                <button
+                  onClick={() => s.settings.activeId && void api().history.measure(s.settings.activeId, { url: d.url, deploymentId: d.id, production: d.production, branch: d.branch, commit: d.commitMessage })}
+                  disabled={d.state !== 'READY'}
+                  className={`${btn} disabled:opacity-40`}
+                  title={t('Measure this deployment (history and budgets)', 'Mesurer ce déploiement (historique et budgets)')}
+                  aria-label={t('Measure this deployment', 'Mesurer ce déploiement')}
+                >
+                  <Icon name="chart" size={12} />
+                </button>
                 <button onClick={() => open(d)} disabled={d.state !== 'READY'} className={`${btn} disabled:opacity-40`}>
                   <Icon name="eye" size={12} />
                   {t('Open', 'Ouvrir')}

@@ -72,6 +72,17 @@ export function Palette() {
       { id: 'console', label: t('Show or hide the console', 'Afficher ou masquer la console'), run: () => useStore.getState().toggleConsole() },
       { id: 'panel-page', label: t('Show or hide the Page panel', 'Afficher ou masquer le panneau Page'), run: () => useStore.getState().togglePanel('page') },
       { id: 'panel-checks', label: t('Show or hide the Checks panel', 'Afficher ou masquer le panneau Checks'), run: () => useStore.getState().togglePanel('checks') },
+      {
+        id: 'audit-site',
+        label: t('Audit the whole site', 'Auditer tout le site'),
+        run: () => {
+          useStore.setState({ checksScope: 'site' });
+          setSection('checks');
+        },
+      },
+      { id: 'tab-order', label: t('Keyboard tour (Tab order) on the devices', 'Parcours au clavier (ordre Tab) sur les appareils'), run: () => useStore.getState().toggleTabOrder() },
+      { id: 'keyboard', label: t('Show or hide the on-screen keyboard', 'Afficher ou masquer le clavier virtuel'), run: () => void updateSettings({ keyboard: !settings.keyboard }) },
+      { id: 'text-large', label: t('Large text (200%) on the devices', 'Texte agrandi (200 %) sur les appareils'), run: () => void updateSettings({ textSize: { ...settings.textSize, scale: settings.textSize.scale > 1 ? 1 : 2 } }) },
       go('reglages', t('Settings', 'Réglages')),
       ...settings.recentUrls.map((u) => ({ id: `open-${u}`, label: t(`Open ${u}`, `Ouvrir ${u}`), run: () => void useStore.getState().navigate(u) })),
     ];

@@ -37,10 +37,10 @@ it('passes every check that can be measured without a browser', async () => {
   const results = runChecks({ meta, image, site: siteFiles });
   const failing = results.filter((r) => r.status === 'warning' || r.status === 'error').map((r) => `${r.id}: ${r.detail}`);
   expect(failing).toEqual([]);
-  expect(results.filter((r) => r.status === 'skip').map((r) => r.id).sort()).toEqual(['cls', 'console', 'contrast', 'heavy-images', 'lcp', 'overflow', 'safe-area', 'small-text', 'tap-targets']);
+  expect(results.filter((r) => r.status === 'skip').map((r) => r.id).sort()).toEqual(['a11y-minor', 'a11y-serious', 'cls', 'console', 'contrast', 'focus-visible', 'heavy-images', 'lcp', 'overflow', 'safe-area', 'small-text', 'tap-targets', 'text-zoom']);
 });
 
-it('looks right when shared, on all 7 platforms', async () => {
+it('looks right when shared, on all 10 platforms', async () => {
   const previews = await readSharePreviews(`${site}/`);
   expect(previews.cards.map((c) => `${c.platform}:${c.status}${c.problems.length ? ` (${c.problems.join('; ')})` : ''}`)).toEqual(previews.cards.map((c) => `${c.platform}:ok`));
 });

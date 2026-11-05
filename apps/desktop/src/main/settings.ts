@@ -27,6 +27,11 @@ export const DEFAULTS: Settings = {
   onboarded: false,
   claudePanel: true,
   claudeAllowCommands: false,
+  region: { locale: null, timezone: null, geo: null },
+  regionPerDevice: {},
+  textSize: { scale: 1, zoom: 1 },
+  keyboard: false,
+  reviewPublicUrl: null,
 };
 
 /** Small JSON file in the user data folder (~/.config/Kinglet on Linux). */

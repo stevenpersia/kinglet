@@ -1,8 +1,9 @@
 import { join } from 'node:path';
 import { BaseWindow, BrowserWindow, WebContentsView, ipcMain, screen, session, type Input, type Session } from 'electron';
-import { HEAVY_IMAGE_BYTES, getLanguage, t, type RenderedDevice } from '@kinglet/core';
+import { HEAVY_IMAGE_BYTES, getLanguage, t, type AxeSummary, type AxeViolation, type RenderedDevice } from '@kinglet/core';
+import AXE_SOURCE from 'axe-core/axe.min.js?raw';
 import { globMatch } from '../shared/mocks';
-import type { ApiMock, DeviceLog, DevicePreset, DeviceSlot, ElementInfo, ElementMetrics, InspectState, MediaPrefs, PreviewEvent, ShortcutAction, Throttle } from '../shared/types';
+import type { ApiMock, DeviceLog, DevicePerf, DevicePreset, DeviceSlot, ElementInfo, ElementMetrics, ExportShot, InspectState, MediaPrefs, PreviewEvent, RegionPrefs, ShortcutAction, TabOrderInfo, TextSize, Throttle } from '../shared/types';
 
 export const PREVIEW_PARTITION = 'persist:kinglet-preview';
 
@@ -24,6 +25,24 @@ interface DeviceEntry {
   logs: DeviceLog[];
   /** Requests in flight (CDP Network), to name the URL of a failed one. */
   requests: Map<string, { url: string; method: string; type: string }>;
+  /** Load time and weight of the last page load (budgets). */
+  perf?: Omit<DevicePerf, 'deviceId'>;
+}
+
+/** Isolated world where axe-core runs: the page's own scripts don't see it. */
+const AXE_WORLD = 1001;
+
+/** Elements reachable with Tab (tabindex -1 aside). */
+const FOCUSABLE = 'a[href], area[href], button:not([disabled]), input:not([disabled]):not([type=hidden]), select:not([disabled]), textarea:not([disabled]), summary, iframe, [contenteditable=""], [contenteditable=true], [tabindex]:not([tabindex="-1"])';
+
+/** Styles that tell where the keyboard focus is. */
+const FOCUS_PROPS = ['outline-style', 'outline-width', 'outline-color', 'box-shadow', 'background-color', 'border-top-color', 'border-bottom-color', 'border-left-color', 'border-right-color', 'border-bottom-width', 'color', 'text-decoration-line', 'transform', 'opacity', 'filter'];
+
+/** On-screen keyboard height in CSS px: iOS and Gboard with their suggestion bar. */
+export function keyboardHeight(preset: DevicePreset, landscape: boolean): number {
+  if (preset.kind === 'desktop') return 0;
+  if (preset.kind === 'tablet') return landscape ? 400 : 320;
+  return landscape ? 200 : preset.userAgent.includes('Android') ? 300 : 336;
 }
 
 const MAX_LOGS = 400;
@@ -48,6 +67,13 @@ const PERF = `(() => {
   const bytes = (n.transferSize || n.encodedBodySize || 0) + res.reduce((a, r) => a + (r.transferSize || r.encodedBodySize || 0), 0);
   return { loadMs: Math.round(n.loadEventEnd || n.domComplete || performance.now()), domMs: Math.round(n.domContentLoadedEventEnd), bytes, requests: res.length + 1 };
 })()`;
+
+/**
+ * A DevTools command can stay unanswered (a hidden view paints no frame to capture): give up after
+ * `ms`, so the device's queue is not blocked forever.
+ */
+const within = <T,>(p: Promise<T>, ms: number): Promise<T> =>
+  Promise.race([p, new Promise<never>((_, rej) => setTimeout(() => rej(new Error(t('timed out', 'délai dépassé'))), ms))]);
 
 const serial = <T,>(d: DeviceEntry, job: () => Promise<T>): Promise<T> => {
   const run = (d.queue ?? Promise.resolve()).then(job, job);
@@ -88,7 +114,7 @@ const MEASURE = `(async () => {
     }
     return { r: 255, g: 255, b: 255, a: 1 };
   };
-  const tiny = []; let minPx = 99; const low = []; let seen = 0;
+  const tiny = []; let minPx = 99; const low = []; let seen = 0; const clipped = [];
   const walker = document.createTreeWalker(document.body || document.documentElement, NodeFilter.SHOW_TEXT);
   const done = new Set();
   while (walker.nextNode() && seen < 600) {
@@ -104,6 +130,13 @@ const MEASURE = `(async () => {
     const px = parseFloat(cs.fontSize);
     const label = '« ' + node.textContent.trim().replace(/\\s+/g, ' ').slice(0, 24) + ' »';
     if (px < 12) { tiny.push(label); minPx = Math.min(minPx, Math.round(px * 10) / 10); }
+    if (clipped.length < 50) {
+      for (let e = el, i = 0; e && e !== document.body && i < 3; e = e.parentElement, i++) {
+        const c = i === 0 ? cs : getComputedStyle(e);
+        const hides = /hidden|clip/.test(c.overflowX + c.overflowY) || c.textOverflow === 'ellipsis' || (c.webkitLineClamp && c.webkitLineClamp !== 'none');
+        if (hides && (e.scrollWidth > e.clientWidth + 1 || e.scrollHeight > e.clientHeight + 1) && e.clientHeight > 0) { clipped.push(label); break; }
+      }
+    }
     const fg = parse(cs.color); const bg = bgOf(el);
     if (fg && bg && fg.a > 0.5) {
       const a = L(fg), b = L(bg);
@@ -132,6 +165,8 @@ const MEASURE = `(async () => {
     smallText: { count: tiny.length, minPx: tiny.length ? minPx : 0, examples: tiny.slice(0, 3) },
     lowContrast: { count: low.length, examples: low.slice(0, 3) },
     notchUnsafe: /viewport-fit\\s*=\\s*cover/.test(vp) && !insets,
+    clippedText: { count: clipped.length, examples: clipped.slice(0, 3) },
+    rootFontPx: parseFloat(getComputedStyle(document.documentElement).fontSize),
     vitals: { lcpMs: lcp != null ? Math.round(lcp) : null, cls: Math.round(cls * 1000) / 1000, fcpMs: fcp ? Math.round(fcp.startTime) : null, ttfbMs: nav ? Math.round(nav.responseStart) : null },
   };
 })()`;
@@ -181,6 +216,12 @@ export class DeviceManager {
   private offline = false;
   private mocks: ApiMock[] = [];
   private media: MediaPrefs = { colorScheme: 'auto', reducedMotion: false, moreContrast: false };
+  private region: RegionPrefs = { locale: null, timezone: null, geo: null };
+  private regionPerDevice: Record<string, Partial<RegionPrefs>> = {};
+  private text: TextSize = { scale: 1, zoom: 1 };
+  private keyboard = false;
+  private tabOrder = false;
+  private tabInfo: Record<string, TabOrderInfo> = {};
   private logSeq = 0;
   private pendingLogs: DeviceLog[] = [];
   private clearedLogs = new Set<string>();
@@ -208,6 +249,19 @@ export class DeviceManager {
       if (!d || !this.inspected || this.inspected.selector !== selector) return;
       this.inspected.devices[d.preset.id] = m;
       this.emit({ type: 'inspect', state: { ...this.inspected, devices: { ...this.inspected.devices } } });
+    });
+    // Geolocation: granted only to a device that was given a position (otherwise the page sees a refusal).
+    const geoAllowed = (wc: Electron.WebContents | null) => {
+      const d = wc ? [...this.devices.values()].find((x) => x.view.webContents.id === wc.id) : null;
+      return !!d && !!this.regionFor(d.preset.id).geo;
+    };
+    this.session.setPermissionRequestHandler((wc, permission, cb) => cb(permission !== 'geolocation' || geoAllowed(wc)));
+    this.session.setPermissionCheckHandler((wc, permission) => permission !== 'geolocation' || geoAllowed(wc));
+    ipcMain.on('device:taborder-info', (event, info: TabOrderInfo) => {
+      const d = [...this.devices.values()].find((x) => x.view.webContents.id === event.sender.id);
+      if (!d || !this.tabOrder) return;
+      this.tabInfo = { ...this.tabInfo, [d.preset.id]: info };
+      this.emit({ type: 'taborder', devices: this.tabInfo });
     });
     ipcMain.on('device:scroll', (event, ratio: number) => {
       if (process.env.KINGLET_DEBUG) console.log(`[scroll] from ${event.sender.id} ratio ${ratio}`);
@@ -237,7 +291,10 @@ export class DeviceManager {
   setLandscape(on: boolean) {
     if (on === this.landscape) return;
     this.landscape = on;
-    for (const d of this.devices.values()) void this.emulate(d);
+    for (const d of this.devices.values()) {
+      void this.emulate(d);
+      this.sendKeyboard(d);
+    }
   }
 
   /** The element under a point (CSS px of the device viewport): what "Show Claude" points at. */
@@ -270,7 +327,7 @@ export class DeviceManager {
    * A page on another environment, rendered off screen like one of the devices: a PNG of the
    * viewport (CSS px) and the Core Web Vitals. For the visual comparison of local, preview, prod.
    */
-  async snapshot(url: string, presetId: string): Promise<{ image: string | null; vitals: RenderedDevice['vitals'] | null; error: string | null }> {
+  async snapshot(url: string, presetId: string): Promise<{ image: string | null; vitals: RenderedDevice['vitals'] | null; error: string | null; measured?: RenderedDevice | null; perf?: { bytes: number; requests: number; loadMs: number } | null }> {
     const preset = this.presets.find((p) => p.id === presetId);
     if (!preset) return { image: null, vitals: null, error: 'unknown device' };
     const { width, height } = this.viewport(preset);
@@ -288,15 +345,29 @@ export class DeviceManager {
       if (preset.touch) await dbg.sendCommand('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
       const m = this.media;
       await dbg.sendCommand('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: m.colorScheme === 'auto' ? '' : m.colorScheme }, { name: 'prefers-reduced-motion', value: m.reducedMotion ? 'reduce' : '' }] });
+      const r = this.regionFor(preset.id);
+      if (r.locale) await dbg.sendCommand('Emulation.setLocaleOverride', { locale: r.locale }).catch(() => undefined);
+      if (r.timezone) await dbg.sendCommand('Emulation.setTimezoneOverride', { timezoneId: r.timezone }).catch(() => undefined);
+      // Budgets and history are measured like the phones are: with the throttling chosen.
+      if (preset.kind !== 'desktop' && this.throttle.network !== 'off') await dbg.sendCommand('Network.emulateNetworkConditions', { offline: false, ...NETWORK_PROFILES[this.throttle.network] }).catch(() => undefined);
+      if (preset.kind !== 'desktop' && this.throttle.cpu > 1) await dbg.sendCommand('Emulation.setCPUThrottlingRate', { rate: this.throttle.cpu }).catch(() => undefined);
       // Then load again, emulated, so the page and its Web Vitals are the device's.
       await timeout(new Promise<void>((res) => {
         wc.once('did-finish-load', () => res());
         wc.reload();
       }));
       await new Promise((r) => setTimeout(r, 1200)); // late scripts, fonts, images
-      const measured = (await wc.executeJavaScript(MEASURE).catch(() => null)) as { vitals?: RenderedDevice['vitals'] } | null;
+      const measured = (await wc.executeJavaScript(MEASURE).catch(() => null)) as (Omit<RenderedDevice, 'id' | 'label' | 'consoleErrors'> & { links?: string[] }) | null;
+      const perf = (await wc.executeJavaScript(PERF).catch(() => null)) as { bytes: number; requests: number; loadMs: number } | null;
       const { data } = (await dbg.sendCommand('Page.captureScreenshot', { format: 'png', clip: { x: 0, y: 0, width, height, scale: 1 } })) as { data: string };
-      return { image: `data:image/png;base64,${data}`, vitals: measured?.vitals ?? null, error: null };
+      const { links: _links, ...rest } = measured ?? {};
+      return {
+        image: `data:image/png;base64,${data}`,
+        vitals: measured?.vitals ?? null,
+        error: null,
+        measured: measured ? ({ ...rest, id: preset.id, label: preset.label, touch: preset.touch, consoleErrors: [] } as RenderedDevice) : null,
+        perf,
+      };
     } catch (e) {
       return { image: null, vitals: null, error: (e as Error).message };
     } finally {
@@ -352,6 +423,7 @@ export class DeviceManager {
     }
     void this.emulate(entry);
     this.watchNetwork(entry);
+    void this.applyText(entry);
 
     wc.on('before-input-event', (event, input) => {
       const action = shortcutFor(input);
@@ -386,12 +458,17 @@ export class DeviceManager {
     wc.on('did-finish-load', () => {
       if (this.inspecting) wc.send('device:inspect-mode', true);
       if (wc.getURL().startsWith('data:')) return;
+      this.sendKeyboard(entry);
+      if (this.tabOrder) void this.showTabOrder(entry);
       if (this.isPrimary(preset.id)) this.emit({ type: 'loaded', url: wc.getURL() });
       // loadEventEnd is set once the load handlers have run.
       setTimeout(async () => {
         if (wc.isDestroyed()) return;
         const perf = (await wc.executeJavaScript(PERF).catch(() => null)) as Omit<import('../shared/types').DevicePerf, 'deviceId' | 'url'> | null;
-        if (perf) this.emit({ type: 'perf', perf: { ...perf, deviceId: preset.id, url: wc.getURL() } });
+        if (perf) {
+          entry.perf = { ...perf, url: wc.getURL() };
+          this.emit({ type: 'perf', perf: { ...perf, deviceId: preset.id, url: wc.getURL() } });
+        }
       }, 60);
     });
     wc.on('did-fail-load', (_e, code, desc, url, isMainFrame) => {
@@ -428,7 +505,7 @@ export class DeviceManager {
   private watchNetwork(entry: DeviceEntry) {
     const dbg = entry.view.webContents.debugger;
     if (!dbg.isAttached()) return;
-    void dbg.sendCommand('Network.enable').then(() => Promise.all([this.applyThrottle(entry), this.applyMedia(entry), this.applyMocks(entry)])).catch(() => undefined);
+    void dbg.sendCommand('Network.enable').then(() => Promise.all([this.applyThrottle(entry), this.applyMedia(entry), this.applyMocks(entry), this.applyRegion(entry)])).catch(() => undefined);
     dbg.on('message', (_e, method, params) => {
       if (method === 'Fetch.requestPaused') void this.answerPaused(entry, params);
       else if (method === 'Network.requestWillBeSent') {
@@ -524,6 +601,228 @@ export class DeviceManager {
     });
   }
 
+  /** What one device pretends: the global region, with this device's own changes. */
+  regionFor(id: string): RegionPrefs {
+    return { ...this.region, ...(this.regionPerDevice[id] ?? {}) };
+  }
+
+  /** Language, time zone and position: Intl, navigator.language, Accept-Language, navigator.geolocation. */
+  setRegion(all: RegionPrefs, perDevice: Record<string, Partial<RegionPrefs>>) {
+    this.region = all;
+    this.regionPerDevice = perDevice ?? {};
+    for (const d of this.devices.values()) {
+      void this.applyRegion(d);
+      void this.emulate(d); // Accept-Language goes with the user agent override
+    }
+  }
+
+  private applyRegion(d: DeviceEntry) {
+    return serial(d, async () => {
+      const dbg = d.view.webContents.debugger;
+      if (!dbg.isAttached()) return;
+      const r = this.regionFor(d.preset.id);
+      const send = (m: string, p: object = {}) => dbg.sendCommand(m, p).catch((e: Error) => console.error(`[${d.preset.id}] ${m}`, e.message));
+      await send('Emulation.setLocaleOverride', {});
+      if (r.locale) await send('Emulation.setLocaleOverride', { locale: r.locale });
+      await send('Emulation.setTimezoneOverride', { timezoneId: r.timezone ?? '' });
+      if (r.geo) await send('Emulation.setGeolocationOverride', { latitude: r.geo.latitude, longitude: r.geo.longitude, accuracy: 30 });
+      else await send('Emulation.clearGeolocationOverride');
+    });
+  }
+
+  /** Bigger default font size (what the browser's text size does) and page zoom. */
+  setText(text: TextSize) {
+    const zoomChanged = text.zoom !== this.text.zoom;
+    this.text = text;
+    for (const d of this.devices.values()) {
+      void this.applyText(d);
+      if (zoomChanged) void this.emulate(d);
+    }
+  }
+
+  get textSize() {
+    return this.text;
+  }
+
+  private applyText(d: DeviceEntry) {
+    return serial(d, async () => {
+      const dbg = d.view.webContents.debugger;
+      if (!dbg.isAttached()) return;
+      const k = this.text.scale || 1;
+      await dbg.sendCommand('Page.setFontSizes', { fontSizes: { standard: Math.round(16 * k), fixed: Math.round(13 * k) } }).catch((e: Error) => console.error(`[${d.preset.id}] font sizes`, e.message));
+    });
+  }
+
+  /** The on-screen keyboard, drawn inside the page (it covers it, like iOS and Chrome on Android by default). */
+  setKeyboard(on: boolean) {
+    this.keyboard = on;
+    for (const d of this.devices.values()) this.sendKeyboard(d);
+  }
+
+  private sendKeyboard(d: DeviceEntry) {
+    if (d.view.webContents.isDestroyed()) return;
+    const h = this.keyboard ? keyboardHeight(d.preset, this.landscape) : 0;
+    d.view.webContents.send('device:keyboard', { on: h > 0, height: h, android: d.preset.userAgent.includes('Android'), lang: this.regionFor(d.preset.id).locale ?? getLanguage() });
+  }
+
+  /** Keyboard tour on every device: elements numbered in Tab order, the ones without visible focus in red. */
+  setTabOrder(on: boolean) {
+    this.tabOrder = on;
+    this.tabInfo = {};
+    for (const d of this.devices.values()) {
+      if (on) void this.showTabOrder(d);
+      else {
+        d.view.webContents.send('device:taborder', false);
+        void this.markNoFocus(d, []).catch(() => undefined);
+      }
+    }
+    if (!on) this.emit({ type: 'taborder', devices: {} });
+  }
+
+  private async showTabOrder(d: DeviceEntry) {
+    const audit = await serial(d, () => within(this.focusAudit(d, true), 10_000)).catch(() => null);
+    if (!this.tabOrder || d.view.webContents.isDestroyed()) return;
+    d.view.webContents.send('device:taborder', true, audit?.count ?? 0);
+  }
+
+  /**
+   * Which focusable elements show no visible change when they get the keyboard focus: their styles
+   * with :focus and :focus-visible forced (DevTools protocol, nothing moves on the page) against without.
+   */
+  async focusAudit(d: DeviceEntry, mark = false): Promise<NonNullable<RenderedDevice['focusMissing']>> {
+    const dbg = d.view.webContents.debugger;
+    const send = <T,>(m: string, p: object = {}) => dbg.sendCommand(m, p) as Promise<T>;
+    await send('DOM.enable');
+    await send('CSS.enable');
+    try {
+      const { root } = await send<{ root: { nodeId: number } }>('DOM.getDocument', { depth: 0 });
+      const { nodeIds } = await send<{ nodeIds: number[] }>('DOM.querySelectorAll', { nodeId: root.nodeId, selector: FOCUSABLE });
+      const styleOf = async (nodeId: number) => {
+        const { computedStyle } = await send<{ computedStyle: { name: string; value: string }[] }>('CSS.getComputedStyleForNode', { nodeId });
+        return Object.fromEntries(computedStyle.filter((x) => FOCUS_PROPS.includes(x.name)).map((x) => [x.name, x.value]));
+      };
+      const missing: number[] = [];
+      const examples: string[] = [];
+      let total = 0;
+      for (const nodeId of nodeIds.slice(0, 120)) {
+        // Not rendered (display: none, detached): no box model.
+        const box = await send<{ model: { width: number; height: number } }>('DOM.getBoxModel', { nodeId }).catch(() => null);
+        if (!box || box.model.width < 1 || box.model.height < 1) continue;
+        const before = await styleOf(nodeId);
+        if (before['visibility'] === 'hidden' || before['opacity'] === '0') continue;
+        total++;
+        await send('CSS.forcePseudoState', { nodeId, forcedPseudoClasses: ['focus', 'focus-visible'] });
+        const after = await styleOf(nodeId).catch(() => before);
+        await send('CSS.forcePseudoState', { nodeId, forcedPseudoClasses: [] }).catch(() => undefined);
+        const outline = after['outline-style'] !== 'none' && after['outline-width'] !== '0px';
+        const changed = outline || FOCUS_PROPS.some((k) => k !== 'outline-style' && k !== 'outline-width' && before[k] !== after[k]);
+        if (changed) continue;
+        missing.push(nodeId);
+        if (examples.length < 3) {
+          const { outerHTML } = await send<{ outerHTML: string }>('DOM.getOuterHTML', { nodeId }).catch(() => ({ outerHTML: '' }));
+          const tag = /^<(\w+)/.exec(outerHTML)?.[1] ?? '?';
+          const txt = outerHTML.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 24);
+          examples.push(`${tag}${txt ? ` « ${txt} »` : ''}`);
+        }
+      }
+      if (mark) await this.markNoFocus(d, missing);
+      return { count: missing.length, total, examples };
+    } finally {
+      if (!mark) {
+        await send('CSS.disable').catch(() => undefined);
+        await send('DOM.disable').catch(() => undefined);
+      }
+    }
+  }
+
+  /** The keyboard tour shows these elements in red (an attribute the preload reads). */
+  private async markNoFocus(d: DeviceEntry, nodeIds: number[]) {
+    const dbg = d.view.webContents.debugger;
+    if (!nodeIds.length) {
+      await d.view.webContents.executeJavaScript(`document.querySelectorAll('[data-kinglet-nofocus]').forEach((e) => e.removeAttribute('data-kinglet-nofocus'))`).catch(() => undefined);
+      return;
+    }
+    for (const nodeId of nodeIds) await dbg.sendCommand('DOM.setAttributeValue', { nodeId, name: 'data-kinglet-nofocus', value: '1' }).catch(() => undefined);
+  }
+
+  /** axe-core in an isolated world of the page (the site's scripts don't see it). */
+  private async runAxe(d: DeviceEntry): Promise<AxeSummary | null> {
+    const wc = d.view.webContents;
+    const code = `(async () => {
+      if (!window.axe) { ${AXE_SOURCE}\n }
+      window.axe.configure({ locale: undefined });
+      const r = await window.axe.run({ exclude: [['[data-kinglet]'], ['[data-kinglet-inspector]']] }, { resultTypes: ['violations'] });
+      return {
+        violations: r.violations.map((v) => ({ id: v.id, impact: v.impact || 'minor', help: v.help, helpUrl: v.helpUrl, nodes: v.nodes.length, targets: v.nodes.slice(0, 3).map((n) => [].concat(n.target).join(' ')) })),
+        passes: r.passes.length,
+        incomplete: r.incomplete.length,
+      };
+    })()`;
+    try {
+      const r = (await Promise.race([wc.executeJavaScriptInIsolatedWorld(AXE_WORLD, [{ code }]), new Promise((res) => setTimeout(() => res(null), 15_000))])) as Omit<AxeSummary, 'violations'> & { violations: Omit<AxeViolation, 'devices'>[] } | null;
+      if (!r) return null;
+      return { ...r, violations: r.violations.map((v) => ({ ...v, devices: [d.preset.label] })) };
+    } catch (e) {
+      console.error(`[${d.preset.id}] axe`, (e as Error).message);
+      return null;
+    }
+  }
+
+  /** Last load of every device: weight, requests, timings. */
+  perfs() {
+    return this.entries().flatMap((d) => (d.perf ? [{ deviceId: d.preset.id, label: d.preset.label, ...d.perf }] : []));
+  }
+
+  /**
+   * PNG of a device: its viewport, or the whole page (cut at 10 000 CSS px).
+   * Twice the CSS size, whatever the device's density: sharp, and not too heavy.
+   */
+  async shot(id: string, full: boolean): Promise<ExportShot | null> {
+    const d = this.devices.get(id);
+    if (!d) return null;
+    return serial(d, async () => {
+      const dbg = d.view.webContents.debugger;
+      try {
+        const m = (await within(dbg.sendCommand('Page.getLayoutMetrics'), 3000)) as { cssContentSize: { width: number; height: number }; cssVisualViewport: { pageX: number; pageY: number; clientWidth: number; clientHeight: number } };
+        const vv = m.cssVisualViewport;
+        const max = 10_000;
+        const height = full ? Math.min(Math.ceil(m.cssContentSize.height), max) : vv.clientHeight;
+        const width = vv.clientWidth;
+        const scale = Math.min(1, 2 / (d.preset.dpr * (this.text.zoom || 1)));
+        const { data } = (await within(
+          dbg.sendCommand('Page.captureScreenshot', {
+            format: 'png',
+            captureBeyondViewport: full,
+            clip: { x: full ? 0 : vv.pageX, y: full ? 0 : vv.pageY, width, height, scale },
+          }),
+          15_000,
+        )) as { data: string };
+        if (full) await this.emulateNow(d); // captureBeyondViewport can leave the metrics changed
+        return { id, label: d.preset.label, width, height, dataUrl: `data:image/png;base64,${data}`, cut: full && m.cssContentSize.height > max };
+      } catch (e) {
+        console.error(`[${id}] shot`, (e as Error).message);
+        return null;
+      }
+    });
+  }
+
+  /** What every device shows right now (video frames). */
+  async frames(): Promise<Record<string, string>> {
+    const out: Record<string, string> = {};
+    await Promise.all(
+      this.entries().map(async (d) => {
+        const data = await this.displayed(d, 80);
+        if (data) out[d.preset.id] = data;
+      }),
+    );
+    return out;
+  }
+
+  /** Scroll every device to the same ratio, synced or not. */
+  scrollAll(ratio: number) {
+    for (const d of this.devices.values()) d.view.webContents.send('device:scroll-to', ratio);
+  }
+
   setOffline(on: boolean) {
     this.offline = on;
     for (const d of this.devices.values()) void this.applyThrottle(d);
@@ -613,24 +912,30 @@ export class DeviceManager {
     if (!dbg.isAttached()) return;
     const send = (method: string, params: object) =>
       dbg.sendCommand(method, params).catch((e: Error) => console.error(`[${preset.id}] ${method}`, e.message));
-    const { width, height } = this.viewport(preset);
-    const landscape = width > height && preset.kind !== 'desktop';
+    const screenSize = this.viewport(preset);
+    const landscape = screenSize.width > screenSize.height && preset.kind !== 'desktop';
+    // Page zoom: the page is laid out at width / zoom CSS px and drawn zoom times bigger.
+    const zoom = this.text.zoom || 1;
+    const width = Math.round(screenSize.width / zoom);
+    const height = Math.round(screenSize.height / zoom);
     await send('Emulation.setDeviceMetricsOverride', {
       width,
       height,
-      deviceScaleFactor: preset.dpr,
+      deviceScaleFactor: preset.dpr * zoom,
       mobile: preset.mobile,
-      scale,
+      scale: scale * zoom,
       screenWidth: width,
       screenHeight: height,
       screenOrientation: landscape ? { type: 'landscapePrimary', angle: 90 } : { type: 'portraitPrimary', angle: 0 },
     });
     await send('Emulation.setTouchEmulationEnabled', { enabled: preset.touch, maxTouchPoints: preset.touch ? 5 : 1 });
     await send('Emulation.setEmitTouchEventsForMouse', { enabled: preset.touch && !this.inspecting, configuration: preset.touch ? 'mobile' : 'desktop' });
+    const locale = this.regionFor(preset.id).locale;
+    const acceptLanguage = locale ? `${locale},${locale.split('-')[0]};q=0.9` : undefined;
     if (preset.userAgent) {
       const platform = preset.userAgent.includes('Android') ? 'Linux armv81' : preset.userAgent.includes('iPhone') ? 'iPhone' : 'MacIntel';
-      await send('Emulation.setUserAgentOverride', { userAgent: preset.userAgent, platform });
-    }
+      await send('Emulation.setUserAgentOverride', { userAgent: preset.userAgent, platform, ...(acceptLanguage ? { acceptLanguage } : {}) });
+    } else await send('Emulation.setUserAgentOverride', { userAgent: d.view.webContents.getUserAgent(), ...(acceptLanguage ? { acceptLanguage } : {}) });
   }
 
   setLayout(slots: DeviceSlot[]) {
@@ -668,18 +973,22 @@ export class DeviceManager {
   private async captureNow(d: DeviceEntry, scale: number): Promise<string | null> {
     try {
       const dbg = d.view.webContents.debugger;
-      const { cssVisualViewport: vv } = (await dbg.sendCommand('Page.getLayoutMetrics')) as {
+      const { cssVisualViewport: vv } = (await within(dbg.sendCommand('Page.getLayoutMetrics'), 3000)) as {
         cssVisualViewport: { pageX: number; pageY: number; clientWidth: number; clientHeight: number };
       };
-      const { data } = (await dbg.sendCommand('Page.captureScreenshot', {
-        format: 'jpeg',
-        quality: 80,
-        clip: { x: vv.pageX, y: vv.pageY, width: vv.clientWidth, height: vv.clientHeight, scale },
-      })) as { data: string };
+      const { data } = (await within(
+        dbg.sendCommand('Page.captureScreenshot', {
+          format: 'jpeg',
+          quality: 80,
+          clip: { x: vv.pageX, y: vv.pageY, width: vv.clientWidth, height: vv.clientHeight, scale },
+        }),
+        8000,
+      )) as { data: string };
       return data;
     } catch {
       try {
-        return (await d.view.webContents.capturePage()).toJPEG(80).toString('base64');
+        const img = await within(d.view.webContents.capturePage(), 3000);
+        return img.isEmpty() ? null : img.toJPEG(80).toString('base64');
       } catch {
         return null; // view not painted yet
       }
@@ -692,7 +1001,7 @@ export class DeviceManager {
    */
   private async displayed(d: DeviceEntry, quality = 85): Promise<string | null> {
     try {
-      const full = await d.view.webContents.capturePage();
+      const full = await within(d.view.webContents.capturePage(), 3000);
       if (full.isEmpty()) return null;
       // With the emulation scale, the page is sometimes painted in the top-left `scale` part of a
       // larger surface, sometimes right at the view's size (after a resize): crop only in the first case.
@@ -733,16 +1042,26 @@ export class DeviceManager {
     for (const d of this.devices.values()) d.view.setVisible(this.visible);
   }
 
-  /** Rendered-page measures of every device, plus the links found in the first one. */
-  async measure(): Promise<{ devices: RenderedDevice[]; links: string[] }> {
+  /**
+   * Rendered-page measures of every device, plus the links found in the first one.
+   * Accessibility (axe-core, keyboard focus) runs on the first device of each kind: phone, tablet, screen.
+   */
+  async measure(opts: { a11y?: boolean } = {}): Promise<{ devices: RenderedDevice[]; links: string[] }> {
+    const kinds = new Set<string>();
     const results = await Promise.all(
       this.entries().map(async (d) => {
         const url = d.view.webContents.getURL();
         if (!/^https?:/.test(url)) return null;
+        const a11y = opts.a11y !== false && !kinds.has(d.preset.kind);
+        kinds.add(d.preset.kind);
         try {
-          const m = (await d.view.webContents.executeJavaScript(MEASURE)) as Omit<RenderedDevice, 'id' | 'label' | 'consoleErrors' | 'touch'> & { links: string[] };
+          const [m, axe, focusMissing] = await Promise.all([
+            d.view.webContents.executeJavaScript(MEASURE) as Promise<Omit<RenderedDevice, 'id' | 'label' | 'consoleErrors' | 'touch'> & { links: string[] }>,
+            a11y ? this.runAxe(d) : Promise.resolve(null),
+            a11y && !this.tabOrder ? serial(d, () => within(this.focusAudit(d), 10_000)).catch(() => null) : Promise.resolve(null),
+          ]);
           const { links, ...rest } = m;
-          return { device: { ...rest, id: d.preset.id, label: d.preset.label, touch: d.preset.touch, consoleErrors: [...d.consoleErrors] }, links };
+          return { device: { ...rest, id: d.preset.id, label: d.preset.label, touch: d.preset.touch, consoleErrors: [...d.consoleErrors], textScale: this.text.scale || 1, ...(axe ? { axe } : {}), ...(focusMissing ? { focusMissing } : {}) }, links };
         } catch {
           return null;
         }

@@ -26,6 +26,11 @@ const base: Settings = {
   onboarded: true,
   claudePanel: true,
   claudeAllowCommands: false,
+  region: { locale: null, timezone: null, geo: null },
+  regionPerDevice: {},
+  textSize: { scale: 1, zoom: 1 },
+  keyboard: false,
+  reviewPublicUrl: null,
 };
 
 describe('devices', () => {
