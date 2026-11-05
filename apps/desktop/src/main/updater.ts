@@ -17,7 +17,7 @@ function installKind(): UpdateState['kind'] {
 
 const explain = (e: Error) => {
   const m = e.message;
-  if (/404|Not Found|Unable to find latest version/i.test(m)) return t('No release found: the GitHub repository is private (or has no release yet).', 'Aucune release trouvée : le dépôt GitHub est privé (ou n’a pas encore de release).');
+  if (/404|Not Found|Unable to find latest version/i.test(m)) return t('No release found on GitHub yet.', 'Aucune release trouvée sur GitHub pour l’instant.');
   if (/ENOTFOUND|ECONNREFUSED|ETIMEDOUT|net::ERR/i.test(m)) return t('No connection to GitHub.', 'Pas de connexion à GitHub.');
   return m.split('\n')[0]!;
 };
@@ -39,9 +39,8 @@ export class Updater {
     autoUpdater.autoDownload = true;
     autoUpdater.autoInstallOnAppQuit = false;
     autoUpdater.logger = null;
-    // Tests point the updater at a local server; a private repository needs a token.
+    // Releases come from the public stevenpersia/kinglet-releases (electron-builder.yml); tests point the updater at a local server.
     if (process.env.KINGLET_UPDATE_URL) autoUpdater.setFeedURL({ provider: 'generic', url: process.env.KINGLET_UPDATE_URL });
-    else if (process.env.KINGLET_GH_TOKEN) autoUpdater.setFeedURL({ provider: 'github', owner: 'stevenpersia', repo: 'parakeet', private: true, token: process.env.KINGLET_GH_TOKEN });
 
     autoUpdater.on('checking-for-update', () => this.set({ status: 'checking', error: null }));
     autoUpdater.on('update-not-available', () => this.set({ status: 'none', checkedAt: Date.now() }));

@@ -4,7 +4,9 @@ import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-export const REPO = 'https://github.com/stevenpersia/parakeet';
+export const REPO = 'https://github.com/stevenpersia/kinglet';
+/** Public repository holding the releases (the code stays private). */
+export const RELEASES = 'https://github.com/stevenpersia/kinglet-releases';
 
 export function siteUrl(argv = process.argv, env = process.env) {
   const i = argv.indexOf('--site');
@@ -17,7 +19,7 @@ export function build(out, site) {
   rmSync(out, { recursive: true, force: true });
   mkdirSync(out, { recursive: true });
   cpSync(src, out, { recursive: true });
-  const html = readFileSync(join(src, 'index.html'), 'utf8').replaceAll('{{SITE}}', site).replaceAll('{{REPO}}', REPO);
+  const html = readFileSync(join(src, 'index.html'), 'utf8').replaceAll('{{SITE}}', site).replaceAll('{{RELEASES}}', RELEASES).replaceAll('{{REPO}}', REPO);
   writeFileSync(join(out, 'index.html'), html);
   writeFileSync(join(out, 'robots.txt'), `User-agent: *\nAllow: /\n\nSitemap: ${site}/sitemap.xml\n`);
   writeFileSync(join(out, 'sitemap.xml'), `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n  <url><loc>${site}/</loc></url>\n</urlset>\n`);

@@ -8,6 +8,9 @@ on:
     tags: ['v*']
   workflow_dispatch:
 
+env:
+  RELEASES_REPO: stevenpersia/kinglet-releases
+
 permissions:
   contents: write # create the release and upload its files
 
@@ -25,6 +28,7 @@ jobs:
           node-version: 22
           cache: pnpm
 
+      # The code stays private; updates are read from a public repository holding only the releases.
       - name: Version to release
         run: |
           tag="v$(node -p "require('./apps/desktop/package.json').version")"
@@ -32,13 +36,20 @@ jobs:
             echo "Tag $GITHUB_REF_NAME, but apps/desktop/package.json says $tag" >&2
             exit 1
           fi
-          if gh release view "$tag" >/dev/null 2>&1; then
+          if [ -z "$RELEASES_TOKEN" ]; then
+            echo "Secret RELEASES_TOKEN missing: a token with Contents read & write on $RELEASES_REPO" >&2
+            exit 1
+          fi
+          if GH_TOKEN="$RELEASES_TOKEN" gh release view "$tag" --repo "$RELEASES_REPO" >/dev/null 2>&1; then
             echo "Release $tag already exists: bump the version in apps/desktop/package.json" >&2
             exit 1
           fi
+          # Already released here (before the public repository existed): only publish it there.
+          if gh release view "$tag" >/dev/null 2>&1; then echo "PRIVATE_DONE=1" >> "$GITHUB_ENV"; fi
           echo "TAG=$tag" >> "$GITHUB_ENV"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASES_TOKEN: ${{ secrets.RELEASES_TOKEN }}
 
       - name: System packages
         run: |
@@ -60,10 +71,21 @@ jobs:
         working-directory: apps/desktop
         run: KINGLET_BIN=dist/linux-unpacked/kinglet node scripts/selftest.mjs
 
-      # latest-linux.yml is what the app's updater reads.
+      # Release in this repository (tag on the code, notes from the commits).
       - name: Publish the release
+        if: env.PRIVATE_DONE != '1'
         working-directory: apps/desktop
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         # --target creates the tag on this commit when it does not exist yet (manual run).
         run: gh release create "$TAG" dist/*.AppImage dist/*.pacman dist/latest-linux.yml --target "$GITHUB_SHA" --title "Kinglet ${TAG#v}" --generate-notes
+
+      # Same files in the public repository: latest-linux.yml there is what the app's updater reads.
+      - name: Publish the update
+        working-directory: apps/desktop
+        run: |
+          GH_TOKEN="$PRIVATE_TOKEN" gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json body --jq .body > notes.md
+          gh release create "$TAG" dist/*.AppImage dist/*.pacman dist/latest-linux.yml --repo "$RELEASES_REPO" --title "Kinglet ${TAG#v}" --notes-file notes.md
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+          PRIVATE_TOKEN: ${{ secrets.GITHUB_TOKEN }}
