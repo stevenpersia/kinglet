@@ -207,7 +207,7 @@ export function SettingsPage() {
         </p>
       </nav>
       <main className="flex min-w-0 flex-1 justify-center overflow-y-auto p-7">
-        <div className="flex w-full max-w-[760px] flex-col gap-6 [&>*]:shrink-0">
+        <div className="flex h-fit w-full max-w-[760px] flex-col gap-6 pb-8 [&>*]:shrink-0">
           <div>
             <h1 className="m-0 text-xl font-semibold tracking-[-0.02em]">{current.label}</h1>
             {sub[settingsTab] && <p className="m-0 mt-1 text-muted">{sub[settingsTab]}</p>}
