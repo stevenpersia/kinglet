@@ -39,7 +39,7 @@ interface State {
   crawledOrigin: string | null;
   section: Section;
   panel: Panel | null;
-  /** Console drawer under the devices. */
+  /** Console panel on the right of the devices. */
   consoleOpen: boolean;
   settingsTab: SettingsTab;
   /** Conversation with Claude, per project id. */

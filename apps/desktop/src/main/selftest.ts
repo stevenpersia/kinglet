@@ -563,8 +563,8 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
       return logs.some((l) => l.source === 'network' && l.text !== '' && JSON.stringify(l).includes('parakeet-missing')) && devices.entries().every((d) => logs.some((l) => l.deviceId === d.preset.id && l.source === 'console' && l.level === 'error'));
     }, 5000);
     const uiCount = await waitFor(async () => {
-      // The console is a drawer under the devices, opened from the left bar.
-      if (!(await js<boolean>(`!!document.querySelector('[aria-label="Console drawer"]')`))) await clickText('nav button', 'Console');
+      // The console is a panel on the right of the devices, opened from the device bar.
+      if (!(await js<boolean>(`!!document.querySelector('[aria-label="Console panel"]')`))) await clickText('main button[aria-pressed]', 'Console');
       return js<boolean>(`[...document.querySelectorAll('[aria-label=Console] li')].some((li) => li.textContent.includes('parakeet-missing.png'))`);
     }, 3000);
     await sleep(500);
