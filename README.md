@@ -123,7 +123,7 @@ Le serveur MCP marche app fermée, sur une URL donnée. Avec l'app ouverte, il u
 
 ## Installer l'app (Arch / CachyOS)
 
-Télécharge le paquet pacman (ou l'AppImage) de la [dernière release](https://github.com/stevenpersia/kinglet/releases/latest), puis :
+Télécharge le paquet pacman (ou l'AppImage) de la [dernière release](https://github.com/stevenpersia/kinglet-releases/releases/latest), puis :
 
 ```bash
 sudo pacman -U Kinglet-*.pacman
@@ -139,13 +139,7 @@ pnpm dist && sudo pacman -U apps/desktop/dist/Kinglet-*.pacman
 
 L'app installée (paquet pacman ou AppImage) cherche une nouvelle version au démarrage puis toutes les 6 heures, la télécharge en arrière-plan et la vérifie (SHA-512). Elle ne l'installe que lorsque tu cliques **Installer et redémarrer** (Réglages, ou la barre d'état). Pour le paquet pacman, l'installation demande le mot de passe administrateur.
 
-Tant que le dépôt est **privé**, les releases ne sont lisibles qu'avec un jeton GitHub (droit de lecture sur le dépôt) :
-
-```bash
-KINGLET_GH_TOKEN=<jeton> kinglet
-```
-
-Sans jeton, Réglages affiche « dépôt privé ». Si le dépôt devient public, aucun jeton n'est nécessaire.
+Le code est privé ; les versions sont publiées aussi dans le dépôt public [`stevenpersia/kinglet-releases`](https://github.com/stevenpersia/kinglet-releases), où l'app les lit sans jeton.
 
 ### Publier une version
 
@@ -158,7 +152,7 @@ Sans jeton, Réglages affiche « dépôt privé ». Si le dépôt devient public
 git tag v0.1.0 && git push origin v0.1.0
 ```
 
-Le workflow `release.yml` refait les tests, construit, teste l'app packagée (mise à jour comprise), puis crée la release avec l'AppImage, le paquet pacman et `latest-linux.yml` (le fichier que lit l'outil de mise à jour).
+Le workflow `release.yml` refait les tests, construit, teste l'app packagée (mise à jour comprise), puis crée la release avec l'AppImage, le paquet pacman et `latest-linux.yml` ici et dans `stevenpersia/kinglet-releases` (le `latest-linux.yml` de ce dépôt public est celui que lit l'outil de mise à jour). Il faut le secret `RELEASES_TOKEN` : un jeton fine-grained avec **Contents : lecture et écriture** sur `kinglet-releases`.
 
 ## Landing page
 
