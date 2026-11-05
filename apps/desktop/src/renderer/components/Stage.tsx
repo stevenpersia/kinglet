@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { locale, t } from '@parakeet/core';
 import type { DevicePreset, Throttle } from '../../shared/types';
 import { BEZEL, fitScale, viewportOf } from '../lib/layout';
-import { activePresets, api, devicePresets, useStore } from '../store';
+import { activePresets, api, listedPresets, useStore } from '../store';
 import { setActiveIds } from '../../shared/devices';
 import { ConsoleTab } from './Console';
 import { OldProdBanner } from './EnvSwitch';
@@ -21,7 +21,8 @@ const groups = (): { kind: DevicePreset['kind']; label: string }[] => [
 function DeviceToolbar({ scale }: { scale: number }) {
   const state = useStore();
   const { settings, updateSettings } = state;
-  const presets = devicePresets(state);
+  // Only the devices ticked in the settings for this project.
+  const presets = listedPresets(state);
   const active = activePresets(state).map((p) => p.id);
   const toggle = (id: string) => {
     const on = active.includes(id);

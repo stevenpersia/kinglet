@@ -179,7 +179,7 @@ export function SettingsPage() {
   const current = nav.flatMap((g) => g.items).find((i) => i.id === settingsTab)!;
   const sub: Partial<Record<SettingsTab, string>> = {
     general: t('Applies to every project.', 'Vaut pour tous les projets.'),
-    devices: t('Checked devices are shown side by side, in this order. Drag a row to move it.', 'Les appareils cochés s’affichent côte à côte, dans cet ordre. Glisse une ligne pour la déplacer.'),
+    devices: t('Only checked devices appear in the project’s device bar, in this order. Drag a row to move it.', 'Seuls les appareils cochés apparaissent dans la barre des appareils du projet, dans cet ordre. Glisse une ligne pour la déplacer.'),
   };
   return (
     <div className="flex min-w-0 flex-1">

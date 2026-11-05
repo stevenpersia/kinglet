@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import type { ChatAttachment, ChatState, FeedbackPin, GitHubState, InspectState, ClaudeProjectState, AnalyzeReport, CrawledPage, DevicePreset, EnvId, InitState, McpActivity, McpInfo, ParakeetApi, PhoneState, Project, Settings, ShareReport, UpdateState, VercelState, VercelTeamProject } from '../shared/types';
 import { activeProject, closeProject as closeTab, openProject, patchProject, projectFromUrl } from '../shared/projects';
 import { envOf, envTargets, urlOnEnv, type ProjectVercel } from './lib/env';
-import { activeIds, allPresets } from '../shared/devices';
+import { activeIds, allPresets, listedIds } from '../shared/devices';
 
 declare global {
   interface Window {
@@ -381,6 +381,14 @@ export const useStore = create<State>((set, get) => ({
 
 /** Built-in and custom devices, in the order chosen in the settings. */
 export const devicePresets = (s: Pick<State, 'presets' | 'settings'>) => allPresets(s.presets, s.settings);
+
+/** Devices listed in the project (ticked in the settings): the only ones offered in the device bar. */
+export const listedPresets = (s: Pick<State, 'presets' | 'settings'>) => {
+  const all = devicePresets(s);
+  return listedIds(s.presets, s.settings)
+    .map((id) => all.find((p) => p.id === id))
+    .filter((p): p is DevicePreset => !!p);
+};
 
 /** Devices shown side by side (global list, or the active project's). */
 export const activePresets = (s: Pick<State, 'presets' | 'settings'>) => {
