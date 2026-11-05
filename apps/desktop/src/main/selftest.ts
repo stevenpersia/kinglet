@@ -49,7 +49,8 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
   const shots = process.env.KINGLET_SELFTEST_SHOTS !== '0';
   const acks = new Map<string, () => void>();
   if (shots) createInterface({ input: process.stdin }).on('line', (l) => l.startsWith('SHOT-DONE:') && acks.get(l.slice(10).trim())?.());
-  const settle = (ms: number) => (shots ? sleep(ms) : Promise.resolve());
+  // Without captures, a short wait remains: some steps rely on the page having settled.
+  const settle = (ms: number) => sleep(shots ? ms : Math.min(ms, 300));
   const shot = async (name: string) => {
     if (!shots) return;
     const done = new Promise<void>((r) => acks.set(name, r));
@@ -76,7 +77,7 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     await ui0(`window.kinglet.updateSettings({ onboarded: true })`);
     const onboardingGone = await waitFor(async () => !(await ui0<boolean>(`!!document.querySelector('[role=dialog][aria-modal=true]')`)) && devices.entries().every((d) => d.view.getVisible()), 5000);
     criteria.push({ id: 'onboarding', ok: onboardingShown && onboardingGone && fakeFound, detail: `affiché ${onboardingShown} · Claude Code trouvé ${fakeFound} · passé ${onboardingGone}` });
-    await settle(1500); // inspector fetch + fonts, for the capture
+    await sleep(1500); // inspector fetch + fonts; the pages settle before the scroll sync test
     criteria.push({ id: 'devices-loaded', ok: loaded, detail: `${devices.entries().length} vues chargées sur ${devices.currentUrl}` });
     await shot('01-apercu');
 
