@@ -19,7 +19,7 @@ describe('VercelClient', () => {
     const projects = await client().projects();
     expect(projects.map((p) => p.name)).toEqual(['autre-site', 'maison-sable']);
     // Custom domain preferred over *.vercel.app
-    expect(projects[1]).toMatchObject({ repo: 'stevenpersia/maison-sable', productionUrl: 'https://maisonsable.fr', bypassSecrets: [] });
+    expect(projects[1]).toMatchObject({ repo: 'stevenpersia/maison-sable', gitUrl: 'https://github.com/stevenpersia/maison-sable.git', productionUrl: 'https://maisonsable.fr', bypassSecrets: [] });
   });
 
   it('sends the team id when one is chosen', async () => {

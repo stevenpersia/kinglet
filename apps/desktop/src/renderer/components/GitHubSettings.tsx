@@ -4,11 +4,12 @@ import { api, useStore } from '../store';
 
 /** GitHub's fine-grained token form, pre-filled with what Kinglet uses (PRs and CI of previews, issues reported from a preview). */
 export const GITHUB_TOKEN_URL =
-  'https://github.com/settings/personal-access-tokens/new?name=Kinglet&description=Pull+requests+of+previews&pull_requests=read&issues=write';
+  'https://github.com/settings/personal-access-tokens/new?name=Kinglet&description=Pull+requests+of+previews&contents=read&pull_requests=read&issues=write';
 
 /** What to tick when creating the GitHub token. */
 export const githubScopes = () => [
   t('Repository access: the repositories of your projects (or all)', 'Accès aux dépôts : ceux de tes projets (ou tous)'),
+  t('Contents: Read (clone a project that isn’t on this computer)', 'Contents : lecture (cloner un projet absent de cet ordinateur)'),
   t('Pull requests: Read', 'Pull requests : lecture'),
   t('Issues: Read and write (report a bug from a preview)', 'Issues : lecture et écriture (signaler un bug depuis une preview)'),
 ];

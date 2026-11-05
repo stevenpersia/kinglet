@@ -496,6 +496,8 @@ export interface KingletApi {
   projects: {
     /** Folder picker; also reads the folder's Vercel link (.vercel/project.json). */
     pickFolder(): Promise<{ folder: string; vercelProjectId: string | null } | null>;
+    /** Asks where, then clones the repository there; null when cancelled. */
+    clone(gitUrl: string): Promise<{ folder: string } | null>;
   };
   openExternal(url: string): void;
   update: {

@@ -28,6 +28,8 @@ export interface VercelProject {
   name: string;
   framework: string | null;
   repo: string | null;
+  /** HTTPS clone URL of the linked repository (GitHub, GitLab, Bitbucket), when known. */
+  gitUrl?: string | null;
   /** https:// URL of the production domain, when Vercel reports one. */
   productionUrl: string | null;
   /** Deployment the production domain serves now (Vercel's targets.production), when reported. */
@@ -72,11 +74,15 @@ export function parseProject(p: Json): VercelProject {
   // Prefer a custom domain over the *.vercel.app one.
   const domain = aliases.find((a) => a && !a.endsWith('.vercel.app')) ?? aliases.find(Boolean) ?? null;
   const repo = str(link.repo) ? (str(link.org) ? `${link.org}/${link.repo}` : String(link.repo)) : str(link.projectName);
+  const host = { github: 'github.com', gitlab: 'gitlab.com', bitbucket: 'bitbucket.org' }[String(link.type)];
+  // GitLab keeps the full path (groups/subgroups) in projectNamespace/projectName.
+  const path = link.type === 'gitlab' && str(link.projectNamespace) && str(link.projectName) ? `${link.projectNamespace}/${link.projectName}` : repo;
   return {
     id: String(p.id),
     name: String(p.name),
     framework: str(p.framework),
     repo,
+    gitUrl: host && path ? `https://${host}/${path}.git` : null,
     productionUrl: domain ? withScheme(domain) : null,
     productionDeploymentId: str(production.id),
     bypassSecrets: Object.entries((p.protectionBypass ?? {}) as Record<string, Json>)

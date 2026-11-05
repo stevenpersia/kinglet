@@ -58,10 +58,19 @@ jobs:
           sudo apt-get install -y xvfb imagemagick libarchive-tools
           sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
 
+      # Electron and the AppImage/pacman tools, downloaded once instead of on every release.
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/electron
+            ~/.cache/electron-builder
+          key: electron-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: electron-${{ runner.os }}-
+
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
       - run: pnpm test
-      - run: pnpm selftest
+      # The full scenario runs once, on the packaged app below (CI also ran it on the dev build of this commit).
 
       - name: Build AppImage + pacman
         working-directory: apps/desktop
