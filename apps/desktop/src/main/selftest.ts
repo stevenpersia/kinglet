@@ -211,8 +211,8 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     const atelier = await analyze('http://localhost:5173/atelier.html');
     const st = Object.fromEntries(atelier.checks.map((c) => [c.id, c.status]));
     criteria.push({
-      id: 'checks-36',
-      ok: atelier.checks.length === 36 && st['overflow'] === 'error' && st['console'] === 'error' && st['og-site-name'] === 'warning' && st['robots'] === 'warning',
+      id: 'checks-37',
+      ok: atelier.checks.length === 37 && st['overflow'] === 'error' && st['console'] === 'error' && st['og-site-name'] === 'warning' && st['robots'] === 'warning',
       detail: `${atelier.checks.length} checks, ${atelier.score.passed}/${atelier.score.total} · débordement ${st['overflow']}, erreurs JS ${st['console']}, robots.txt ${st['robots']} (le serveur Vite renvoie sa page HTML)`,
     });
     // Measured in the devices: the « mentions » link of atelier.html is tiny and pale on purpose.
@@ -897,6 +897,56 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
         await js(`window.kinglet.review.close(${JSON.stringify(activeId)})`);
       }
       criteria.push({ id: 'review-link', ok: reviewOk, detail: reviewDetail });
+
+      // 29. Forms, on-screen keyboard seen by the page, dead anchors after JavaScript, local history.
+      const contact = 'http://localhost:5173/contact.html';
+      await js(`window.kinglet.navigate(${JSON.stringify(contact)})`);
+      await sleep(1500);
+      const inPage = <T,>(code: string) => phone().view.webContents.executeJavaScript(code) as Promise<T>;
+      const formsReport = await js<Report>(`window.kinglet.analyze(${JSON.stringify(contact)})`);
+      const formsCheck = formsReport.checks.find((c) => c.id === 'forms');
+      const bad = await js<Record<string, { filled: number; accepted: string[]; refused: string[] }>>(`window.kinglet.fillForms('invalid')`);
+      const good = await js<Record<string, { filled: number; accepted: string[]; refused: string[] }>>(`window.kinglet.fillForms('valid')`);
+      const seen = await inPage<[string, number, boolean]>(`[document.getElementById('email').value, window.kinglet_inputs, document.querySelector('[name=rgpd]').checked]`);
+      criteria.push({
+        id: 'forms',
+        ok:
+          formsCheck?.status === 'warning' &&
+          /E-mail/.test(formsCheck.detail) &&
+          bad['iphone-16']!.accepted.includes('E-mail') &&
+          bad['iphone-16']!.refused.some((r) => r.startsWith('Code postal')) &&
+          good['iphone-16']!.refused.length === 0 &&
+          seen[0] === 'camille.martin@example.com' &&
+          seen[1] > 0 &&
+          seen[2],
+        detail: `${formsCheck?.status}: ${formsCheck?.detail} · faux acceptés : ${bad['iphone-16']?.accepted.join(', ')} · refusés : ${bad['iphone-16']?.refused.join(', ')} · valide : ${good['iphone-16']?.filled} champs, ${good['iphone-16']?.refused.length} refusés · page : ${seen[0]}, ${seen[1]} événements input`,
+      });
+      await clickText('button', 'Forms');
+      await sleep(400);
+      await clickText('[role=menu] button', 'wrong data');
+      await settle(800);
+      await shot('35-formulaires');
+
+      await js(`window.kinglet.updateSettings({ keyboard: true })`);
+      await sleep(700);
+      const vvOn = await inPage<[number, number, number]>(`[visualViewport.height, innerHeight, window.kinglet_vv]`);
+      await js(`window.kinglet.updateSettings({ keyboard: false })`);
+      await sleep(500);
+      const vvOff = await inPage<[number, number, number]>(`[visualViewport.height, innerHeight, window.kinglet_vv]`);
+      criteria.push({
+        id: 'keyboard-viewport',
+        ok: Math.abs(vvOn[1] - vvOn[0] - 336) <= 1 && vvOn[2] >= 1 && Math.abs(vvOff[0] - vvOff[1]) <= 1 && vvOff[2] > vvOn[2],
+        detail: `clavier ouvert : visualViewport ${vvOn[0]} / innerHeight ${vvOn[1]} · fermé : ${vvOff[0]} / ${vvOff[1]} · ${vvOff[2]} événements resize`,
+      });
+
+      const audit2 = await js<{ brokenLinks: { kind: string; path: string }[]; anchorsRendered?: boolean }>(`window.kinglet.audit(${JSON.stringify(contact)}, { limit: 20 })`);
+      const dead = audit2.brokenLinks.filter((b) => b.kind === 'anchor').map((b) => b.path);
+      criteria.push({ id: 'anchors-rendered', ok: audit2.anchorsRendered === true && dead.includes('/contact.html#nulle-part') && !dead.includes('/contact.html#avis'), detail: `ancres mortes après JavaScript : ${dead.join(', ') || 'aucune'}` });
+
+      const hist2 = await js<{ source?: string; url: string }[]>(`window.kinglet.history.load(${JSON.stringify(activeId)})`);
+      criteria.push({ id: 'history-local', ok: hist2.some((e) => e.source === 'claude'), detail: hist2.map((e) => `${e.source ?? '?'} ${new URL(e.url).pathname}`).join(' · ') });
+      await js(`window.kinglet.navigate('http://localhost:5173/')`);
+      await sleep(800);
       await clickText('nav button', 'Devices');
       await sleep(400);
     }

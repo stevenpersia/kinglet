@@ -191,7 +191,7 @@ describe('crawl', () => {
 });
 
 describe('runChecks', () => {
-  it('produces the 36 checks and scores what can be measured', async () => {
+  it('produces the 37 checks and scores what can be measured', async () => {
     const meta = await readPageMeta(`${base}/`);
     const image = await probeImage(meta.ogImageUrl!);
     const site = await readSiteFiles(meta.finalUrl, { manifest: meta.manifest, favicon: meta.icons[0] ?? null });
@@ -211,7 +211,7 @@ describe('runChecks', () => {
       },
     ];
     const results = runChecks({ meta, image, site, rendered });
-    expect(results).toHaveLength(36);
+    expect(results).toHaveLength(37);
     expect(Object.fromEntries(results.map((r) => [r.id, r.status]))).toMatchObject({ 'tap-targets': 'warning', 'small-text': 'ok', contrast: 'warning', 'safe-area': 'ok', lcp: 'warning', cls: 'ok' });
     expect(results.find((r) => r.id === 'lcp')!.detail).toBe('3.1 s on iPhone (good under 2.5 s).');
     const by = Object.fromEntries(results.map((r) => [r.id, r.status]));
@@ -219,7 +219,7 @@ describe('runChecks', () => {
     // structured-data and hreflang are info (one language, no JSON-LD); text zoom and accessibility need the devices.
     expect(score(results).total).toBe(32);
     expect(runChecks({ meta, image, site: null }).filter((r) => r.status === 'skip').map((r) => r.id)).toEqual(
-      expect.arrayContaining(['robots', 'sitemap', 'overflow', 'console', 'heavy-images', 'favicon', 'tap-targets', 'small-text', 'contrast', 'safe-area', 'lcp', 'cls', 'text-zoom', 'a11y-serious', 'a11y-minor', 'focus-visible']),
+      expect.arrayContaining(['robots', 'sitemap', 'overflow', 'console', 'heavy-images', 'favicon', 'tap-targets', 'small-text', 'contrast', 'safe-area', 'lcp', 'cls', 'text-zoom', 'a11y-serious', 'a11y-minor', 'focus-visible', 'forms']),
     );
   });
 

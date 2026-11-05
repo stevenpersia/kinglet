@@ -62,6 +62,8 @@ export interface Project {
   claudeSession?: string | null;
   /** Performance budgets of the project's pages. */
   budgets?: Budget[];
+  /** Measure the local site after each commit and each finished Claude task (history); on by default. */
+  historyAuto?: boolean;
 }
 
 export interface Settings {
@@ -203,7 +205,7 @@ export interface ShareReport {
   issues: Issue[];
 }
 
-/** Everything known about the current page: share tags, site files, the 36 checks. */
+/** Everything known about the current page: share tags, site files, the 37 checks. */
 export interface AnalyzeReport {
   url: string;
   share: ShareReport;
@@ -237,6 +239,8 @@ export interface HistoryEntry {
   requests: number | null;
   /** Exceeded budgets, one line each. */
   budgetFailures: string[];
+  /** What triggered the measure: a Vercel deployment, a commit, a finished Claude task, or you. */
+  source?: 'vercel' | 'commit' | 'claude' | 'manual';
   error: string | null;
 }
 
@@ -259,6 +263,16 @@ export interface ReviewState {
   links: Record<string, string | null>;
   /** The link only works on the local network. */
   localOnly: boolean;
+}
+
+/** Result of the automatic filling on one device. */
+export interface FormFill {
+  filled: number;
+  /** Wrong data a field took without complaining (no validation). */
+  accepted: string[];
+  /** Fields the browser refuses, with its message. */
+  refused: string[];
+  error?: string;
 }
 
 export interface TabOrderInfo {
@@ -625,6 +639,8 @@ export interface KingletApi {
   };
   /** Every page of the site, read like Google: broken links, duplicates, sitemap, hreflang, checks per page. */
   audit(url: string, opts?: { limit?: number }): Promise<SiteAudit>;
+  /** Fill the forms of every device (nothing is submitted). */
+  fillForms(mode: 'valid' | 'invalid' | 'clear'): Promise<Record<string, FormFill>>;
   /** Keyboard tour: numbers the elements in Tab order on every device, red where the focus doesn't show. */
   setTabOrder(on: boolean): void;
   export: {

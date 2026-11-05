@@ -46,7 +46,21 @@ export function DeploymentsPage() {
   const [filter, setFilter] = useState<'all' | 'prod' | 'preview'>('all');
   const [refreshing, setRefreshing] = useState(false);
   const prs = usePullRequests();
-  if (!vercel.project) return <NotLinked what={t('Deployments', 'Déploiements')} />;
+  if (!vercel.project)
+    return (
+      <main className="flex min-w-0 flex-1 flex-col gap-4 overflow-y-auto p-6">
+        <div>
+          <h1 className="m-0 text-xl font-semibold tracking-[-0.02em]">{t('Deployments', 'Déploiements')}</h1>
+          <p className="m-0 mt-1 text-muted">
+            {t('Not linked to Vercel: only the local history.', 'Pas relié à Vercel : seulement l’historique local.')}{' '}
+            <button onClick={() => useStore.getState().openSettings('vercel')} className="text-fg underline-offset-2 hover:underline">
+              {t('Connect Vercel', 'Connecter Vercel')}
+            </button>
+          </p>
+        </div>
+        {s.settings.activeId && <HistoryCard projectId={s.settings.activeId} deployments={[]} />}
+      </main>
+    );
 
   const list = vercel.deployments.filter((d) => filter === 'all' || (filter === 'prod' ? d.production : !d.production));
   // Open exactly this deployment (even an older one of a branch), on the same page.

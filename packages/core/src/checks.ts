@@ -104,6 +104,19 @@ export interface RenderedDevice {
   /** Text size chosen in Kinglet (1: default) and the root font size the page ended up with. */
   textScale?: number;
   rootFontPx?: number;
+  /** Form fields of the rendered page: the keyboard they bring up, autofill, labels. */
+  forms?: FormsSummary;
+}
+
+/** One problem per field, as "label (what is wrong)". */
+export interface FormsSummary {
+  fields: number;
+  /** Email, phone, number fields that bring up the plain text keyboard. */
+  wrongKeyboard: string[];
+  /** Name, email, address, phone… fields without autocomplete: the browser cannot fill them. */
+  noAutocomplete: string[];
+  /** Fields without an accessible name (label, aria-label). */
+  noLabel: string[];
 }
 
 export type AxeImpact = 'critical' | 'serious' | 'moderate' | 'minor';
@@ -377,6 +390,27 @@ export function runChecks({ meta, image, site, rendered, hreflang }: CheckInput)
     if (clipped.clippedText?.count) problems.push(t(`${clipped.clippedText.count} cut on ${clipped.label}: ${clipped.clippedText.examples.join(', ')}`, `${clipped.clippedText.count} coupé${clipped.clippedText.count > 1 ? 's' : ''} sur ${clipped.label} : ${clipped.clippedText.examples.join(', ')}`));
     if (over.length) problems.push(t(`overflows on ${over.map((r) => r.label).join(', ')}`, `déborde sur ${over.map((r) => r.label).join(', ')}`));
     add('text-zoom', 'mobile', zoomLabel, problems.length ? 'warning' : 'ok', problems.length ? `×${k}${t(': ', ' : ')}${problems.join(' · ')}` : t(`×${k}: text grows and nothing is cut.`, `×${k} : le texte grossit et rien n’est coupé.`));
+  }
+  const formDevices = rendered?.filter((r) => r.forms) ?? [];
+  const formsLabel = t('Forms', 'Formulaires');
+  if (!formDevices.length) add('forms', 'mobile', formsLabel, 'skip', inDevices);
+  else {
+    const f = [...formDevices].sort((a, b) => b.forms!.fields - a.forms!.fields)[0]!.forms!;
+    const parts: string[] = [];
+    if (f.wrongKeyboard.length) parts.push(t(`wrong keyboard: ${f.wrongKeyboard.slice(0, 3).join(', ')}`, `mauvais clavier : ${f.wrongKeyboard.slice(0, 3).join(', ')}`));
+    if (f.noLabel.length) parts.push(t(`no label: ${f.noLabel.slice(0, 3).join(', ')}`, `sans label : ${f.noLabel.slice(0, 3).join(', ')}`));
+    if (f.noAutocomplete.length) parts.push(t(`no autocomplete: ${f.noAutocomplete.slice(0, 3).join(', ')}`, `sans autocomplete : ${f.noAutocomplete.slice(0, 3).join(', ')}`));
+    add(
+      'forms',
+      'mobile',
+      formsLabel,
+      !f.fields ? 'info' : f.wrongKeyboard.length || f.noLabel.length ? 'warning' : f.noAutocomplete.length ? 'warning' : 'ok',
+      !f.fields
+        ? t('No form on this page.', 'Aucun formulaire sur cette page.')
+        : parts.length
+          ? `${n(f.fields, t('field', 'champ'))}${t(': ', ' : ')}${parts.join(' · ')}`
+          : t(`${n(f.fields, 'field')}: right keyboard, labels and autofill.`, `${f.fields} champ${f.fields > 1 ? 's' : ''} : bon clavier, labels et remplissage automatique.`),
+    );
   }
   add('theme-color', 'mobile', t('Theme color', 'Couleur du thème'), meta.themeColor ? 'ok' : 'warning', meta.themeColor ?? t('Missing: the mobile browser bar keeps its default color.', 'Absente : la barre du navigateur mobile reste par défaut.'));
   add(

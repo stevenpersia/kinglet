@@ -78,6 +78,7 @@ function DeviceToolbar({ scale }: { scale: number }) {
             {t('Keyboard', 'Clavier')}
           </button>
         )}
+        <FormsMenu />
         <ExportMenu />
         <button aria-pressed={settings.landscape} onClick={() => void updateSettings({ landscape: !settings.landscape })} title={t('Landscape (Ctrl+Shift+O)', 'Paysage (Ctrl+Maj+O)')} className={chip(settings.landscape)}>
           <Icon name="rotate" size={13} />
@@ -340,6 +341,59 @@ function RegionMenu() {
                 {target === 'all' ? t('Reset', 'Réinitialiser') : t('Like the others', 'Comme les autres')}
               </button>
             </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+/** Fill the forms of every device at once: good data, wrong data, or empty. Nothing is submitted. */
+function FormsMenu() {
+  const { openOverlay, closeOverlay, fillForms, url } = useStore();
+  const [open, setOpen] = useState(false);
+  const toggle = async () => {
+    if (open) {
+      setOpen(false);
+      closeOverlay();
+    } else {
+      await openOverlay();
+      setOpen(true);
+    }
+  };
+  const run = (mode: 'valid' | 'invalid' | 'clear') => {
+    setOpen(false);
+    closeOverlay();
+    void fillForms(mode);
+  };
+  const row = 'flex w-full items-center justify-between gap-3 rounded-md px-2.5 py-1.5 text-left text-xs text-muted hover:bg-active/60 hover:text-fg';
+  return (
+    <div className="relative">
+      <button aria-expanded={open} disabled={!url} onClick={toggle} title={t('Fill the forms of every device', 'Remplir les formulaires de tous les appareils')} className="inline-flex h-[26px] items-center gap-1.5 rounded-md border border-line px-2.5 text-xs text-muted hover:border-line-strong disabled:opacity-60">
+        <Icon name="form" size={13} />
+        {t('Forms', 'Formulaires')}
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={toggle} />
+          <div role="menu" className="absolute top-8 right-0 z-50 w-80 rounded-[10px] border border-line bg-card p-1 shadow-2xl shadow-black/60">
+            <button role="menuitem" onClick={() => run('valid')} className={row}>
+              {t('Fill with valid data', 'Remplir avec des données valides')}
+              <span className="font-mono text-[10.5px] text-ghost">✓</span>
+            </button>
+            <button role="menuitem" onClick={() => run('invalid')} className={row}>
+              {t('Fill with wrong data', 'Remplir avec des données fausses')}
+              <span className="font-mono text-[10.5px] text-ghost">✗</span>
+            </button>
+            <button role="menuitem" onClick={() => run('clear')} className={row}>
+              {t('Empty the fields', 'Vider les champs')}
+            </button>
+            <p className="m-0 px-2.5 pt-2 pb-2 text-[11.5px] leading-normal text-faint">
+              {t(
+                'Every field of every device, in the devices’ language. Nothing is submitted: submit yourself to see the error messages. With wrong data, Kinglet lists the fields that accept anything.',
+                'Tous les champs de tous les appareils, dans la langue des appareils. Rien n’est envoyé : soumets toi-même pour voir les messages d’erreur. Avec des données fausses, Kinglet liste les champs qui acceptent n’importe quoi.',
+              )}
+            </p>
           </div>
         </>
       )}
@@ -756,6 +810,7 @@ function Devices() {
       </div>
       {state.inspecting && <InspectBar />}
       {state.tabOrder && <TabOrderBar />}
+      {state.forms && <FormsBar />}
       </main>
       {state.consoleOpen && <ConsoleDock />}
     </>
@@ -820,6 +875,60 @@ function TabOrderBar() {
       <button onClick={() => s.toggleTabOrder(false)} aria-label={t('Stop the keyboard tour', 'Arrêter le parcours au clavier')} title={t('Stop (Esc)', 'Arrêter (Échap)')} className="flex size-7 items-center justify-center rounded-md text-faint hover:bg-active hover:text-fg">
         <Icon name="close" size={12} />
       </button>
+    </section>
+  );
+}
+
+/** What the automatic filling found: fields filled, wrong data accepted, fields refused. */
+function FormsBar() {
+  const s = useStore();
+  const f = s.forms!;
+  const devices = activePresets(s);
+  const accepted = [...new Set(Object.values(f.result).flatMap((r) => r.accepted))];
+  const refused = [...new Set(Object.values(f.result).flatMap((r) => r.refused))];
+  const filled = Math.max(0, ...Object.values(f.result).map((r) => r.filled));
+  const ask = () =>
+    s.askClaude(
+      t(
+        `On ${s.url ?? 'the page'}, these form fields accept wrong data without any validation: ${accepted.join(', ')}. Add the right type (email, tel, url), pattern or required attributes and a visible error message linked with aria-describedby, without changing the design.`,
+        `Sur ${s.url ?? 'la page'}, ces champs de formulaire acceptent des données fausses sans aucune validation : ${accepted.join(', ')}. Ajoute le bon type (email, tel, url), pattern ou required et un message d’erreur visible relié par aria-describedby, sans changer le design.`,
+      ),
+    );
+  return (
+    <section aria-label={t('Forms', 'Formulaires')} className="flex max-h-[200px] shrink-0 flex-col gap-1.5 overflow-y-auto border-t border-line-soft bg-chrome px-4 py-2.5 text-xs text-muted">
+      <div className="flex items-center gap-3">
+        <Icon name="form" size={13} className="text-local" />
+        <span className="text-fg">
+          {!filled
+            ? t('No form field on the devices.', 'Aucun champ de formulaire sur les appareils.')
+            : f.mode === 'valid'
+              ? t(`${filled} fields filled with valid data on ${devices.length} devices.`, `${filled} champs remplis avec des données valides sur ${devices.length} appareils.`)
+              : t(`${filled} fields filled with wrong data on ${devices.length} devices.`, `${filled} champs remplis avec des données fausses sur ${devices.length} appareils.`)}
+        </span>
+        <span className="flex-1" />
+        {accepted.length > 0 && s.settings.claudePanel && (
+          <button onClick={ask} className="h-7 rounded-ui border border-[rgba(217,119,87,0.35)] px-2.5 font-medium text-[#d97757] hover:bg-[rgba(217,119,87,0.1)]">
+            {t('Ask Claude', 'Demander à Claude')}
+          </button>
+        )}
+        <button onClick={() => void s.fillForms('clear')} className="h-7 rounded-md border border-line px-2 text-[11px] hover:border-line-strong hover:text-fg">
+          {t('Empty', 'Vider')}
+        </button>
+        <button onClick={() => useStore.setState({ forms: null })} aria-label={t('Close', 'Fermer')} className="flex size-7 items-center justify-center rounded-md text-faint hover:bg-active hover:text-fg">
+          <Icon name="close" size={12} />
+        </button>
+      </div>
+      {f.mode === 'invalid' && filled > 0 && (
+        <span className={accepted.length ? 'text-err' : 'text-ok'}>
+          {accepted.length ? t(`Accept anything (no validation): ${accepted.join(', ')}`, `Acceptent n’importe quoi (aucune validation) : ${accepted.join(', ')}`) : t('Every field refuses the wrong data.', 'Chaque champ refuse les données fausses.')}
+        </span>
+      )}
+      {refused.length > 0 && (
+        <span>
+          {f.mode === 'valid' ? t('Still refused: ', 'Encore refusés : ') : t('Refused by the browser: ', 'Refusés par le navigateur : ')}
+          <span className="text-faint">{refused.slice(0, 6).join(' · ')}</span>
+        </span>
+      )}
     </section>
   );
 }

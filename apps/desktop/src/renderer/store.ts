@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { HistoryEntry, ReviewState, SiteAudit, TabOrderInfo, ChatAttachment, FeedbackPin, GitHubState, InspectState, ClaudeProjectState, AnalyzeReport, CrawledPage, DevicePreset, EnvId, InitState, McpActivity, McpInfo, KingletApi, PhoneState, Project, Settings, ShareReport, UpdateState, VercelState, VercelTeamProject } from '../shared/types';
+import type { FormFill, HistoryEntry, ReviewState, SiteAudit, TabOrderInfo, ChatAttachment, FeedbackPin, GitHubState, InspectState, ClaudeProjectState, AnalyzeReport, CrawledPage, DevicePreset, EnvId, InitState, McpActivity, McpInfo, KingletApi, PhoneState, Project, Settings, ShareReport, UpdateState, VercelState, VercelTeamProject } from '../shared/types';
 import { activeProject, closeProject as closeTab, openProject, patchProject, projectFromUrl } from '../shared/projects';
 import { envOf, envTargets, urlOnEnv, type ProjectVercel } from './lib/env';
 import { activeIds, allPresets, listedIds } from '../shared/devices';
@@ -29,7 +29,7 @@ interface State {
   detectedFrom: string | null;
   status: LoadStatus;
   error: string | null;
-  /** Last analysis of the current page (share tags + 36 checks). */
+  /** Last analysis of the current page (share tags + 37 checks). */
   report: AnalyzeReport | null;
   share: ShareReport | null;
   shareError: string | null;
@@ -121,6 +121,9 @@ interface State {
   auditProgress: { done: number; queued: number } | null;
   auditError: string | null;
   runAudit(limit?: number): Promise<void>;
+  /** Last automatic filling of the forms (null: none shown). */
+  forms: { mode: 'valid' | 'invalid' | 'clear'; result: Record<string, FormFill> } | null;
+  fillForms(mode: 'valid' | 'invalid' | 'clear'): Promise<void>;
   /** Checks page: the page shown or the whole site. */
   checksScope: 'page' | 'site';
   /** Keyboard tour on the devices. */
@@ -212,6 +215,11 @@ export const useStore = create<State>((set, get) => ({
     } finally {
       set({ auditing: false, auditProgress: null });
     }
+  },
+  forms: null,
+  async fillForms(mode) {
+    const result = await api().fillForms(mode);
+    set({ forms: mode === 'clear' ? null : { mode, result } });
   },
   checksScope: 'page',
   tabOrder: false,

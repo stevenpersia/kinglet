@@ -1,5 +1,6 @@
 import { createServer, type Server } from 'node:http';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import type { FormsSummary } from './index.ts';
 import { auditSite, checkHreflangTags, describeFailures, evaluateBudgets, parseMeta, pathMatches, readHreflang, readPageMeta, readStructuredData, runChecks } from './index.ts';
 
 const meta = (html: string, url = 'https://x.dev/') => ({ ...parseMeta(html, url), finalUrl: url, requestedUrl: url, status: 200, contentType: 'text/html', fetchedAs: 'google' as const, durationMs: 0, robotsHeader: null });
@@ -125,5 +126,19 @@ describe('budgets', () => {
       ['lcp', 2100, true],
     ]);
     expect(describeFailures(r)).toEqual(['/ · Weight 742 KB > 500 KB (iPhone 16)']);
+  });
+});
+
+describe('forms check', () => {
+  it('reports the keyboard, labels and autofill of the fields', () => {
+    const m = meta('<html></html>');
+    const dev = (forms: FormsSummary) => [{ id: 'iphone', label: 'iPhone', overflowPx: 0, consoleErrors: [], heavyImages: [], forms }];
+    const get = (forms: FormsSummary) => runChecks({ meta: m, image: null, site: null, rendered: dev(forms) }).find((c) => c.id === 'forms')!;
+    expect(get({ fields: 0, wrongKeyboard: [], noAutocomplete: [], noLabel: [] }).status).toBe('info');
+    expect(get({ fields: 3, wrongKeyboard: [], noAutocomplete: [], noLabel: [] })).toMatchObject({ status: 'ok', detail: '3 fields: right keyboard, labels and autofill.' });
+    expect(get({ fields: 3, wrongKeyboard: ['« E-mail » (type=email)'], noAutocomplete: ['« Nom » (name)'], noLabel: [] })).toMatchObject({
+      status: 'warning',
+      detail: '3 fields: wrong keyboard: « E-mail » (type=email) · no autocomplete: « Nom » (name)',
+    });
   });
 });
