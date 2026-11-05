@@ -1,45 +1,48 @@
 #!/usr/bin/env node
-// Stand-in for Claude Code in tests: answers `--version`, and in `-p --output-format stream-json`
-// mode reads one user message and replies with a tool call and a text, like the real one.
+// Stand-in for Claude Code in tests: answers `--version`, and run interactively (in Kinglet's
+// terminal) reports what it was started with, then what it receives: pastes and typed lines.
+const { readFileSync } = require('node:fs');
 const args = process.argv.slice(2);
 if (args.includes('--version')) {
   console.log('9.9.9 (Claude Code)');
   process.exit(0);
 }
-const out = (o) => process.stdout.write(`${JSON.stringify(o)}\n`);
-let input = '';
-process.stdin.on('data', (c) => (input += c));
-process.stdin.on('end', async () => {
-  const msg = JSON.parse(input.split('\n')[0]);
-  const content = msg.message.content;
-  const images = content.filter((c) => c.type === 'image').length;
-  const text = content.find((c) => c.type === 'text')?.text ?? '';
-  const resume = args.includes('--resume') ? args[args.indexOf('--resume') + 1] : null;
-  const session = resume ?? 'fake-session-1';
-  const mcp = args.includes('--mcp-config') ? JSON.parse(args[args.indexOf('--mcp-config') + 1]) : null;
-  out({ type: 'system', subtype: 'init', session_id: session, cwd: process.cwd() });
-  // "install": ask before a command, the way the kinglet approve tool does (through the app's control server).
-  if (/install/i.test(text)) {
-    const env = mcp?.mcpServers?.kinglet?.env ?? {};
-    const { readFileSync } = await import('node:fs');
-    const ctl = JSON.parse(readFileSync(`${env.KINGLET_CONFIG_DIR}/mcp.json`, 'utf8'));
-    const res = await fetch(`http://127.0.0.1:${ctl.port}/approve`, {
-      method: 'POST',
-      headers: { authorization: `Bearer ${ctl.token}`, 'content-type': 'application/json' },
-      body: JSON.stringify({ tool: 'Bash', input: { command: 'npm install zod' }, chat: env.KINGLET_CHAT_PROJECT ?? null }),
-    });
-    const answer = await res.json();
-    const asked = args.includes('--permission-prompt-tool') ? args[args.indexOf('--permission-prompt-tool') + 1] : 'none';
-    out({ type: 'assistant', session_id: session, message: { content: [{ type: 'text', text: `FAKE-CLAUDE approval ${answer.allow ? 'allowed' : 'refused'} · prompt tool ${asked}` }] } });
-    out({ type: 'result', subtype: 'success', is_error: false, session_id: session, result: 'done', permission_denials: [] });
-    return;
+const say = (s) => process.stdout.write(`${s}\r\n`);
+let mcp = 'none';
+try {
+  const file = args[args.indexOf('--mcp-config') + 1];
+  if (JSON.parse(readFileSync(file, 'utf8')).mcpServers?.kinglet) mcp = 'kinglet';
+} catch {}
+if (process.stdin.isTTY) process.stdin.setRawMode(true);
+say(`FAKE-CLAUDE ready · tty ${!!process.stdout.isTTY} · mcp ${mcp} · cwd ${process.cwd()}`);
+process.stdout.write('> ');
+
+const START = '\x1b[200~';
+const END = '\x1b[201~';
+let buf = '';
+let line = '';
+process.stdin.on('data', (chunk) => {
+  buf += chunk.toString('utf8');
+  for (;;) {
+    const s = buf.indexOf(START);
+    if (s === 0) {
+      const e = buf.indexOf(END);
+      if (e < 0) return; // the rest of the paste is coming
+      const text = buf.slice(START.length, e);
+      buf = buf.slice(e + END.length);
+      const image = /\/kinglet-captures\/[^\s]+\.(png|jpe?g|webp)/.test(text);
+      say(`PASTED · image ${image ? 'yes' : 'no'} · pointed ${/Element: /.test(text) ? 'yes' : 'no'} · ${text.split('\n')[0].slice(0, 60)}`);
+      continue;
+    }
+    if (!buf) return;
+    const upto = s > 0 ? s : buf.length;
+    for (const ch of buf.slice(0, upto)) {
+      if (ch === '\r' || ch === '\n') {
+        say(`TYPED ${line}`);
+        line = '';
+      } else if (ch === '\x03') process.exit(0);
+      else line += ch;
+    }
+    buf = buf.slice(upto);
   }
-  out({ type: 'assistant', session_id: session, message: { content: [{ type: 'tool_use', id: 'tu1', name: 'mcp__kinglet__screenshot', input: { device: 'iphone-16' } }] } });
-  out({ type: 'user', session_id: session, message: { content: [{ type: 'tool_result', tool_use_id: 'tu1', content: 'ok' }] } });
-  out({
-    type: 'assistant',
-    session_id: session,
-    message: { content: [{ type: 'text', text: `FAKE-CLAUDE ok · ${images} image(s) · mcp ${mcp?.mcpServers?.kinglet ? 'kinglet' : 'none'} · resume ${resume ?? 'no'} · pointed ${/Element: /.test(text) ? 'yes' : 'no'} · cwd ${process.cwd()}` }] },
-  });
-  out({ type: 'result', subtype: 'success', is_error: false, session_id: session, result: 'done', permission_denials: [] });
 });

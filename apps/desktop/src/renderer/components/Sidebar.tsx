@@ -64,7 +64,7 @@ export function Rail() {
       }`}
     >
       <Icon name={it.icon} size={small ? 14 : 16} />
-      {it.claude && s.settings.activeId && s.chats[s.settings.activeId]?.running && <span aria-hidden="true" className="claude-dot absolute top-[6px] right-[6px] size-1.5 rounded-full bg-[#d97757]" />}
+      {it.claude && s.settings.activeId && s.claude[s.settings.activeId]?.status === 'working' && <span aria-hidden="true" className="claude-dot absolute top-[6px] right-[6px] size-1.5 rounded-full bg-[#d97757]" />}
       {it.badge && <span className="absolute top-[2px] right-[2px] font-mono text-[9px] leading-none">{it.badge}</span>}
     </button>
   );

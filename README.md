@@ -166,7 +166,9 @@ Ses tests la passent aux 30 checks et aux 7 aperçus de partage de Kinglet : tou
 
 ## Claude dans Kinglet
 
-Il faut Claude Code installé sur l'ordinateur (`npm install -g @anthropic-ai/claude-code`) et connecté à ton compte ; Kinglet le cherche dans le `PATH`, `~/.local/bin` et `~/.claude/local`. Chaque message lance `claude -p` dans le dossier du projet, avec le serveur MCP de Kinglet et la session précédente reprise. Par défaut, Claude modifie les fichiers du dossier et utilise Kinglet librement, et demande avant chaque commande du shell (`npm install`, `git`…) : le panneau affiche la commande avec Autoriser, Refuser ou Tout autoriser dans cette conversation (via l'outil MCP `approve`, branché comme `--permission-prompt-tool`). **Réglages → Claude Code → Laisser Claude lancer des commandes** les autorise toutes sans demander.
+Il faut Claude Code installé sur l'ordinateur (`npm install -g @anthropic-ai/claude-code`) ; Kinglet le cherche dans le `PATH`, `~/.local/bin` et `~/.claude/local`. Le panneau Claude est un vrai terminal qui lance ton `claude` dans le dossier du projet, avec le serveur MCP de Kinglet (`--mcp-config`) : ton compte (`/login` si la session expire, abonnement ou clé API), tes commandes slash, tes réglages et ses demandes d'autorisation, comme dans ton terminal. Il continue de tourner quand tu changes de projet, et redémarre si le dossier du projet change.
+
+« Demander à Claude » (inspecteur, console, checks, aperçus de partage, retours) et « Montrer » collent leur contexte dans la saisie de Claude, sans l'envoyer : tu complètes et tu appuies sur Entrée. Les captures sont enregistrées dans `/tmp/kinglet-captures/` et collées par leur chemin, que Claude Code lit comme une image. Quand le terminal a le focus, Ctrl R, L, K, P et J lui reviennent ; Ctrl 1…9, Ctrl , et les raccourcis avec Maj restent à Kinglet.
 
 ## Suivi de Claude Code
 

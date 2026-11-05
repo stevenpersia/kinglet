@@ -362,11 +362,11 @@ export function Onboarding() {
                   </span>
                 )}
               </div>
-              <p className="m-0 -mb-2 text-xs text-muted">{t('Two ways to use it, one or both:', 'Deux façons de l’utiliser, l’une ou les deux :')}</p>
+              <p className="m-0 -mb-2 text-xs text-muted">{t('Two places to use it, one or both:', 'Deux endroits où l’utiliser, l’un ou les deux :')}</p>
               <div className="overflow-hidden rounded-[10px] border border-line bg-card">
                 <Toggle
                   label={t('In Kinglet', 'Dans Kinglet')}
-                  hint={t('A Claude panel next to your devices: you write to Claude without leaving the app. Kinglet runs Claude Code for you, in the project folder.', 'Un panneau Claude à côté de tes appareils : tu écris à Claude sans quitter l’app. Kinglet lance Claude Code pour toi, dans le dossier du projet.')}
+                  hint={t('A terminal next to your devices, running your claude in the project folder: your login, your commands. “Show” puts a spot of a device in its input.', 'Un terminal à côté de tes appareils, qui lance ton claude dans le dossier du projet : ton compte, tes commandes. « Montrer » met un endroit d’un appareil dans sa saisie.')}
                   on={settings.claudePanel}
                   onChange={(claudePanel) => void updateSettings({ claudePanel })}
                 />
@@ -374,7 +374,7 @@ export function Onboarding() {
               <div className="overflow-hidden rounded-[10px] border border-line bg-card">
                 <Toggle
                   label={t('From your terminal', 'Depuis ton terminal')}
-                  hint={t('You keep using claude in your terminal or editor, and it drives Kinglet: screenshots, checks, previews. Installs Kinglet’s MCP server in Claude Code, for all your projects.', 'Tu gardes claude dans ton terminal ou ton éditeur, et il pilote Kinglet : captures, checks, aperçus. Installe le serveur MCP de Kinglet dans Claude Code, pour tous tes projets.')}
+                  hint={t('Also in your own terminal or editor: claude drives Kinglet there too (screenshots, checks, previews). Installs Kinglet’s MCP server in Claude Code, for all your projects.', 'Aussi dans ton propre terminal ou ton éditeur : claude y pilote Kinglet aussi (captures, checks, aperçus). Installe le serveur MCP de Kinglet dans Claude Code, pour tous tes projets.')}
                   on={wantMcp && !!cli?.found}
                   disabled={!cli?.found}
                   onChange={setWantMcp}

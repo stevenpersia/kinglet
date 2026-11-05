@@ -291,7 +291,7 @@ async function pointAt(preset: DevicePreset, viewport: Viewport, el: HTMLElement
   // What the device showed when pointing started (a DevTools capture would wait for the hidden view).
   const shot = s.frozen?.[preset.id];
   const id = s.settings.activeId;
-  const n = (id ? (s.drafts[id]?.attachments.filter((a) => a.kind === 'image').length ?? 0) : 0) + 1;
+  const n = (id ? (s.shown[id] ?? 0) : 0) + 1;
   const [info, image] = await Promise.all([api().elementAt(preset.id, x, y), shot ? pinned(shot, fx, fy, n).catch(() => null) : Promise.resolve(null)]);
   s.stopPointing();
   if (s.pointingFor === 'feedback' && id) {

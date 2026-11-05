@@ -2,14 +2,14 @@
   "name": "@kinglet/desktop",
   "version": "0.2.2",
   "private": true,
-  "description": "Kinglet \u2014 preview your site on every screen",
+  "description": "Kinglet — preview your site on every screen",
   "main": "out/main/index.js",
   "scripts": {
-    "postinstall": "install-electron",
     "dev": "install-electron && electron-vite dev",
     "build": "electron-vite build",
     "start": "install-electron && electron-vite preview",
     "typecheck": "tsc -p tsconfig.json",
+    "postinstall": "install-electron && electron-builder install-app-deps",
     "selftest": "install-electron && electron-vite build && node scripts/selftest.mjs",
     "test": "vitest run",
     "dist": "electron-vite build && electron-builder --linux --publish never"
@@ -17,15 +17,17 @@
   "devDependencies": {
     "@fontsource-variable/geist": "^5.3.0",
     "@fontsource-variable/geist-mono": "^5.3.0",
-    "@modelcontextprotocol/sdk": "^1.32.2",
     "@kinglet/core": "workspace:*",
     "@kinglet/mcp": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.32.2",
     "@tailwindcss/vite": "^4.3.4",
     "@types/node": "^26.6.6",
     "@types/qrcode": "^1.5.6",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.2.1",
+    "@xterm/addon-fit": "0.10.0",
+    "@xterm/xterm": "5.5.0",
     "electron": "^45.2.2",
     "electron-builder": "^26.18.0",
     "electron-vite": "^6.0.0",
@@ -42,6 +44,7 @@
   "homepage": "https://github.com/stevenpersia/kinglet",
   "desktopName": "kinglet.desktop",
   "dependencies": {
-    "electron-updater": "^6.8.11"
+    "electron-updater": "^6.8.11",
+    "node-pty": "1.0.0"
   }
 }

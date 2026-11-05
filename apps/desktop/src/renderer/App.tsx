@@ -95,9 +95,6 @@ export function App() {
         case 'inspect':
           useStore.setState({ inspect: e.state });
           break;
-        case 'chat':
-          useStore.setState((st) => ({ chats: { ...st.chats, [e.state.projectId]: e.state } }));
-          break;
         case 'shortcut':
           if (e.action === 'reload') void api().reload();
           else if (e.action === 'focus-url') useStore.setState({ urlFocusTick: s.urlFocusTick + 1 });

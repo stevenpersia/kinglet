@@ -1,92 +1,27 @@
 import { t } from '@kinglet/core';
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import type { ChatAttachment, ChatItem, ClaudeCli } from '../../shared/types';
+import { FitAddon } from '@xterm/addon-fit';
+import { Terminal } from '@xterm/xterm';
+import '@xterm/xterm/css/xterm.css';
+import { useEffect, useRef, useState } from 'react';
+import type { ClaudeCli } from '../../shared/types';
 import { activeProject, patchProject } from '../../shared/projects';
 import { api, claudeOpen, cleanError, projectVercel, useStore } from '../store';
 import { ClaudeBanner } from './ClaudeBanner';
-import { Icon, Kbd } from './Icons';
-
-const EMPTY = { text: '', attachments: [] as ChatAttachment[] };
-
-/** Minimal Markdown: paragraphs, `code`, ```blocks```, **bold**, and list lines. */
-function Rich({ text }: { text: string }) {
-  const parts = text.split(/```[\w-]*\n?([\s\S]*?)```/g);
-  return (
-    <>
-      {parts.map((part, i) =>
-        i % 2 ? (
-          <pre key={i} className="m-0 overflow-x-auto rounded-md border border-line bg-bg p-2.5 font-mono text-[11px] leading-relaxed whitespace-pre text-muted">
-            {part.replace(/\n$/, '')}
-          </pre>
-        ) : (
-          part
-            .split(/\n{2,}/)
-            .filter((p) => p.trim())
-            .map((p, j) => (
-              <p key={`${i}-${j}`} className="m-0 whitespace-pre-wrap">
-                {p.split(/(`[^`]+`|\*\*[^*]+\*\*)/g).map((seg, k) =>
-                  seg.startsWith('`') && seg.endsWith('`') ? (
-                    <code key={k} className="rounded bg-raised px-1 font-mono text-[11.5px] text-fg">
-                      {seg.slice(1, -1)}
-                    </code>
-                  ) : seg.startsWith('**') && seg.endsWith('**') ? (
-                    <b key={k} className="font-semibold text-fg">
-                      {seg.slice(2, -2)}
-                    </b>
-                  ) : (
-                    seg
-                  ),
-                )}
-              </p>
-            ))
-        ),
-      )}
-    </>
-  );
-}
-
-function Item({ it }: { it: ChatItem }) {
-  if (it.kind === 'user')
-    return (
-      <div className="flex flex-col items-end gap-1.5">
-        {it.attachments.length > 0 && (
-          <div className="flex flex-wrap justify-end gap-1.5">
-            {it.attachments.map((a, i) => (
-              <span key={i} className="flex h-6 items-center gap-1.5 rounded-md border border-line bg-active px-1.5 text-[11px] text-muted">
-                {a.thumb ? <img src={a.thumb} alt="" className="h-4 w-3 rounded-sm object-cover object-top" /> : <Icon name="page" size={11} />}
-                {a.label}
-              </span>
-            ))}
-          </div>
-        )}
-        <div className="max-w-[88%] rounded-[12px_12px_3px_12px] bg-raised px-3 py-2 text-[12.5px] leading-normal whitespace-pre-wrap text-fg">{it.text}</div>
-      </div>
-    );
-  if (it.kind === 'text')
-    return (
-      <div className="flex flex-col gap-2 text-[12.5px] leading-[1.55] text-[#d9d9de]">
-        <Rich text={it.text} />
-      </div>
-    );
-  if (it.kind === 'tool')
-    return (
-      <div className="flex items-center gap-2 rounded-md border border-line-soft bg-card px-2 py-1 font-mono text-[11px] text-faint">
-        <span className="font-medium text-muted">{it.name}</span>
-        <span className="min-w-0 flex-1 truncate">{it.detail}</span>
-        {it.status === 'running' ? (
-          <Icon name="reload" size={11} className="shrink-0 animate-spin text-faint" />
-        ) : it.status === 'ok' ? (
-          <Icon name="check" size={11} className="shrink-0 text-ok" />
-        ) : (
-          <Icon name="close" size={11} className="shrink-0 text-err" />
-        )}
-      </div>
-    );
-  const color = it.level === 'error' ? 'border-[rgba(242,139,130,0.3)] text-err' : it.level === 'warning' ? 'border-[rgba(230,192,123,0.3)] text-warn' : 'border-line text-muted';
-  return <div className={`rounded-md border bg-card px-2.5 py-2 text-xs leading-snug whitespace-pre-wrap ${color}`}>{it.text}</div>;
-}
+import { Icon } from './Icons';
 
 const FOLD = 'M15 6l-6 6 6 6';
+const WIDTH_KEY = 'kinglet.claudeWidth';
+const MIN_W = 340;
+const DEFAULT_W = 460;
+
+const readWidth = () => {
+  try {
+    const w = Number(localStorage.getItem(WIDTH_KEY));
+    return w >= MIN_W ? w : DEFAULT_W;
+  } catch {
+    return DEFAULT_W;
+  }
+};
 
 /** Claude's column, next to the rail: unfolded by default, a thin strip when folded. */
 export function ClaudeColumn() {
@@ -94,12 +29,19 @@ export function ClaudeColumn() {
   return open ? <ClaudePanel /> : <ClaudeStrip />;
 }
 
+/** What Claude is up to in this project, from the Claude Code hooks (when tracking is on). */
+function useClaudeStatus() {
+  const s = useStore();
+  const id = s.settings.activeId;
+  return id ? s.claude[id]?.status : undefined;
+}
+
 /** The folded column: still shows whether Claude works or waits for an answer. */
 function ClaudeStrip() {
   const s = useStore();
-  const project = activeProject(s.settings);
-  const chat = project ? s.chats[project.id] : undefined;
-  const status = chat?.pending ? t('Claude is waiting for you', 'Claude t’attend') : chat?.running ? t('Claude is working…', 'Claude travaille…') : 'Claude';
+  const status = useClaudeStatus();
+  const waiting = status === 'waiting';
+  const label = waiting ? t('Claude is waiting for you', 'Claude t’attend') : status === 'working' ? t('Claude is working…', 'Claude travaille…') : 'Claude';
   return (
     <button
       onClick={() => s.toggleClaude(true)}
@@ -107,70 +49,129 @@ function ClaudeStrip() {
       title={t('Unfold Claude (Ctrl J)', 'Déplier Claude (Ctrl J)')}
       className="group flex w-9 shrink-0 flex-col items-center gap-3 border-r border-line-soft bg-chrome py-3 text-faint hover:bg-active/60 hover:text-fg"
     >
-      <span aria-hidden="true" className={`size-2 shrink-0 rounded-full ${chat?.pending ? 'bg-warn' : 'bg-[#d97757]'} ${chat?.running ? 'claude-dot' : ''}`} />
+      <span aria-hidden="true" className={`size-2 shrink-0 rounded-full ${waiting ? 'bg-warn' : 'bg-[#d97757]'} ${status === 'working' ? 'claude-dot' : ''}`} />
       <svg width="12" height="12" viewBox="0 0 24 24" aria-hidden="true" className="rotate-180">
         <path d={FOLD} stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
-      <span className={`text-[11px] [writing-mode:vertical-rl] ${chat?.pending ? 'text-warn' : ''}`}>{status}</span>
+      <span className={`text-[11px] [writing-mode:vertical-rl] ${waiting ? 'text-warn' : ''}`}>{label}</span>
     </button>
   );
 }
 
-/** Claude Code in Kinglet: ask, show a spot on a device, watch Claude fix and verify. */
+/**
+ * The project's terminal, running `claude`: the user's own Claude Code (login, slash commands,
+ * settings). It keeps running in the main process; this view replays it and follows it.
+ */
+function TerminalView({ projectId, restartKey, onExit }: { projectId: string; restartKey: number; onExit: (code: number | null | undefined) => void }) {
+  const host = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = host.current;
+    if (!el) return;
+    const term = new Terminal({
+      fontFamily: '"Geist Mono Variable", ui-monospace, monospace',
+      fontSize: 12,
+      lineHeight: 1.25,
+      cursorBlink: true,
+      scrollback: 5000,
+      macOptionIsMeta: true,
+      theme: {
+        background: '#0e0e10',
+        foreground: '#ededef',
+        cursor: '#ededef',
+        cursorAccent: '#0e0e10',
+        selectionBackground: '#34343a',
+        black: '#18181b',
+        brightBlack: '#6e6e77',
+        red: '#f28b82',
+        brightRed: '#f6a59e',
+        green: '#7dd3a8',
+        brightGreen: '#9de3bf',
+        yellow: '#e6c07b',
+        brightYellow: '#eed29b',
+        blue: '#8ab4f8',
+        brightBlue: '#a8c7fa',
+        magenta: '#d97757',
+        brightMagenta: '#e3957b',
+        cyan: '#7fd1d8',
+        brightCyan: '#a0dfe4',
+        white: '#a1a1aa',
+        brightWhite: '#ededef',
+      },
+    });
+    const fit = new FitAddon();
+    term.loadAddon(fit);
+    term.open(el);
+    fit.fit();
+    let alive = true;
+    const off = api().onEvent((e) => {
+      if (e.type !== 'term' || e.projectId !== projectId) return;
+      if (e.data) term.write(e.data);
+      if (e.exit !== undefined) onExit(e.exit);
+    });
+    const begin = restartKey ? api().term.restart(projectId, term.cols, term.rows) : api().term.start(projectId, term.cols, term.rows);
+    begin.then(
+      (r) => {
+        if (!alive) return;
+        if (r.buffer) term.write(r.buffer);
+        onExit(r.running ? undefined : null);
+        term.focus();
+      },
+      (err) => alive && term.write(`\r\n\x1b[31m${cleanError(err)}\x1b[0m\r\n`),
+    );
+    term.onData((d) => api().term.input(projectId, d));
+    // App shortcuts step aside while typing here (Ctrl R, L, K… belong to the shell and Claude).
+    const ta = el.querySelector('textarea');
+    const focusOn = () => api().term.focus(true);
+    const focusOff = () => api().term.focus(false);
+    ta?.addEventListener('focus', focusOn);
+    ta?.addEventListener('blur', focusOff);
+    const ro = new ResizeObserver(() => {
+      if (!el.clientWidth || !el.clientHeight) return;
+      fit.fit();
+      api().term.resize(projectId, term.cols, term.rows);
+    });
+    ro.observe(el);
+    return () => {
+      alive = false;
+      off();
+      ro.disconnect();
+      ta?.removeEventListener('focus', focusOn);
+      ta?.removeEventListener('blur', focusOff);
+      api().term.focus(false);
+      term.dispose();
+    };
+    // onExit is a state setter from the parent: stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId, restartKey]);
+  return <div ref={host} data-terminal={projectId} className="min-h-0 flex-1 overflow-hidden py-2 pl-3" />;
+}
+
+/** Claude Code in Kinglet: a terminal running `claude` in the project folder, next to the devices. */
 function ClaudePanel() {
   const s = useStore();
   const project = activeProject(s.settings);
-  const chat = project ? s.chats[project.id] : undefined;
-  const draft = (project && s.drafts[project.id]) || EMPTY;
   const [cli, setCli] = useState<ClaudeCli | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
   const [cloning, setCloning] = useState(false);
   const [cloneError, setCloneError] = useState<string | null>(null);
-  const list = useRef<HTMLDivElement>(null);
-  const input = useRef<HTMLTextAreaElement>(null);
+  const [width, setWidth] = useState(readWidth);
+  const [restartKey, setRestartKey] = useState(0);
+  // undefined: running; null or a code: Claude Code exited.
+  const [exit, setExit] = useState<number | null | undefined>(undefined);
 
   useEffect(() => {
     void api().chat.cli().then(setCli);
   }, []);
   useEffect(() => {
-    if (project && !chat) void api().chat.state(project.id).then((st) => useStore.setState((x) => ({ chats: { ...x.chats, [st.projectId]: st } })));
-  }, [project, chat]);
-  useLayoutEffect(() => {
-    list.current?.scrollTo(0, list.current.scrollHeight);
-  }, [chat?.items.length, chat?.running]);
-  useEffect(() => {
-    input.current?.focus();
-  }, [draft.attachments.length]);
+    setExit(undefined);
+    setRestartKey(0);
+  }, [project?.id]);
 
   const close = () => s.toggleClaude(false);
-  const setDraft = (d: typeof draft) => project && s.setDraft(project.id, d);
-
-  const send = async () => {
-    if (!project || !draft.text.trim() || chat?.running) return;
-    setError(null);
-    const { text, attachments } = draft;
-    setDraft(EMPTY);
-    try {
-      await api().chat.send(project.id, text.trim(), attachments);
-    } catch (e) {
-      setError(cleanError(e));
-      setDraft({ text, attachments });
-    }
-  };
-  const terminal = () => {
-    if (!project?.folder) return;
-    const id = chat?.sessionId ?? project.claudeSession;
-    api().copy(`cd "${project.folder}" && claude${id ? ` --resume ${id}` : ''}`);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
   const pickFolder = async () => {
     if (!project) return;
     const r = await api().projects.pickFolder();
     if (r) await s.updateSettings(patchProject(s.settings, project.id, { folder: r.folder }));
   };
-
   // The repository Vercel builds this project from, to clone it when the code isn't on this computer yet.
   const repo = project ? projectVercel(s, project.id).project : null;
   const clone = async () => {
@@ -185,12 +186,32 @@ function ClaudePanel() {
     }
     setCloning(false);
   };
+  // Drag the right edge to make the column wider (Claude Code likes room).
+  const drag = (e: React.PointerEvent) => {
+    e.preventDefault();
+    const x0 = e.clientX;
+    const w0 = width;
+    const max = Math.max(MIN_W, window.innerWidth - 420);
+    const move = (ev: PointerEvent) => setWidth(Math.min(max, Math.max(MIN_W, w0 + ev.clientX - x0)));
+    const up = (ev: PointerEvent) => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      try {
+        localStorage.setItem(WIDTH_KEY, String(Math.min(max, Math.max(MIN_W, w0 + ev.clientX - x0))));
+      } catch {
+        /* not kept */
+      }
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  };
 
-  let body: React.ReactNode = null;
-  if (!project) body = <p className="m-0 text-xs text-faint">{t('Open a project first.', 'Ouvre d’abord un projet.')}</p>;
+  const card = 'm-4 flex flex-col gap-2.5 rounded-[10px] border border-line bg-card p-3 text-xs leading-relaxed text-muted';
+  let body: React.ReactNode;
+  if (!project) body = <p className="m-4 text-xs text-faint">{t('Open a project first.', 'Ouvre d’abord un projet.')}</p>;
   else if (cli && !cli.found)
     body = (
-      <div className="flex flex-col gap-2.5 rounded-[10px] border border-line bg-card p-3 text-xs leading-relaxed text-muted">
+      <div className={card}>
         <span className="font-medium text-fg">{t('Claude Code isn’t installed', 'Claude Code n’est pas installé')}</span>
         {t('Kinglet runs Claude Code on this computer, with your account. Install it, then reopen this panel:', 'Kinglet fait tourner Claude Code sur cet ordinateur, avec ton compte. Installe-le, puis rouvre ce panneau :')}
         <code className="rounded-md border border-line bg-bg px-2 py-1.5 font-mono text-[11px] text-fg">npm install -g @anthropic-ai/claude-code</code>
@@ -201,7 +222,7 @@ function ClaudePanel() {
     );
   else if (!project.folder)
     body = (
-      <div className="flex flex-col gap-2.5 rounded-[10px] border border-line bg-card p-3 text-xs leading-relaxed text-muted">
+      <div className={card}>
         <span className="font-medium text-fg">{t('Where is the code?', 'Où est le code ?')}</span>
         {t('Claude works in the project folder. Choose it once; Kinglet remembers it.', 'Claude travaille dans le dossier du projet. Choisis-le une fois, Kinglet s’en souvient.')}
         <div className="flex flex-wrap gap-1.5">
@@ -218,143 +239,51 @@ function ClaudePanel() {
         {cloneError && <span className="text-err">{cloneError}</span>}
       </div>
     );
-  else if (!chat?.items.length)
+  else if (!cli) body = null;
+  else
     body = (
-      <div className="flex flex-col gap-3 text-xs leading-relaxed text-muted">
-        <p className="m-0">
-          {t(
-            'Ask for a change or a new feature. Claude edits the code in your folder, then checks the result on the devices.',
-            'Demande une retouche ou une nouvelle fonctionnalité. Claude modifie le code dans ton dossier, puis vérifie le résultat sur les appareils.',
-          )}
-        </p>
-        <div className="flex flex-col gap-1.5">
-          {[
-            t('The menu overflows on iPhone SE, fix it', 'Le menu déborde sur iPhone SE, corrige-le'),
-            t('Add a contact form at the bottom of the page', 'Ajoute un formulaire de contact en bas de la page'),
-            t('Fix the share previews of this page', 'Corrige les aperçus de partage de cette page'),
-          ].map((x) => (
-            <button key={x} onClick={() => setDraft({ ...draft, text: x })} className="rounded-md border border-line bg-card px-2.5 py-1.5 text-left text-xs text-muted hover:border-line-strong hover:text-fg">
-              {x}
+      <>
+        <TerminalView key={`${project.id}:${project.folder}`} projectId={project.id} restartKey={restartKey} onExit={setExit} />
+        {exit !== undefined && (
+          <div className="m-3 mt-0 flex shrink-0 items-center gap-2 rounded-[10px] border border-line bg-card px-3 py-2 text-xs text-muted">
+            {t('Claude Code has stopped.', 'Claude Code s’est arrêté.')}
+            <button onClick={() => setRestartKey((k) => k + 1)} className="ml-auto h-7 rounded-ui bg-fg px-3 font-semibold text-bg">
+              {t('Restart', 'Relancer')}
             </button>
-          ))}
-        </div>
-        <p className="m-0 text-faint">
-          {t('“Show” lets you click a spot on a device: Claude gets the capture and the element.', '« Montrer » te laisse cliquer un endroit d’un appareil : Claude reçoit la capture et l’élément.')}
-        </p>
-      </div>
+          </div>
+        )}
+      </>
     );
-  else body = chat.items.map((it) => <Item key={it.id} it={it} />);
 
-  const ready = !!project?.folder && cli?.found !== false;
+  const ready = !!project?.folder && !!cli?.found;
   return (
-    <aside aria-label="Claude" className="flex w-[360px] shrink-0 flex-col border-r border-line-soft bg-chrome">
+    <aside aria-label="Claude" style={{ width }} className="relative flex shrink-0 flex-col border-r border-line-soft bg-chrome">
       <div className="flex h-11 shrink-0 items-center gap-2 border-b border-line-soft pr-2 pl-4">
-        <span aria-hidden="true" className={`size-2 shrink-0 rounded-full bg-[#d97757] ${chat?.running ? 'claude-dot' : ''}`} />
+        <span aria-hidden="true" className={`size-2 shrink-0 rounded-full bg-[#d97757] ${useClaudeStatus() === 'working' ? 'claude-dot' : ''}`} />
         <span className="font-medium">Claude</span>
         {project && <span className="truncate text-xs text-faint">· {project.name}</span>}
         <span className="flex-1" />
         {ready && (
-          <button onClick={terminal} title={t('Copy the command that resumes this conversation in a terminal', 'Copier la commande qui reprend cette conversation dans un terminal')} className="flex h-7 items-center gap-1.5 rounded-md px-2 text-xs text-muted hover:bg-active hover:text-fg">
-            <Icon name="terminal" size={12} />
-            {copied ? t('Copied ✓', 'Copié ✓') : 'Terminal'}
+          <button onClick={() => void s.startPointing()} title={t('Click a spot on a device: Claude gets the capture and the element', 'Clique un endroit d’un appareil : Claude reçoit la capture et l’élément')} className={`flex h-7 items-center gap-1.5 rounded-md border px-2 text-xs ${s.pointing ? 'border-[#d97757] text-[#d97757]' : 'border-transparent text-muted hover:bg-active hover:text-fg'}`}>
+            <Icon name="target" size={12} />
+            {t('Show', 'Montrer')}
           </button>
         )}
-        {project && !!chat?.items.length && (
-          <button onClick={() => api().chat.clear(project.id)} disabled={chat.running} aria-label={t('New conversation', 'Nouvelle conversation')} title={t('New conversation', 'Nouvelle conversation')} className="flex size-7 items-center justify-center rounded-md text-faint hover:bg-active hover:text-fg disabled:opacity-40">
-            <Icon name="plus" size={12} />
+        {ready && (
+          <button onClick={() => setRestartKey((k) => k + 1)} aria-label={t('Restart Claude Code', 'Relancer Claude Code')} title={t('Restart Claude Code', 'Relancer Claude Code')} className="flex size-7 items-center justify-center rounded-md text-faint hover:bg-active hover:text-fg">
+            <Icon name="reload" size={12} />
           </button>
         )}
-        <button onClick={close} aria-label={t('Fold Claude', 'Replier Claude')} title={t('Fold (Ctrl J)', 'Replier (Ctrl J)')} className="flex size-7 items-center justify-center rounded-md text-faint hover:bg-active hover:text-fg">
+        <button onClick={close} aria-label={t('Fold Claude', 'Replier Claude')} title={t('Fold (Ctrl J outside the terminal)', 'Replier (Ctrl J hors du terminal)')} className="flex size-7 items-center justify-center rounded-md text-faint hover:bg-active hover:text-fg">
           <svg width="12" height="12" viewBox="0 0 24 24" aria-hidden="true">
             <path d={FOLD} stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </button>
       </div>
-      {/* What Claude (here or in a terminal) and the build are up to: in the column rather than a line across the window. */}
+      {/* What Claude (here or in another terminal) and the build are up to. */}
       <ClaudeBanner inPanel />
-
-      <div ref={list} aria-live="polite" className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4">
-        {body}
-        {chat?.running && (
-          <div className="flex items-center gap-2 text-xs text-faint">
-            <span aria-hidden="true" className="claude-dot size-1.5 rounded-full bg-[#d97757]" />
-            {t('Claude is working…', 'Claude travaille…')}
-            <button onClick={() => project && api().chat.stop(project.id)} className="ml-auto rounded-md border border-line px-2 py-0.5 text-[11px] text-muted hover:border-line-strong hover:text-fg">
-              {t('Stop', 'Arrêter')}
-            </button>
-          </div>
-        )}
-      </div>
-
-      {project && chat?.pending && (
-        <div role="alertdialog" aria-label={t('Claude asks', 'Claude demande')} className="m-3 mt-0 flex shrink-0 flex-col gap-2 rounded-[10px] border border-[rgba(217,119,87,0.4)] bg-[rgba(217,119,87,0.07)] p-3">
-          <span className="text-xs font-medium text-fg">
-            {t('Claude wants to run', 'Claude veut lancer')} <span className="font-mono text-[#d97757]">{chat.pending.name}</span>
-          </span>
-          <pre className="m-0 max-h-32 overflow-auto rounded-md border border-line bg-bg p-2 font-mono text-[11px] leading-relaxed break-all whitespace-pre-wrap text-muted">{chat.pending.input}</pre>
-          <div className="flex flex-wrap gap-1.5">
-            <button autoFocus onClick={() => api().chat.approve(project.id, chat.pending!.id, true)} className="h-7 rounded-ui bg-fg px-3 text-xs font-semibold text-bg">
-              {t('Allow', 'Autoriser')}
-            </button>
-            <button onClick={() => api().chat.approve(project.id, chat.pending!.id, false)} className="h-7 rounded-ui border border-[#2a2a2f] bg-active px-3 text-xs font-medium text-fg hover:border-line-strong">
-              {t('Refuse', 'Refuser')}
-            </button>
-            <button onClick={() => api().chat.approve(project.id, chat.pending!.id, true, true)} className="h-7 px-1.5 text-xs text-muted hover:text-fg">
-              {t('Allow everything in this conversation', 'Tout autoriser dans cette conversation')}
-            </button>
-          </div>
-        </div>
-      )}
-      {ready && (
-        <div className="m-3 mt-0 flex shrink-0 flex-col rounded-[10px] border border-line-strong bg-bg focus-within:border-[#4a4a52]">
-          {draft.attachments.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 px-2.5 pt-2.5">
-              {draft.attachments.map((a, i) => (
-                <span key={i} className="flex h-6 items-center gap-1.5 rounded-md border border-line bg-active pr-1 pl-1.5 text-[11px] text-muted">
-                  {a.kind === 'image' ? <img src={a.dataUrl} alt="" className="h-4 w-3 rounded-sm object-cover object-top" /> : <Icon name="page" size={11} />}
-                  <span className="max-w-40 truncate">{a.label}</span>
-                  <button onClick={() => setDraft({ ...draft, attachments: draft.attachments.filter((_, j) => j !== i) })} aria-label={t(`Remove ${a.label}`, `Retirer ${a.label}`)} className="flex size-4 items-center justify-center rounded text-ghost hover:text-fg">
-                    <Icon name="close" size={9} />
-                  </button>
-                </span>
-              ))}
-            </div>
-          )}
-          <textarea
-            ref={input}
-            value={draft.text}
-            onChange={(e) => setDraft({ ...draft, text: e.target.value })}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
-                e.preventDefault();
-                void send();
-              }
-            }}
-            rows={3}
-            placeholder={t('Ask Claude for a change…', 'Demande une modification à Claude…')}
-            aria-label={t('Message to Claude', 'Message à Claude')}
-            className="min-h-[60px] resize-none bg-transparent px-3 py-2.5 text-[12.5px] leading-normal text-fg outline-none placeholder:text-ghost"
-          />
-          <div className="flex items-center gap-1.5 border-t border-line-soft px-2 py-1.5">
-            <button
-              onClick={() => void s.startPointing()}
-              title={t('Click a spot on a device to show it to Claude', 'Clique un endroit d’un appareil pour le montrer à Claude')}
-              className={`flex h-6 items-center gap-1.5 rounded-md border px-2 text-[11px] ${s.pointing ? 'border-[#d97757] text-[#d97757]' : 'border-line text-muted hover:border-line-strong hover:text-fg'}`}
-            >
-              <Icon name="target" size={11} />
-              {t('Show', 'Montrer')}
-            </button>
-            <span className="ml-1 text-[10.5px] text-ghost">
-              <Kbd>Ctrl J</Kbd>
-            </span>
-            <span className="flex-1" />
-            <button onClick={() => void send()} disabled={!draft.text.trim() || !!chat?.running} aria-label={t('Send', 'Envoyer')} className="flex size-7 items-center justify-center rounded-[7px] bg-fg text-bg disabled:bg-raised disabled:text-ghost">
-              <Icon name="up" size={13} />
-            </button>
-          </div>
-        </div>
-      )}
-      {error && <p className="m-3 mt-0 text-xs text-err">{error}</p>}
+      {body}
+      <div role="separator" aria-orientation="vertical" aria-label={t('Resize Claude', 'Redimensionner Claude')} onPointerDown={drag} className="absolute top-0 -right-[3px] z-10 h-full w-[6px] cursor-col-resize hover:bg-line-strong/60" />
     </aside>
   );
 }

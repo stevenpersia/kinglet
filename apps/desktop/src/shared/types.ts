@@ -99,7 +99,7 @@ export interface Settings {
   onboarded: boolean;
   /** Claude panel in the left bar. */
   claudePanel: boolean;
-  /** Let Claude run shell commands from the panel without asking (otherwise: edits only). */
+  /** No longer used: Claude asks in its own terminal (kept so older settings still read). */
   claudeAllowCommands: boolean;
 }
 
@@ -328,7 +328,7 @@ export type PreviewEvent =
   | { type: 'perf'; perf: DevicePerf }
   | { type: 'favicon'; url: string; pageUrl: string }
   | { type: 'github'; state: GitHubState }
-  | { type: 'chat'; state: ChatState }
+  | { type: 'term'; projectId: string; data?: string; exit?: number | null }
   | { type: 'inspect'; state: InspectState };
 
 /** The pull request opened from a branch, and the state of its CI. */
@@ -364,32 +364,6 @@ export interface ClaudeCli {
 
 /** Something joined to a message: a capture (with its pin), or text (an error, a check…). */
 export type ChatAttachment = { kind: 'image'; label: string; dataUrl: string } | { kind: 'context'; label: string; text: string };
-
-export type ChatItem =
-  | { id: string; kind: 'user'; text: string; attachments: { kind: ChatAttachment['kind']; label: string; thumb?: string }[] }
-  | { id: string; kind: 'text'; text: string }
-  | { id: string; kind: 'tool'; name: string; detail: string; status: 'running' | 'ok' | 'error' }
-  | { id: string; kind: 'notice'; level: 'info' | 'warning' | 'error'; text: string };
-
-/** The conversation with Claude for one project (one Claude Code session). */
-export interface ChatState {
-  projectId: string;
-  sessionId: string | null;
-  running: boolean;
-  items: ChatItem[];
-  /** Claude waits for the user's go-ahead to run a tool. */
-  pending: ChatApproval | null;
-  /** Every tool allowed for the rest of this conversation. */
-  allowAll: boolean;
-}
-
-export interface ChatApproval {
-  id: string;
-  name: string;
-  detail: string;
-  /** The full input, readable (command, file, …). */
-  input: string;
-}
 
 /** A review comment pinned on a device: for a client's feedback, or your own to-do list. */
 export interface FeedbackPin {
@@ -538,14 +512,20 @@ export interface KingletApi {
   };
   chat: {
     cli(): Promise<ClaudeCli>;
-    state(projectId: string): Promise<ChatState>;
-    send(projectId: string, text: string, attachments: ChatAttachment[]): Promise<void>;
-    stop(projectId: string): void;
-    clear(projectId: string): void;
-    /** Answer Claude's request to run a tool; `all`: allow everything for this conversation. */
-    approve(projectId: string, id: string, allow: boolean, all?: boolean): void;
     /** Run `claude mcp add` (user scope) so Claude in a terminal sees Kinglet too. */
     installMcp(): Promise<{ ok: boolean; output: string }>;
+  };
+  /** The project's terminal running `claude` (one per project, kept while Kinglet runs). */
+  term: {
+    /** Starts it if needed; returns its output so far, to replay. */
+    start(projectId: string, cols: number, rows: number): Promise<{ buffer: string; running: boolean }>;
+    restart(projectId: string, cols: number, rows: number): Promise<{ buffer: string; running: boolean }>;
+    input(projectId: string, data: string): void;
+    resize(projectId: string, cols: number, rows: number): void;
+    /** Puts text and captures in Claude's input, without sending. */
+    paste(projectId: string, text: string, attachments: ChatAttachment[]): Promise<void>;
+    /** The focus entered or left the terminal (app shortcuts step aside there). */
+    focus(on: boolean): void;
   };
   onEvent(cb: (e: PreviewEvent) => void): () => void;
 }

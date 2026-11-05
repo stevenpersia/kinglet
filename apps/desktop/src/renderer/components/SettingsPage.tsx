@@ -180,7 +180,7 @@ export function SettingsPage() {
   const current = nav.flatMap((g) => g.items).find((i) => i.id === settingsTab)!;
   const sub: Partial<Record<SettingsTab, string>> = {
     general: t('Applies to every project.', 'Vaut pour tous les projets.'),
-    claude: t('A Claude panel next to your devices, which Kinglet runs for you. To use your own claude in a terminal instead, see “Claude in terminal”.', 'Un panneau Claude à côté de tes appareils, que Kinglet lance pour toi. Pour utiliser ton propre claude dans un terminal, vois « Claude dans le terminal ».'),
+    claude: t('Your claude in a terminal next to your devices, in the project folder. To use it from another terminal or your editor instead, see “Claude in terminal”.', 'Ton claude dans un terminal à côté de tes appareils, dans le dossier du projet. Pour l’utiliser depuis un autre terminal ou ton éditeur, vois « Claude dans le terminal ».'),
     mcp: t('Your own claude, in a terminal or editor, drives Kinglet through its MCP server: screenshots, checks, previews.', 'Ton propre claude, dans un terminal ou un éditeur, pilote Kinglet grâce à son serveur MCP : captures, checks, aperçus.'),
     devices: t('Only checked devices appear in the project’s device bar, in this order. Drag a row to move it.', 'Seuls les appareils cochés apparaissent dans la barre des appareils du projet, dans cet ordre. Glisse une ligne pour la déplacer.'),
   };

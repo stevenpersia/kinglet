@@ -1,5 +1,5 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, Notification, shell } from 'electron';
 import { resolveLanguage, setLanguage, t, buildShareFix, checkShare, crawl, probeImage, readPageMeta, readSharePreviews, readSiteFiles, runChecks, score, vercelBypassHeaders, type CrawledPage, type SiteFiles } from '@kinglet/core';
 import { startStdio } from '@kinglet/mcp';
@@ -16,7 +16,8 @@ import { ClaudeHooks } from './claude-hooks';
 import { lanAddresses, LanProxy } from './lan';
 import { Updater } from './updater';
 import { detectLocalServer, detectLocalServers } from './detect';
-import { ClaudeChat, findClaude } from './claude-chat';
+import { claudeCli, findClaude } from './claude-cli';
+import { Terminals } from './terminal';
 import { GitHubService } from './github';
 import { execFile } from 'node:child_process';
 import { DeviceManager, shortcutFor } from './devices';
@@ -384,7 +385,6 @@ async function createWindow() {
     logs: () => ({ url: devices.currentUrl, throttle: devices.throttling, logs: devices.allLogs() }),
     onClaudeEvent: (payload) => onClaudeEvent(payload as HookPayload),
     onListen: (port, token) => claudeHooks.publish(port, token),
-    approve: (req) => chat.approve(req.chat, req.tool, req.input),
     onActivity: (a) => {
       activity.unshift(a);
       activity.length = Math.min(activity.length, 100);
@@ -393,46 +393,29 @@ async function createWindow() {
   });
   app.on('will-quit', () => control.close());
 
-  // Claude inside Kinglet: Claude Code in the project folder, with this app's MCP server.
-  const chat = new ClaudeChat(
-    (state) => {
-      emit({ type: 'chat', state });
-      // Keep the session on the project, to resume it here or in a terminal.
-      const p = settings.value.projects.find((x) => x.id === state.projectId);
-      if (p && state.sessionId && p.claudeSession !== state.sessionId) {
-        settings.update(patchProject(settings.value, p.id, { claudeSession: state.sessionId }));
-        emit({ type: 'settings', settings: settings.value });
-      }
-    },
+  // Claude inside Kinglet: the user's own `claude` in a real terminal, in the project folder,
+  // with this app's MCP server attached (config file per project, so the command line stays short).
+  const terminals = new Terminals(
+    (e) => emit({ type: 'term', ...e }),
     (projectId) => {
+      const project = settings.value.projects.find((p) => p.id === projectId);
+      const bin = findClaude();
+      if (!project?.folder || !bin) return null;
       const { exe, args } = mcpLaunch();
-      return { command: exe, args: [...args, ...(process.getuid?.() === 0 ? ['--no-sandbox'] : [])], env: { KINGLET_CONFIG_DIR: app.getPath('userData'), KINGLET_CHAT_PROJECT: projectId } };
+      const mcpFile = join(app.getPath('userData'), 'claude-mcp', `${projectId.replace(/[^\w.-]+/g, '_')}.json`);
+      mkdirSync(dirname(mcpFile), { recursive: true });
+      writeFileSync(mcpFile, JSON.stringify({ mcpServers: { kinglet: { command: exe, args: [...args, ...(process.getuid?.() === 0 ? ['--no-sandbox'] : [])], env: { KINGLET_CONFIG_DIR: app.getPath('userData') } } } }, null, 2));
+      const env = Object.fromEntries(Object.entries({ ...process.env, TERM: 'xterm-256color', COLORTERM: 'truecolor', ELECTRON_RUN_AS_NODE: undefined }).filter((x): x is [string, string] => typeof x[1] === 'string'));
+      return { file: bin, args: ['--mcp-config', mcpFile], cwd: project.folder, env };
     },
   );
-  const chatContext = () => {
-    const ids = devices.entries().map((d) => `${d.preset.label} (${d.preset.width}×${d.preset.height}, id ${d.preset.id})`);
-    return [
-      'You are running inside Kinglet, a desktop app that shows the user’s site on several emulated devices side by side.',
-      `Page open now: ${devices.currentUrl ?? 'none'}. Devices shown: ${ids.join(', ') || 'none'}.`,
-      'The kinglet MCP tools see exactly what the user sees: after changing code, check the result yourself (screenshot, run_checks, get_console) before saying it is done. The dev server reloads the devices on its own.',
-      'Images joined to a message are captures of a device; a numbered clay pin marks the spot the user pointed at.',
-      `Answer in ${t('English', 'French')}, briefly.`,
-    ].join('\n');
-  };
-  ipcMain.handle('chat:cli', () => chat.cli());
-  ipcMain.handle('chat:state', (_e, projectId: string) => chat.state(projectId, settings.value.projects.find((p) => p.id === projectId)?.claudeSession ?? null));
-  ipcMain.handle('chat:send', (_e, projectId: string, text: string, attachments: import('../shared/types').ChatAttachment[]) => {
-    const project = settings.value.projects.find((p) => p.id === projectId);
-    if (!project?.folder) throw new Error(t('Choose the project folder first.', 'Choisis d’abord le dossier du projet.'));
-    chat.send({ projectId, folder: project.folder, sessionId: project.claudeSession ?? null, text, attachments, allowCommands: settings.value.claudeAllowCommands, context: chatContext() });
-  });
-  ipcMain.on('chat:stop', (_e, projectId: string) => chat.stop(projectId));
-  ipcMain.on('chat:approve', (_e, projectId: string, id: string, allow: boolean, all: boolean) => chat.answer(projectId, id, allow, all));
-  ipcMain.on('chat:clear', (_e, projectId: string) => {
-    chat.clear(projectId);
-    settings.update(patchProject(settings.value, projectId, { claudeSession: null }));
-    emit({ type: 'settings', settings: settings.value });
-  });
+  app.on('will-quit', () => terminals.killAll());
+  ipcMain.handle('chat:cli', () => claudeCli());
+  ipcMain.handle('term:start', (_e, projectId: string, cols: number, rows: number) => terminals.start(projectId, cols, rows));
+  ipcMain.handle('term:restart', (_e, projectId: string, cols: number, rows: number) => terminals.restart(projectId, cols, rows));
+  ipcMain.on('term:input', (_e, projectId: string, data: string) => terminals.input(projectId, data));
+  ipcMain.on('term:resize', (_e, projectId: string, cols: number, rows: number) => terminals.resize(projectId, cols, rows));
+  ipcMain.handle('term:paste', (_e, projectId: string, text: string, attachments: import('../shared/types').ChatAttachment[]) => terminals.paste(projectId, text, attachments));
   ipcMain.handle('chat:install-mcp', () => {
     const bin = findClaude();
     if (!bin) return { ok: false, output: t('Claude Code isn’t installed.', 'Claude Code n’est pas installé.') };
@@ -599,8 +582,10 @@ async function createWindow() {
   win.on('close', () => settings.flush());
 
   // App shortcuts also work when the focus is in the UI itself.
+  let inTerminal = false;
+  ipcMain.on('term:focus', (_e, on: boolean) => (inTerminal = on));
   win.webContents.on('before-input-event', (event, input) => {
-    const action = shortcutFor(input);
+    const action = shortcutFor(input, inTerminal);
     if (action) {
       event.preventDefault();
       emit({ type: 'shortcut', action });

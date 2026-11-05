@@ -145,9 +145,14 @@ const errorPage = (url: string, error: string) =>
 <div>${error.replace(/</g, '&lt;')}</div></div></body>`);
 
 /** Shortcuts that must work even when the focus is inside a device page. */
-export function shortcutFor(input: Pick<Input, 'type' | 'key' | 'control' | 'meta' | 'shift' | 'alt'>): ShortcutAction | null {
+/**
+ * `inTerminal`: the focus is in Claude's terminal, where Ctrl R, L, K, P, J… belong to the shell
+ * and to Claude Code; only the shortcuts that don't clash there stay with the app.
+ */
+export function shortcutFor(input: Pick<Input, 'type' | 'key' | 'control' | 'meta' | 'shift' | 'alt'>, inTerminal = false): ShortcutAction | null {
   if (input.type !== 'keyDown' || !(input.control || input.meta) || input.alt) return null;
   const key = input.key.toLowerCase();
+  if (inTerminal && !input.shift && key !== ',' && !/^[1-9]$/.test(key)) return null;
   if (key === 'r' && !input.shift) return 'reload';
   if (key === 'l' && !input.shift) return 'focus-url';
   if (key === 'k' && !input.shift) return 'palette';
