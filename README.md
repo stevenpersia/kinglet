@@ -211,7 +211,7 @@ L'autotest lance le site de démo et Kinglet, puis vérifie :
 - les mises à jour : sur l'app packagée, une 9.9.9 trouvée sur un faux flux, téléchargée et vérifiée (sans installation) ;
 - le téléphone, joué par une fenêtre Chromium cachée : refus sans appairage, page via le QR code, rechargement à chaud à travers le relais, suivi de la navigation, QR code de preview protégée.
 
-Sans écran, il utilise Xvfb et prend des captures avec ImageMagick dans `apps/desktop/selftest-output/`. Pour tester l'app packagée : `KINGLET_BIN=dist/linux-unpacked/kinglet node scripts/selftest.mjs` depuis `apps/desktop`.
+Sans écran, il utilise Xvfb et prend des captures avec ImageMagick dans `apps/desktop/selftest-output/`. Pour tester l'app packagée : `KINGLET_BIN=dist/linux-unpacked/kinglet node scripts/selftest.mjs` depuis `apps/desktop`. `KINGLET_SELFTEST_SHOTS=0` le lance sans captures (environ 30 s de moins).
 
 ## Structure
 

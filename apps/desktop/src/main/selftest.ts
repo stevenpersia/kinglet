@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { createInterface } from 'node:readline';
 import { app, BrowserWindow, safeStorage } from 'electron';
 import { checkShare, probeImage, readPageMeta } from '@kinglet/core';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
@@ -43,9 +44,18 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     waylandDisplay: process.env.WAYLAND_DISPLAY ?? null,
   };
   const criteria: { id: string; ok: boolean | null; detail: string }[] = [];
+  // Captures: scripts/selftest.mjs grabs the display and answers SHOT-DONE:<name> on stdin.
+  // KINGLET_SELFTEST_SHOTS=0 skips them, and the waits that only let the screen settle for them.
+  const shots = process.env.KINGLET_SELFTEST_SHOTS !== '0';
+  const acks = new Map<string, () => void>();
+  if (shots) createInterface({ input: process.stdin }).on('line', (l) => l.startsWith('SHOT-DONE:') && acks.get(l.slice(10).trim())?.());
+  const settle = (ms: number) => (shots ? sleep(ms) : Promise.resolve());
   const shot = async (name: string) => {
+    if (!shots) return;
+    const done = new Promise<void>((r) => acks.set(name, r));
     process.stdout.write(`SHOT:${name}\n`);
-    await sleep(1200);
+    await Promise.race([done, sleep(5000)]);
+    acks.delete(name);
   };
   const evalAll = () => Promise.all(devices.entries().map(async (d) => ({ id: d.preset.id, preset: d.preset, ...(await d.view.webContents.executeJavaScript(DIAG)) })));
 
@@ -60,13 +70,13 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     const onboardingShown = await waitFor(() => ui0<boolean>(`!!document.querySelector('[role=dialog][aria-modal=true] [role=tablist]')`), 5000);
     await shot('00-accueil-guide');
     await ui0(`[...document.querySelectorAll('[role=dialog] [role=tab]')].find((b) => b.textContent.includes('Claude'))?.click()`);
-    await sleep(500);
+    await settle(500);
     await shot('00b-accueil-claude');
     const fakeFound = await ui0<boolean>(`document.querySelector('[role=dialog]')?.textContent.includes('9.9.9') ?? false`);
     await ui0(`window.kinglet.updateSettings({ onboarded: true })`);
     const onboardingGone = await waitFor(async () => !(await ui0<boolean>(`!!document.querySelector('[role=dialog][aria-modal=true]')`)) && devices.entries().every((d) => d.view.getVisible()), 5000);
     criteria.push({ id: 'onboarding', ok: onboardingShown && onboardingGone && fakeFound, detail: `affiché ${onboardingShown} · Claude Code trouvé ${fakeFound} · passé ${onboardingGone}` });
-    await sleep(1500); // inspector fetch + fonts
+    await settle(1500); // inspector fetch + fonts, for the capture
     criteria.push({ id: 'devices-loaded', ok: loaded, detail: `${devices.entries().length} vues chargées sur ${devices.currentUrl}` });
     await shot('01-apercu');
 
@@ -145,7 +155,7 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
 
     // Window resize keeps devices aligned
     win.setSize(1180, 820);
-    await sleep(1000);
+    await settle(1000);
     await shot('04-fenetre-redimensionnee');
     win.setSize(1440, 900);
     await sleep(600);
@@ -156,7 +166,7 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     // 7. Landscape, driven through the UI like the shortcut would
     ui({ type: 'shortcut', action: 'toggle-landscape' });
     const rotated = await waitFor(async () => (await evalAll()).every((d) => d.preset.kind === 'desktop' || d.innerWidth === d.preset.height), 5000);
-    await sleep(800);
+    await settle(800);
     await shot('05-paysage');
     criteria.push({ id: 'landscape', ok: rotated, detail: (await evalAll()).map((d) => `${d.id} ${d.innerWidth}×${d.innerHeight}`).join(', ') });
     await sleep(500); // settings are written 300 ms after a change
@@ -174,7 +184,7 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     // 8. Command palette over the stage: native views must be frozen (hidden, replaced by images)
     ui({ type: 'shortcut', action: 'palette' });
     const hidden = await waitFor(() => devices.entries().every((d) => !d.view.getVisible()), 3000);
-    await sleep(600);
+    await settle(600);
     await shot('06-palette');
     ui({ type: 'shortcut', action: 'palette' });
     const shown = await waitFor(() => devices.entries().every((d) => d.view.getVisible()), 3000);
@@ -184,7 +194,7 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     if (first && others.length) {
       await first.view.webContents.executeJavaScript(`(document.getElementById('link-atelier-mobile') || document.getElementById('link-atelier')).click()`);
       const followed = await waitFor(() => devices.entries().every((d) => d.view.webContents.getURL().endsWith('/atelier.html')), 6000);
-      await sleep(1200);
+      await settle(1200);
       await shot('07-navigation-synchro');
       criteria.push({ id: 'navigation-sync', ok: followed, detail: devices.entries().map((d) => `${d.preset.id} → ${new URL(d.view.webContents.getURL()).pathname}`).join(', ') });
     }
@@ -219,11 +229,11 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     // Back to the home page, then the Checks section
     ui({ type: 'shortcut', action: 'focus-url' });
     await devices.navigate('http://localhost:5173/');
-    await sleep(2500);
+    await settle(2500);
     await shot('09-appareils');
     // Checks opens as a panel next to the devices, from the left bar.
     await win.webContents.executeJavaScript(`[...document.querySelectorAll('nav button')].find((b) => (b.getAttribute('aria-label') || b.textContent).includes('Checks'))?.click()`);
-    await sleep(1200);
+    await settle(1200);
     await shot('10-panneau-checks');
     await win.webContents.executeJavaScript(`[...document.querySelectorAll('nav button')].find((b) => (b.getAttribute('aria-label') || b.textContent).includes('Checks'))?.click()`);
 
@@ -277,8 +287,8 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     await sleep(600);
     await win.webContents.executeJavaScript(`[...document.querySelectorAll('nav button')].find((b) => (b.getAttribute('aria-label') || b.textContent).includes('Settings'))?.click()`);
     await sleep(300);
-    await win.webContents.executeJavaScript(`[...document.querySelectorAll('[aria-label="Settings pages"] button')].find((b) => b.textContent.includes('MCP server'))?.click()`);
-    await sleep(800);
+    await win.webContents.executeJavaScript(`[...document.querySelectorAll('[aria-label="Settings pages"] button')].find((b) => b.textContent.includes('Claude in terminal'))?.click()`);
+    await settle(800);
     await shot('12-reglages-mcp');
     await win.webContents.executeJavaScript(`[...document.querySelectorAll('nav button')].find((b) => (b.getAttribute('aria-label') || b.textContent).includes('Devices'))?.click()`);
     await sleep(600);
@@ -322,7 +332,7 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     await sleep(1500);
     await clickText('[aria-label=Environment] button', 'Prod');
     const onProd = await waitFor(() => devices.entries().every((d) => d.view.webContents.getURL() === 'http://127.0.0.1:5175/atelier.html'), 6000);
-    await sleep(800);
+    await settle(800);
     await shot('13-env-prod');
     await clickText('[aria-label=Environment] button', 'Preview');
     const onPreview = await waitFor(() => devices.entries().every((d) => d.view.webContents.getURL() === 'http://127.0.0.1:5176/atelier.html'), 6000);
@@ -366,7 +376,7 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     await shot('14-deploiements');
     criteria.push({ id: 'github-pr', ok: prShown && /#12\s*open/.test(prText) && prText.includes('2/3'), detail: prText || 'aucune PR affichée' });
     await clickText('nav button', 'Compare');
-    await sleep(2500);
+    await settle(2500);
     await shot('15-comparer');
     // Visual comparison: each environment rendered off screen like a device, differences in red.
     await clickText('[role=tab]', 'Visual');
@@ -379,7 +389,7 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     await clickText('[aria-label="Settings pages"] button', 'Vercel');
     await sleep(800);
     await js(`document.querySelector('main')?.scrollTo(0, 99999)`);
-    await sleep(400);
+    await settle(400);
     await shot('16-reglages-vercel');
     await clickText('nav button', 'Devices');
     await sleep(600);
@@ -440,7 +450,7 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     await devices.navigate('http://localhost:5173/');
     await sleep(1200);
     await clickText('header button', 'On my phone');
-    await sleep(1500);
+    await settle(1500);
     await shot('17-telephone');
     await js(`window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))`);
     const closed = await waitFor(async () => !(await js<boolean>(`!!document.querySelector('[aria-label="On my phone"][role=dialog]')`)) && devices.entries().every((d) => d.view.getVisible()), 3000);
@@ -485,7 +495,7 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     }
     await clickText('nav button', 'Settings');
     await clickText('[aria-label="Settings pages"] button', 'Updates');
-    await sleep(800);
+    await settle(800);
     await shot('19-mises-a-jour');
     await clickText('nav button', 'Devices');
     await sleep(500);
@@ -523,7 +533,7 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     fire({ hook_event_name: 'UserPromptSubmit', session_id: 'selftest', cwd: join(folder, 'src'), prompt: 'Corrige le débordement sur iPhone' });
     fire({ hook_event_name: 'PostToolUse', session_id: 'selftest', cwd: folder, tool_name: 'Edit', tool_input: { file_path: join(folder, 'src/Hero.tsx') } });
     const working = await waitFor(() => js<boolean>(`!!document.querySelector('[aria-label="Open projects"] [aria-selected=true] .claude-dot')`), 3000);
-    await sleep(1200);
+    await settle(1200);
     await shot('21-claude-travaille');
     const thumb = await js<string | null>(`window.kinglet.thumbnail()`);
     if (thumb) writeFileSync(join(outDir, 'thumbnail.jpg'), Buffer.from(thumb.split(',')[1]!, 'base64'));
@@ -537,7 +547,7 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
       detail: `hooks dans ${hooks.file.replace(outDir, '<selftest>')} · onglet ${working ? 'en cours (pastille)' : 'sans pastille'} · fin ${done ? 'reçue' : 'absente'} · fichiers ${cs?.files.join(', ')}`,
     });
     ui({ type: 'shortcut', action: 'overview' });
-    await sleep(900);
+    await settle(900);
     await shot('22-tous-les-projets');
     const uninstalled = await js<{ installed: boolean }>(`window.kinglet.claude.uninstall()`);
     criteria.push({ id: 'claude-hooks-uninstall', ok: !uninstalled.installed && JSON.stringify(JSON.parse(readFileSync(hooks.file, 'utf8'))) === '{}', detail: 'hooks retirés, réglages de Claude Code laissés vides comme avant' });
@@ -567,7 +577,7 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
       if (!(await js<boolean>(`!!document.querySelector('[aria-label="Console panel"]')`))) await clickText('main button[aria-pressed]', 'Console');
       return js<boolean>(`[...document.querySelectorAll('[aria-label=Console] li')].some((li) => li.textContent.includes('kinglet-missing.png'))`);
     }, 3000);
-    await sleep(500);
+    await settle(500);
     await shot('23-console');
     const firstId = devices.entries()[0]!.preset.id;
     criteria.push({
@@ -592,7 +602,7 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     await js(`window.kinglet.updateSettings({ throttle: { network: '3g', cpu: 4 } })`);
     await sleep(600);
     const slow = await probe();
-    await sleep(300);
+    await settle(300);
     await shot('24-3g-lente');
     await js(`window.kinglet.updateSettings({ throttle: { network: 'off', cpu: 1 } })`);
     await sleep(600);
@@ -608,7 +618,7 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     await js(`window.kinglet.updateSettings({ media: { colorScheme: 'dark', reducedMotion: true, moreContrast: true } })`);
     const mq = `[matchMedia('(prefers-color-scheme: dark)').matches, matchMedia('(prefers-reduced-motion: reduce)').matches, matchMedia('(prefers-contrast: more)').matches]`;
     const mediaOn = await waitFor(async () => (await Promise.all(devices.entries().map((d) => d.view.webContents.executeJavaScript(mq) as Promise<boolean[]>))).every((r) => r.every(Boolean)), 3000);
-    await sleep(300);
+    await settle(300);
     await shot('31-mode-sombre');
     await js(`window.kinglet.updateSettings({ media: { colorScheme: 'light', reducedMotion: false, moreContrast: false } })`);
     const mediaOff = await waitFor(async () => (await Promise.all(devices.entries().map((d) => d.view.webContents.executeJavaScript(mq) as Promise<boolean[]>))).every((r) => r.every((x) => !x)), 3000);
@@ -624,7 +634,7 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     await sleep(400);
     await clickText('[role=menu] button', 'Simulated API responses');
     await waitFor(() => js<boolean>(`!!document.querySelector('[role=dialog][aria-label="Simulated API responses"]')`), 3000);
-    await sleep(400);
+    await settle(400);
     await shot('33-reponses-simulees');
     await js(`document.querySelector('[role=dialog][aria-label="Simulated API responses"] button[aria-label=Close]')?.click()`);
     await js(`window.kinglet.updateSettings({ mocks: [], offline: true })`);
@@ -690,7 +700,7 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     await sleep(1000); // the devices settle at their new size next to the panel
     await clickText('aside[aria-label=Claude] button', 'Show');
     await waitFor(() => js<boolean>(`!!document.querySelector('.cursor-crosshair')`), 4000);
-    await sleep(400);
+    await settle(400);
     await shot('28-claude-montrer');
     await js(`(() => {
       const el = document.querySelector('.cursor-crosshair');
@@ -709,7 +719,7 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     await js(`document.querySelector('textarea[aria-label="Message to Claude"]').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))`);
     let reply = '';
     const replied = await waitFor(async () => (reply = await js<string>(`[...document.querySelectorAll('aside[aria-label=Claude] p')].map((p) => p.textContent).find((x) => x.includes('FAKE-CLAUDE')) ?? ''`)) !== '', 8000);
-    await sleep(500);
+    await settle(500);
     await shot('29-claude-reponse');
     criteria.push({
       id: 'claude-panel',
@@ -747,10 +757,10 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     const customOn = await waitFor(() => devices.entries().some((d) => d.preset.id === 'custom-selftest' && d.preset.width === 673), 3000);
     await clickText('nav button', 'Settings');
     await clickText('[aria-label="Settings pages"] button', 'Devices');
-    await sleep(600);
+    await settle(600);
     await shot('26-reglages-appareils');
     await clickText('[aria-label="Settings pages"] button', 'General');
-    await sleep(400);
+    await settle(400);
     await shot('27-reglages-general');
     await js(`window.kinglet.updateSettings({ customDevices: [], active: ['iphone-16', 'ipad-air'] })`);
     const customOff = await waitFor(() => !devices.entries().some((d) => d.preset.id === 'custom-selftest'), 3000);
@@ -761,7 +771,7 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     await js(`window.kinglet.updateSettings({ language: 'fr' })`);
     const fr = await waitFor(() => js<boolean>(`document.documentElement.lang === 'fr' && !!document.querySelector('nav button[aria-label="Réglages"]')`), 3000);
     await clickText('nav button', 'Réglages');
-    await sleep(600);
+    await settle(600);
     await shot('25-francais');
     await js(`window.kinglet.updateSettings({ language: 'en' })`);
     const en = await waitFor(() => js<boolean>(`document.documentElement.lang === 'en' && !!document.querySelector('nav button[aria-label="Settings"]')`), 3000);
@@ -772,7 +782,7 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     // 10. Partage section
     ui({ type: 'shortcut', action: 'focus-url' });
     await win.webContents.executeJavaScript(`[...document.querySelectorAll('nav button')].find((b) => (b.getAttribute('aria-label') || b.textContent).includes('Share'))?.click()`);
-    await sleep(1200);
+    await settle(1200);
     await shot('08-section-partage');
   } catch (e) {
     report['error'] = (e as Error).stack;
