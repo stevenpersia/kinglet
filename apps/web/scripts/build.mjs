@@ -4,7 +4,7 @@ import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-export const REPO = 'https://github.com/stevenpersia/parakeet';
+export const REPO = 'https://github.com/stevenpersia/kinglet';
 
 export function siteUrl(argv = process.argv, env = process.env) {
   const i = argv.indexOf('--site');

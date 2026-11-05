@@ -41,7 +41,7 @@ export class Updater {
     autoUpdater.logger = null;
     // Tests point the updater at a local server; a private repository needs a token.
     if (process.env.KINGLET_UPDATE_URL) autoUpdater.setFeedURL({ provider: 'generic', url: process.env.KINGLET_UPDATE_URL });
-    else if (process.env.KINGLET_GH_TOKEN) autoUpdater.setFeedURL({ provider: 'github', owner: 'stevenpersia', repo: 'parakeet', private: true, token: process.env.KINGLET_GH_TOKEN });
+    else if (process.env.KINGLET_GH_TOKEN) autoUpdater.setFeedURL({ provider: 'github', owner: 'stevenpersia', repo: 'kinglet', private: true, token: process.env.KINGLET_GH_TOKEN });
 
     autoUpdater.on('checking-for-update', () => this.set({ status: 'checking', error: null }));
     autoUpdater.on('update-not-available', () => this.set({ status: 'none', checkedAt: Date.now() }));

@@ -110,7 +110,7 @@ claude mcp add --scope user kinglet -- /usr/bin/kinglet --mcp --ozone-platform=h
 En développement, depuis le dépôt, Node suffit :
 
 ```bash
-claude mcp add --scope user kinglet -- node /chemin/vers/parakeet/packages/mcp/src/cli.ts
+claude mcp add --scope user kinglet -- node /chemin/vers/kinglet/packages/mcp/src/cli.ts
 ```
 
 Outils exposés : `status`, `open_url`, `set_devices`, `screenshot`, `get_page_meta`, `get_share_preview`, `run_checks`, `list_pages`, `list_deployments`, `get_console`. Trois commandes sont aussi disponibles dans Claude Code :
@@ -123,7 +123,7 @@ Le serveur MCP marche app fermée, sur une URL donnée. Avec l'app ouverte, il u
 
 ## Installer l'app (Arch / CachyOS)
 
-Télécharge le paquet pacman (ou l'AppImage) de la [dernière release](https://github.com/stevenpersia/parakeet/releases/latest), puis :
+Télécharge le paquet pacman (ou l'AppImage) de la [dernière release](https://github.com/stevenpersia/kinglet/releases/latest), puis :
 
 ```bash
 sudo pacman -U Kinglet-*.pacman

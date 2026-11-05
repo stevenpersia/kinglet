@@ -39,7 +39,7 @@
     "zustand": "^5.0.16"
   },
   "author": "Steven Persia",
-  "homepage": "https://github.com/stevenpersia/parakeet",
+  "homepage": "https://github.com/stevenpersia/kinglet",
   "desktopName": "kinglet.desktop",
   "dependencies": {
     "electron-updater": "^6.8.11"
