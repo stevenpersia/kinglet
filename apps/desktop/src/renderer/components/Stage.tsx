@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { locale, t } from '@parakeet/core';
 import type { DevicePreset, Throttle } from '../../shared/types';
 import { BEZEL, fitScale, viewportOf } from '../lib/layout';
-import { activePresets, api, devicePresets, useStore } from '../store';
+import { activePresets, api, listedPresets, useStore } from '../store';
 import { setActiveIds } from '../../shared/devices';
 import { ConsoleTab } from './Console';
 import { OldProdBanner } from './EnvSwitch';
@@ -21,8 +21,10 @@ const groups = (): { kind: DevicePreset['kind']; label: string }[] => [
 function DeviceToolbar({ scale }: { scale: number }) {
   const state = useStore();
   const { settings, updateSettings } = state;
-  const presets = devicePresets(state);
+  // Only the devices ticked in the settings for this project.
+  const presets = listedPresets(state);
   const active = activePresets(state).map((p) => p.id);
+  const errors = state.logs.filter((l) => l.level === 'error').length;
   const toggle = (id: string) => {
     const on = active.includes(id);
     if (on && active.length === 1) return;
@@ -59,6 +61,11 @@ function DeviceToolbar({ scale }: { scale: number }) {
         >
           <Icon name="target" size={13} />
           {t('Inspect', 'Inspecter')}
+        </button>
+        <button aria-pressed={state.consoleOpen} onClick={() => state.toggleConsole()} title={t('Console and network errors of the devices', 'Erreurs console et réseau des appareils')} className={chip(state.consoleOpen)}>
+          <Icon name="terminal" size={13} />
+          Console
+          {errors > 0 && <span className="font-mono text-[10.5px] text-err">{errors}</span>}
         </button>
         <MediaMenu />
         <ThrottleMenu />
@@ -384,7 +391,8 @@ function Devices() {
   });
 
   return (
-    <main className="stage-bg relative flex min-w-0 flex-1 flex-col">
+    <>
+      <main className="stage-bg relative flex min-w-0 flex-1 flex-col">
       <OldProdBanner />
       {state.pointing && <PointingBar />}
       <DeviceToolbar scale={scale} />
@@ -450,22 +458,30 @@ function Devices() {
         })}
       </div>
       {state.inspecting && <InspectBar />}
-      {state.consoleOpen && <ConsoleDrawer />}
-    </main>
+      </main>
+      {state.consoleOpen && <ConsoleDock />}
+    </>
   );
 }
 
-/** Live console of the devices, under them (opened from the left bar). */
-function ConsoleDrawer() {
+/** Live console of the devices, docked on their right (opened from the device bar). */
+function ConsoleDock() {
   const toggleConsole = useStore((s) => s.toggleConsole);
+  const errors = useStore((s) => s.logs.filter((l) => l.level === 'error').length);
   return (
-    <section aria-label={t('Console drawer', 'Tiroir de console')} className="relative flex h-[280px] shrink-0 flex-col border-t border-line-soft bg-chrome">
-      <button onClick={() => toggleConsole(false)} aria-label={t('Close the console', 'Fermer la console')} title={t('Close', 'Fermer')} className="absolute top-2 right-2 z-10 flex size-6 items-center justify-center rounded-md text-faint hover:bg-active hover:text-fg">
-        <Icon name="close" size={11} />
-      </button>
-      <div className="min-h-0 flex-1 p-4 pr-10">
+    <aside aria-label={t('Console panel', 'Panneau de console')} className="flex w-[340px] shrink-0 flex-col border-l border-line-soft bg-chrome">
+      <div className="flex h-11 shrink-0 items-center justify-between border-b border-line-soft pr-2 pl-4">
+        <span className="label">Console</span>
+        <span className="flex items-center gap-2">
+          {errors > 0 && <span className="font-mono text-xs text-err">{t(`${errors} error${errors > 1 ? 's' : ''}`, `${errors} erreur${errors > 1 ? 's' : ''}`)}</span>}
+          <button onClick={() => toggleConsole(false)} aria-label={t('Close the console', 'Fermer la console')} title={t('Close', 'Fermer')} className="flex size-7 items-center justify-center rounded-md text-faint hover:bg-active hover:text-fg">
+            <Icon name="close" size={12} />
+          </button>
+        </span>
+      </div>
+      <div className="min-h-0 flex-1 p-4">
         <ConsoleTab />
       </div>
-    </section>
+    </aside>
   );
 }

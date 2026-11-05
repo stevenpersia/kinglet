@@ -82,7 +82,8 @@ export function DeploymentsPage() {
         </div>
       </div>
       {vercel.error && <p className="m-0 text-err">{vercel.error}</p>}
-      <div className="overflow-hidden rounded-[10px] border border-line bg-card">
+      {/* shrink-0: in the scrolling column, an overflow-hidden box would otherwise shrink to the window and clip the list. */}
+      <div className="shrink-0 overflow-hidden rounded-[10px] border border-line bg-card">
         {list.length === 0 && <p className="m-0 p-4 text-faint">{t('No deployments.', 'Aucun déploiement.')}</p>}
         {list.map((d) => {
           const states = stateInfo();

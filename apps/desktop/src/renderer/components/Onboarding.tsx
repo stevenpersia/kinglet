@@ -350,7 +350,7 @@ export function Onboarding() {
                 )}
               </div>
               <div className="overflow-hidden rounded-[10px] border border-line bg-card">
-                <Toggle label={t('Claude in Parakeet', 'Claude dans Parakeet')} hint={t('A panel next to the devices to ask and show.', 'Un panneau à côté des appareils pour demander et montrer.')} on={settings.claudePanel} onChange={(claudePanel) => void updateSettings({ claudePanel })} />
+                <Toggle label={t('Claude in Parakeet', 'Claude dans Parakeet')} hint={t('A column always at hand to ask and show.', 'Une colonne toujours à portée pour demander et montrer.')} on={settings.claudePanel} onChange={(claudePanel) => void updateSettings({ claudePanel })} />
                 <Toggle label={t('Claude in the terminal', 'Claude dans le terminal')} hint={t('Installs the MCP server for all your projects.', 'Installe le serveur MCP pour tous tes projets.')} on={wantMcp && !!cli?.found} disabled={!cli?.found} onChange={setWantMcp} />
                 <Toggle label={t('Session tracking', 'Suivi des sessions')} hint={t('The tab pulses while Claude works, a notification when it is done.', 'L’onglet pulse quand Claude travaille, une notification quand il a fini.')} on={wantHooks} onChange={setWantHooks} />
               </div>

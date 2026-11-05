@@ -264,7 +264,7 @@ async function createWindow() {
     const next = settings.update(patch);
     if (patch.language) applyLanguage();
     // New devices load the current page; existing ones keep theirs.
-    if (patch.active || patch.customDevices || patch.deviceOrder || patch.devicesPerProject !== undefined || patch.activeId !== undefined || patch.projects) applyDevices();
+    if (patch.active || patch.listed || patch.customDevices || patch.deviceOrder || patch.devicesPerProject !== undefined || patch.activeId !== undefined || patch.projects) applyDevices();
     if (patch.scrollSync !== undefined) devices.setScrollSync(patch.scrollSync);
     if (patch.landscape !== undefined) devices.setLandscape(patch.landscape);
     if (patch.throttle) devices.setThrottle(patch.throttle);

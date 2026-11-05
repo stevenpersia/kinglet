@@ -1,6 +1,6 @@
 import { t } from '@parakeet/core';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { activePresets, api, devicePresets, projectVercel, useStore, type Section } from '../store';
+import { activePresets, api, listedPresets, projectVercel, useStore, type Section } from '../store';
 import { setActiveIds } from '../../shared/devices';
 import { Icon, Kbd } from './Icons';
 
@@ -39,7 +39,7 @@ export function Palette() {
       { id: 'url', label: t('Change address', 'Changer d’adresse'), hint: 'Ctrl L', run: () => useStore.setState((s) => ({ urlFocusTick: s.urlFocusTick + 1 })) },
       { id: 'landscape', label: settings.landscape ? t('Switch to portrait', 'Passer en portrait') : t('Switch to landscape', 'Passer en paysage'), hint: t('Ctrl Shift O', 'Ctrl Maj O'), run: () => void updateSettings({ landscape: !settings.landscape }) },
       { id: 'sync', label: settings.scrollSync ? t('Turn off scroll sync', 'Désactiver la synchro') : t('Turn on scroll sync', 'Activer la synchro'), hint: t('Ctrl Shift S', 'Ctrl Maj S'), run: () => void updateSettings({ scrollSync: !settings.scrollSync }) },
-      ...devicePresets(st).map((p) => {
+      ...listedPresets(st).map((p) => {
         const active = activePresets(st).map((x) => x.id);
         const on = active.includes(p.id);
         return {
