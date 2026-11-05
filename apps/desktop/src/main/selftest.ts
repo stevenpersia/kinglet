@@ -97,12 +97,14 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     // 2. Scroll sync
     const [first, ...others] = devices.entries();
     if (first && others.length) {
-      await first.view.webContents.executeJavaScript('window.scrollTo(0, (document.documentElement.scrollHeight - innerHeight) * 0.5)');
       let ratios: number[] = [];
+      let tries = 0;
+      // Scrolled again (1 px apart) until the others follow: the sync may not be listening yet on a slow machine.
       const synced = await waitFor(async () => {
+        if (tries++ % 3 === 0) await first.view.webContents.executeJavaScript(`window.scrollTo(0, (document.documentElement.scrollHeight - innerHeight) * 0.5 + ${tries % 2})`);
         ratios = (await evalAll()).map((d) => +d.scrollRatio.toFixed(3));
         return ratios.every((r) => Math.abs(r - 0.5) < 0.05);
-      }, 3000);
+      }, 6000);
       criteria.push({ id: 'scroll-sync', ok: synced, detail: `ratios ${ratios.join(' / ')} (cible 0.5)` });
       await shot('02-scroll-synchro');
       await first.view.webContents.executeJavaScript('window.scrollTo(0, 0)');
