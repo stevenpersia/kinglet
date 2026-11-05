@@ -4,6 +4,7 @@ import type { ClaudeCli, Language, LocalServer, VercelTeamProject } from '../../
 import { patchProject } from '../../shared/projects';
 import { setActiveIds } from '../../shared/devices';
 import { api, cleanError, useStore } from '../store';
+import { GITHUB_TOKEN_URL, githubScopes, TokenHelp } from './GitHubSettings';
 import { Icon } from './Icons';
 
 const field = 'h-8 min-w-0 flex-1 rounded-ui border border-line bg-bg px-2.5 font-mono text-xs text-fg outline-none focus:border-line-strong';
@@ -42,7 +43,7 @@ function Toggle({ label, hint, on, onChange, disabled }: { label: string; hint: 
   );
 }
 
-function Account({ icon, name, hint, connected, who, tokenUrl, optional, onConnect, error }: { icon: 'tri' | 'git'; name: string; hint: string; connected: boolean; who: string | null; tokenUrl: string; optional?: boolean; onConnect: (token: string) => Promise<void>; error: string | null }) {
+function Account({ icon, name, hint, connected, who, tokenUrl, scopes, optional, onConnect, error }: { icon: 'tri' | 'git'; name: string; hint: string; connected: boolean; who: string | null; tokenUrl: string; scopes: string[]; optional?: boolean; onConnect: (token: string) => Promise<void>; error: string | null }) {
   const [token, setToken] = useState('');
   const [busy, setBusy] = useState(false);
   return (
@@ -77,14 +78,12 @@ function Account({ icon, name, hint, connected, who, tokenUrl, optional, onConne
           }}
         >
           <input value={token} onChange={(e) => setToken(e.target.value)} type="password" placeholder={t('Personal token', 'Jeton personnel')} aria-label={t(`${name} token`, `Jeton ${name}`)} className={field} />
-          <button type="button" onClick={() => api().openExternal(tokenUrl)} className={btn}>
-            {t('Create one', 'En créer un')}
-          </button>
           <button type="submit" disabled={busy || !token.trim()} className="flex h-8 shrink-0 items-center rounded-ui bg-fg px-3 text-xs font-semibold text-bg disabled:opacity-50">
             {busy ? '…' : t('Connect', 'Connecter')}
           </button>
         </form>
       )}
+      {!connected && <TokenHelp name={name} url={tokenUrl} scopes={scopes} />}
       {error && !connected && <p className="m-0 text-xs text-err">{error}</p>}
     </div>
   );
@@ -224,6 +223,10 @@ export function Onboarding() {
                 connected={!!vercel?.connected}
                 who={vercel?.user ? `${vercel.user.username}${vercel.teams.length ? t(` · ${vercel.teams.length} team${vercel.teams.length > 1 ? 's' : ''}`, ` · ${vercel.teams.length} équipe${vercel.teams.length > 1 ? 's' : ''}`) : ''}` : null}
                 tokenUrl="https://vercel.com/account/tokens"
+                scopes={[
+                  t('Scope: Full Account, or the team of your projects', 'Portée : Full Account, ou l’équipe de tes projets'),
+                  t('Expiration: as you like (reconnect when it expires)', 'Expiration : au choix (il faudra reconnecter à l’échéance)'),
+                ]}
                 error={vercelError}
                 onConnect={async (token) => {
                   try {
@@ -241,7 +244,8 @@ export function Onboarding() {
                 hint={t('Your account, for the pull requests of your previews (coming next).', 'Ton compte, pour les pull requests de tes previews (bientôt).')}
                 connected={!!github?.connected}
                 who={github?.user?.login ?? null}
-                tokenUrl="https://github.com/settings/personal-access-tokens/new"
+                tokenUrl={GITHUB_TOKEN_URL}
+                scopes={githubScopes()}
                 error={github?.error ?? null}
                 onConnect={async (token) => {
                   useStore.setState({ github: await api().github.connect(token) });
