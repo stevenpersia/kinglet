@@ -3,7 +3,7 @@ import { probeImage, type ImageProbe } from './image.ts';
 import { readPageMeta, type Framework, type PageMeta } from './meta.ts';
 import { t } from './i18n.ts';
 
-export type Platform = 'whatsapp' | 'imessage' | 'linkedin' | 'x' | 'slack' | 'discord' | 'google';
+export type Platform = 'whatsapp' | 'imessage' | 'telegram' | 'linkedin' | 'x' | 'facebook' | 'bluesky' | 'slack' | 'discord' | 'google';
 export type PlatformFamily = 'messagerie' | 'reseau' | 'recherche';
 
 export const PLATFORMS: { id: Platform; label: string; bot: BotId; family: PlatformFamily }[] = [
@@ -11,8 +11,11 @@ export const PLATFORMS: { id: Platform; label: string; bot: BotId; family: Platf
   { id: 'imessage', label: 'iMessage', bot: 'imessage', family: 'messagerie' },
   { id: 'slack', label: 'Slack', bot: 'slack', family: 'messagerie' },
   { id: 'discord', label: 'Discord', bot: 'discord', family: 'messagerie' },
+  { id: 'telegram', label: 'Telegram', bot: 'telegram', family: 'messagerie' },
   { id: 'linkedin', label: 'LinkedIn', bot: 'linkedin', family: 'reseau' },
   { id: 'x', label: 'X', bot: 'twitter', family: 'reseau' },
+  { id: 'facebook', label: 'Facebook', bot: 'facebook', family: 'reseau' },
+  { id: 'bluesky', label: 'Bluesky', bot: 'bluesky', family: 'reseau' },
   { id: 'google', label: 'Google', bot: 'google', family: 'recherche' },
 ];
 
@@ -28,6 +31,9 @@ const RULES: Record<Platform, { title: number; description: number | null; shows
   linkedin: { title: 70, description: null, showsSiteName: false },
   x: { title: 70, description: null, showsSiteName: false },
   google: { title: 60, description: 155, showsSiteName: true },
+  telegram: { title: 100, description: 200, showsSiteName: true },
+  facebook: { title: 88, description: 110, showsSiteName: false },
+  bluesky: { title: 100, description: 160, showsSiteName: false },
 };
 
 export type CardStatus = 'ok' | 'warning' | 'error';
@@ -123,6 +129,7 @@ export function buildCard(platform: Platform, meta: PageMeta | null, image: Imag
   const big = usable && (image!.width ?? 0) >= 300;
 
   let layout: ShareCard['layout'] = usable ? (big ? 'large' : 'small') : 'text';
+  if (platform === 'facebook' && usable) layout = (image!.width ?? 0) >= 600 ? 'large' : 'small';
   if (platform === 'google') layout = 'serp';
   if (platform === 'x') {
     const card = meta.twitter['card'];
@@ -133,6 +140,9 @@ export function buildCard(platform: Platform, meta: PageMeta | null, image: Imag
     problems.push(t(`Image cropped to 1.91:1 (it is ${ratio.toFixed(2)}:1).`, `Image recadrée en 1,91:1 (elle fait ${ratio.toFixed(2)}:1).`));
   }
   if (platform === 'whatsapp' && image?.ok && (image.bytes ?? 0) > 300 * 1024) problems.push(t('Heavy image: WhatsApp may ignore it (under 300 KB recommended).', 'Image lourde : WhatsApp peut l’ignorer (moins de 300 Ko conseillé).'));
+  if (platform === 'facebook' && !meta.og['url']) problems.push(t('No og:url: Facebook may group shares under another URL.', 'Pas d’og:url : Facebook peut regrouper les partages sous une autre URL.'));
+  if (platform === 'facebook' && image?.ok && (image.width ?? 0) < 600 && usable) problems.push(t('Image under 600 px wide: Facebook shows a small thumbnail.', 'Image de moins de 600 px de large : Facebook affiche une petite vignette.'));
+  if (platform === 'bluesky' && image?.ok && (image.bytes ?? 0) > 1024 * 1024) problems.push(t('Image over 1 MB: Bluesky may drop it.', 'Image de plus de 1 Mo : Bluesky peut l’ignorer.'));
   if (platform === 'discord' && !meta.themeColor) problems.push(t('No theme-color: grey border by default.', 'Pas de theme-color : bordure grise par défaut.'));
 
   const icon = platform === 'google' || platform === 'imessage' ? (meta.appleTouchIcon ?? meta.icons[0] ?? null) : null;
@@ -154,7 +164,7 @@ export function buildCard(platform: Platform, meta: PageMeta | null, image: Imag
   };
 }
 
-/** Fetch the page once per bot (sites sometimes answer bots differently) and build the 7 cards. */
+/** Fetch the page once per bot (sites sometimes answer bots differently) and build the 10 cards. */
 export async function readSharePreviews(url: string, opts: { headers?: Record<string, string>; fetchImpl?: typeof fetch } = {}): Promise<SharePreviews> {
   const results = await Promise.all(
     PLATFORMS.map(async (p) => {

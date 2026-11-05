@@ -15,8 +15,11 @@ const tools = (): [string, string][] => [
   ['set_devices', t('Changes the emulated devices', 'Change les appareils émulés')],
   ['screenshot', t('Captures each device (Claude sees the render)', 'Capture chaque appareil (Claude voit le rendu)')],
   ['get_page_meta', t('Tags as read by a share crawler', 'Balises lues comme un robot de partage')],
-  ['get_share_preview', t('Previews on 7 platforms + fix', 'Aperçus sur 7 plateformes + correctif')],
-  ['run_checks', t('All 30 checks, including on-device measurements', 'Les 30 checks, mesures dans les appareils incluses')],
+  ['get_share_preview', t('Previews on 10 platforms + fix', 'Aperçus sur 10 plateformes + correctif')],
+  ['run_checks', t('All 36 checks, including on-device measurements', 'Les 36 checks, mesures dans les appareils incluses')],
+  ['audit_site', t('Every page: broken links, duplicates, sitemap, hreflang', 'Toutes les pages : liens cassés, doublons, sitemap, hreflang')],
+  ['get_accessibility', t('axe-core audit and keyboard focus in the devices', 'Audit axe-core et focus clavier dans les appareils')],
+  ['get_structured_data', t('JSON-LD and rich results', 'JSON-LD et résultats enrichis')],
   ['list_pages', t('Site pages', 'Pages du site')],
   ['list_deployments', t('Vercel deployments of the linked project', 'Déploiements Vercel du projet lié')],
 ];

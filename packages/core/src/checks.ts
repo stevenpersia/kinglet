@@ -1,6 +1,8 @@
 import type { PageMeta } from './meta.ts';
 import type { ImageProbe } from './image.ts';
 import { t } from './i18n.ts';
+import { readStructuredData } from './structured.ts';
+import { checkHreflangTags, type HreflangReport } from './hreflang.ts';
 
 export type Severity = 'error' | 'warning';
 
@@ -62,7 +64,7 @@ export function checkShare(meta: PageMeta, image?: ImageProbe | null): Issue[] {
 /* Full check list (the « 30 checks »)                                 */
 /* ------------------------------------------------------------------ */
 
-export type CheckGroup = 'seo' | 'partage' | 'mobile' | 'technique';
+export type CheckGroup = 'seo' | 'partage' | 'mobile' | 'accessibilite' | 'technique';
 /** `info`: fine in this context (e.g. noindex on a preview). `skip`: not measurable here. */
 export type CheckStatus = 'ok' | 'info' | 'warning' | 'error' | 'skip';
 
@@ -93,6 +95,36 @@ export interface RenderedDevice {
   /** viewport-fit=cover without env(safe-area-inset-*) anywhere: content goes under the notch. */
   notchUnsafe?: boolean;
   vitals?: Vitals;
+  /** axe-core result (run on one device per kind). */
+  axe?: AxeSummary;
+  /** Focusable elements that show no visible change when focused (keyboard users lose track). */
+  focusMissing?: { count: number; total: number; examples: string[] };
+  /** Text cut by its box (overflow hidden, ellipsis, line clamp). */
+  clippedText?: { count: number; examples: string[] };
+  /** Text size chosen in Kinglet (1: default) and the root font size the page ended up with. */
+  textScale?: number;
+  rootFontPx?: number;
+}
+
+export type AxeImpact = 'critical' | 'serious' | 'moderate' | 'minor';
+
+export interface AxeViolation {
+  id: string;
+  impact: AxeImpact;
+  help: string;
+  helpUrl: string;
+  /** Number of elements concerned. */
+  nodes: number;
+  /** CSS selectors of a few of them. */
+  targets: string[];
+  /** Devices where it was found. */
+  devices: string[];
+}
+
+export interface AxeSummary {
+  violations: AxeViolation[];
+  passes: number;
+  incomplete: number;
 }
 
 /** Core Web Vitals measured in a device (ms, CLS unitless). */
@@ -108,6 +140,8 @@ export interface CheckInput {
   image: ImageProbe | null;
   site: import('./site.ts').SiteFiles | null;
   rendered?: RenderedDevice[];
+  /** Alternates fetched (return links); without it, only the tags of the page are checked. */
+  hreflang?: HreflangReport | null;
 }
 
 /** Labels are getters: the language can change while the app runs. */
@@ -120,6 +154,12 @@ export const CHECK_GROUPS: { id: CheckGroup; label: string }[] = [
     },
   },
   { id: 'mobile', label: 'Mobile' },
+  {
+    id: 'accessibilite',
+    get label() {
+      return t('Accessibility', 'Accessibilité');
+    },
+  },
   {
     id: 'technique',
     get label() {
@@ -148,7 +188,7 @@ const secs = (ms: number) => (ms < 1000 ? `${Math.round(ms)} ms` : `${t((ms / 10
 /** "1 image" / "2 images" (English; the French strings keep their own plural). */
 const n = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
 
-export function runChecks({ meta, image, site, rendered }: CheckInput): CheckResult[] {
+export function runChecks({ meta, image, site, rendered, hreflang }: CheckInput): CheckResult[] {
   const out: CheckResult[] = [];
   const add = (id: string, group: CheckGroup, label: string, status: CheckStatus, detail: string) => out.push({ id, group, label, status, detail });
   const nonProd = isNonProduction(meta.finalUrl);
@@ -201,6 +241,40 @@ export function runChecks({ meta, image, site, rendered }: CheckInput): CheckRes
       site.sitemap.urls.length ? 'ok' : 'warning',
       site.sitemap.urls.length ? `${site.sitemap.urls.length} URL.` : t(`Not found (${site.sitemap.error ?? 'missing'}).`, `Introuvable (${site.sitemap.error ?? 'absent'}).`),
     );
+
+  const sd = readStructuredData(meta.jsonLd ?? [], meta.jsonLdErrors ?? []);
+  const sdLabel = t('Structured data', 'Données structurées');
+  if (sd.errors.length) add('structured-data', 'seo', sdLabel, 'error', t(`Invalid JSON-LD: ${sd.errors[0]}`, `JSON-LD invalide : ${sd.errors[0]}`));
+  else if (!sd.items.length) add('structured-data', 'seo', sdLabel, 'info', t('No JSON-LD: no rich results (stars, price, FAQ, breadcrumb) in Google.', 'Pas de JSON-LD : pas de résultats enrichis (étoiles, prix, FAQ, fil d’Ariane) dans Google.'));
+  else {
+    const broken = sd.items.filter((i) => i.missing.length);
+    const poor = sd.items.filter((i) => !i.missing.length && i.recommended.length);
+    const names = sd.items.map((i) => i.type).join(', ');
+    add(
+      'structured-data',
+      'seo',
+      sdLabel,
+      broken.length ? 'error' : poor.length ? 'warning' : 'ok',
+      broken.length
+        ? t(`${broken[0]!.type}: missing ${broken[0]!.missing.join(', ')}.`, `${broken[0]!.type} : il manque ${broken[0]!.missing.join(', ')}.`)
+        : poor.length
+          ? t(`${names}. Recommended: ${poor[0]!.recommended.join(', ')} (${poor[0]!.type}).`, `${names}. Conseillé : ${poor[0]!.recommended.join(', ')} (${poor[0]!.type}).`)
+          : t(`${names}: complete.`, `${names} : complet.`),
+    );
+  }
+  const hl = hreflang?.issues ?? checkHreflangTags(meta);
+  if (!meta.hreflang?.length) add('hreflang', 'seo', 'hreflang', 'info', t('One language: no hreflang needed.', 'Une seule langue : pas besoin de hreflang.'));
+  else {
+    const err = hl.filter((i) => i.severity === 'error');
+    const langs = meta.hreflang.map((h) => h.lang).join(', ');
+    add(
+      'hreflang',
+      'seo',
+      'hreflang',
+      err.length ? 'error' : hl.length ? 'warning' : 'ok',
+      hl.length ? `${(err[0] ?? hl[0])!.message}${hl.length > 1 ? t(` (+${hl.length - 1} more)`, ` (+${hl.length - 1} autre${hl.length > 2 ? 's' : ''})`) : ''}` : hreflang?.checkedReturns ? t(`${langs}: consistent both ways.`, `${langs} : cohérents dans les deux sens.`) : `${langs}.`,
+    );
+  }
 
   // Share
   const shareImage = t('Share image', 'Image de partage');
@@ -290,6 +364,20 @@ export function runChecks({ meta, image, site, rendered }: CheckInput): CheckRes
         ? t('viewport-fit=cover, but no env(safe-area-inset-*) in the CSS: content can go under the notch.', 'viewport-fit=cover, mais aucun env(safe-area-inset-*) dans le CSS : le contenu peut passer sous l’encoche.')
         : t('Content stays clear of the notch.', 'Le contenu reste hors de l’encoche.'),
     );
+  const zoomLabel = t('Large text', 'Texte agrandi');
+  const zoomed = rendered?.filter((r) => (r.textScale ?? 1) > 1) ?? [];
+  if (!zoomed.length) add('text-zoom', 'mobile', zoomLabel, 'skip', t('Turn on large text (Appearance menu) to measure.', 'Active le texte agrandi (menu Apparence) pour mesurer.'));
+  else {
+    const k = zoomed[0]!.textScale!;
+    const fixed = zoomed.filter((r) => r.rootFontPx != null && Math.abs(r.rootFontPx - 16 * k) > 1 && Math.abs(r.rootFontPx - 16) < 1);
+    const clipped = [...zoomed].sort((a, b) => (b.clippedText?.count ?? 0) - (a.clippedText?.count ?? 0))[0]!;
+    const over = zoomed.filter((r) => r.overflowPx > 1);
+    const problems: string[] = [];
+    if (fixed.length) problems.push(t('the root font size is in px: text does not grow', 'la taille de police de base est en px : le texte ne grossit pas'));
+    if (clipped.clippedText?.count) problems.push(t(`${clipped.clippedText.count} cut on ${clipped.label}: ${clipped.clippedText.examples.join(', ')}`, `${clipped.clippedText.count} coupé${clipped.clippedText.count > 1 ? 's' : ''} sur ${clipped.label} : ${clipped.clippedText.examples.join(', ')}`));
+    if (over.length) problems.push(t(`overflows on ${over.map((r) => r.label).join(', ')}`, `déborde sur ${over.map((r) => r.label).join(', ')}`));
+    add('text-zoom', 'mobile', zoomLabel, problems.length ? 'warning' : 'ok', problems.length ? `×${k}${t(': ', ' : ')}${problems.join(' · ')}` : t(`×${k}: text grows and nothing is cut.`, `×${k} : le texte grossit et rien n’est coupé.`));
+  }
   add('theme-color', 'mobile', t('Theme color', 'Couleur du thème'), meta.themeColor ? 'ok' : 'warning', meta.themeColor ?? t('Missing: the mobile browser bar keeps its default color.', 'Absente : la barre du navigateur mobile reste par défaut.'));
   add(
     'apple-touch-icon',
@@ -311,6 +399,42 @@ export function runChecks({ meta, image, site, rendered }: CheckInput): CheckRes
         `${site.manifest.name ?? 'sans nom'}, ${site.manifest.icons} icône${site.manifest.icons > 1 ? 's' : ''}.`,
       ),
     );
+
+  // Accessibility (axe-core in the devices, focus measured with the DevTools protocol)
+  const withAxe = rendered?.filter((r) => r.axe) ?? [];
+  const axeOf = (impacts: AxeImpact[]) => {
+    const by = new Map<string, AxeViolation>();
+    for (const r of withAxe) for (const v of r.axe!.violations) if (impacts.includes(v.impact)) by.set(v.id, by.has(v.id) ? { ...by.get(v.id)!, nodes: Math.max(by.get(v.id)!.nodes, v.nodes), devices: [...new Set([...by.get(v.id)!.devices, ...v.devices])] } : v);
+    return [...by.values()].sort((a, b) => b.nodes - a.nodes);
+  };
+  const serious = t('Blocking problems', 'Problèmes bloquants');
+  const minor = t('Other problems', 'Autres problèmes');
+  if (!withAxe.length) {
+    add('a11y-serious', 'accessibilite', serious, 'skip', inDevices);
+    add('a11y-minor', 'accessibilite', minor, 'skip', inDevices);
+  } else {
+    const list = (vs: AxeViolation[]) => vs.slice(0, 3).map((v) => `${v.help} (${v.nodes})`).join(' · ');
+    const s1 = axeOf(['critical', 'serious']);
+    add('a11y-serious', 'accessibilite', serious, s1.length ? 'error' : 'ok', s1.length ? t(`${n(s1.length, 'rule')} broken: ${list(s1)}`, `${s1.length} règle${s1.length > 1 ? 's' : ''} non respectée${s1.length > 1 ? 's' : ''} : ${list(s1)}`) : t('Nothing critical or serious (axe-core).', 'Rien de critique ni de grave (axe-core).'));
+    const s2 = axeOf(['moderate', 'minor']);
+    add('a11y-minor', 'accessibilite', minor, s2.length ? 'warning' : 'ok', s2.length ? t(`${n(s2.length, 'rule')}: ${list(s2)}`, `${s2.length} règle${s2.length > 1 ? 's' : ''} : ${list(s2)}`) : t('No moderate or minor problem.', 'Aucun problème modéré ou mineur.'));
+  }
+  const focusDevices = rendered?.filter((r) => r.focusMissing) ?? [];
+  const focusLabel = t('Visible focus', 'Focus visible');
+  if (!focusDevices.length) add('focus-visible', 'accessibilite', focusLabel, 'skip', inDevices);
+  else {
+    const w = [...focusDevices].sort((a, b) => b.focusMissing!.count - a.focusMissing!.count)[0]!;
+    const f = w.focusMissing!;
+    add(
+      'focus-visible',
+      'accessibilite',
+      focusLabel,
+      f.count ? 'warning' : 'ok',
+      f.count
+        ? t(`${f.count} of ${f.total} elements show nothing when focused with Tab (${w.label}): ${f.examples.join(', ')}`, `${f.count} élément${f.count > 1 ? 's' : ''} sur ${f.total} ne montre${f.count > 1 ? 'nt' : ''} rien au focus clavier (${w.label}) : ${f.examples.join(', ')}`)
+        : t(`The ${f.total} focusable elements show where the focus is.`, `Les ${f.total} éléments focusables montrent où est le focus.`),
+    );
+  }
 
   // Technical
   add('http', 'technique', t('HTTP status', 'Statut HTTP'), meta.status < 300 ? 'ok' : 'error', `HTTP ${meta.status}${meta.finalUrl !== meta.requestedUrl ? t(' after redirect', ' après redirection') : ''}.`);

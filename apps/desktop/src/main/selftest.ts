@@ -211,8 +211,8 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     const atelier = await analyze('http://localhost:5173/atelier.html');
     const st = Object.fromEntries(atelier.checks.map((c) => [c.id, c.status]));
     criteria.push({
-      id: 'checks-30',
-      ok: atelier.checks.length === 30 && st['overflow'] === 'error' && st['console'] === 'error' && st['og-site-name'] === 'warning' && st['robots'] === 'warning',
+      id: 'checks-36',
+      ok: atelier.checks.length === 36 && st['overflow'] === 'error' && st['console'] === 'error' && st['og-site-name'] === 'warning' && st['robots'] === 'warning',
       detail: `${atelier.checks.length} checks, ${atelier.score.passed}/${atelier.score.total} · débordement ${st['overflow']}, erreurs JS ${st['console']}, robots.txt ${st['robots']} (le serveur Vite renvoie sa page HTML)`,
     });
     // Measured in the devices: the « mentions » link of atelier.html is tiny and pale on purpose.
@@ -246,7 +246,7 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     const studio = (await win.webContents.executeJavaScript(`window.kinglet.sharePreviews('http://localhost:5173/')`)) as Studio;
     criteria.push({
       id: 'share-previews',
-      ok: studio.previews.cards.length === 7 && studio.previews.framework === 'vite' && studio.fix.code.includes('og:site_name') && studio.fix.prompt.includes('index.html'),
+      ok: studio.previews.cards.length === 10 && studio.previews.framework === 'vite' && studio.fix.code.includes('og:site_name') && studio.fix.prompt.includes('index.html'),
       detail: `${studio.previews.framework} · ${studio.previews.cards.map((c) => `${c.platform}:${c.status}`).join(' ')} · ${studio.fix.changes.length} correction(s)`,
     });
 
@@ -275,7 +275,7 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
       if (img) writeFileSync(join(outDir, 'mcp-screenshot-iphone.jpg'), Buffer.from(img, 'base64'));
       criteria.push({
         id: 'mcp',
-        ok: tools === 11 && statusText.includes('iPhone 16') && img.startsWith('/9j/') && /Checks for .* \d+\/\d+/.test(checksText) && !checksText.includes('without measures'),
+        ok: tools === 14 && statusText.includes('iPhone 16') && img.startsWith('/9j/') && /Checks for .* \d+\/\d+/.test(checksText) && !checksText.includes('without measures'),
         detail: `${tools} outils · status « ${statusText.split('\n')[1] ?? ''} » · capture ${Math.round((img.length * 3) / 4 / 1024)} Ko · ${checksText.split('\n')[0]}`,
       });
     } catch (e) {
@@ -345,7 +345,7 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     const statuses = protectedShare.previews.cards.map((c) => c.httpStatus);
     criteria.push({
       id: 'protected-preview',
-      ok: !previewTitle.includes('Authentication') && statuses.length === 7 && statuses.every((x) => x === 200),
+      ok: !previewTitle.includes('Authentication') && statuses.length === 10 && statuses.every((x) => x === 200),
       detail: `appareils : « ${previewTitle} » · robots : ${statuses.join(', ')}`,
     });
     await clickText('[aria-label=Environment] button', 'Local');
@@ -763,6 +763,143 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     criteria.push({ id: 'language', ok: fr && en, detail: `français ${fr ? 'ok' : 'absent'} · back to English ${en ? 'ok' : 'failed'}` });
     await clickText('nav button', 'Devices');
     await sleep(500);
+
+    // 28. Region, text size and zoom, on-screen keyboard, keyboard tour, accessibility, export, audit, history, review link.
+    {
+      const typeIn = async (text: string) => {
+        for (const ch of text) win.webContents.sendInputEvent({ type: 'char', keyCode: ch });
+        await sleep(150);
+      };
+      const phone = () => devices.entries().find((d) => d.preset.id === 'iphone-16')!;
+      const tablet = () => devices.entries().find((d) => d.preset.id === 'ipad-air')!;
+      await js(`window.kinglet.navigate('http://localhost:5173/')`);
+      await sleep(1500);
+      await js(`window.kinglet.updateSettings({ region: { locale: 'ja-JP', timezone: 'Asia/Tokyo', geo: { latitude: 35.6762, longitude: 139.6503, label: 'Tokyo' } }, regionPerDevice: { 'ipad-air': { locale: 'de-DE', geo: null } } })`);
+      await sleep(400);
+      await js(`window.kinglet.reload()`);
+      await sleep(1800);
+      const probe = `(async () => ({ lang: navigator.language, tz: Intl.DateTimeFormat().resolvedOptions().timeZone, num: new Intl.NumberFormat().format(1234.5), geo: await new Promise((r) => navigator.geolocation.getCurrentPosition((p) => r(p.coords.latitude.toFixed(2)), (e) => r('refused ' + e.code), { timeout: 4000 })) }))()`;
+      const r1 = (await phone().view.webContents.executeJavaScript(probe)) as Record<string, string>;
+      const r2 = (await tablet().view.webContents.executeJavaScript(probe)) as Record<string, string>;
+      await shot('28-region');
+      criteria.push({
+        id: 'region',
+        ok: r1.lang === 'ja-JP' && r1.tz === 'Asia/Tokyo' && r1.geo === '35.68' && r2.lang === 'de-DE' && r2.tz === 'Asia/Tokyo' && r2.geo!.startsWith('refused') && r2.num === '1.234,5',
+        detail: `iphone-16 ${r1.lang} ${r1.tz} ${r1.num} geo ${r1.geo} · ipad-air ${r2.lang} ${r2.tz} ${r2.num} geo ${r2.geo}`,
+      });
+      await js(`window.kinglet.updateSettings({ region: { locale: null, timezone: null, geo: null }, regionPerDevice: {} })`);
+
+      await js(`window.kinglet.updateSettings({ textSize: { scale: 2, zoom: 2 } })`);
+      await sleep(900);
+      const tz = (await phone().view.webContents.executeJavaScript(`[getComputedStyle(document.documentElement).fontSize, innerWidth]`)) as [string, number];
+      const zoomed = await js<Report>(`window.kinglet.analyze('http://localhost:5173/')`);
+      await shot('29-texte-zoom');
+      const textZoom = zoomed.checks.find((c) => c.id === 'text-zoom');
+      criteria.push({ id: 'text-size', ok: tz[0] === '32px' && Math.abs(tz[1] - 197) <= 1 && textZoom?.status !== 'skip', detail: `html ${tz[0]}, innerWidth ${tz[1]} · ${textZoom?.status}: ${textZoom?.detail}` });
+      await js(`window.kinglet.updateSettings({ textSize: { scale: 1, zoom: 1 } })`);
+      await sleep(600);
+
+      await js(`window.kinglet.updateSettings({ keyboard: true })`);
+      await sleep(600);
+      const kb = (await phone().view.webContents.executeJavaScript(`(() => { const k = document.querySelector('[data-kinglet=keyboard]'); return k ? getComputedStyle(k).height : null; })()`)) as string | null;
+      const kbTablet = (await tablet().view.webContents.executeJavaScript(`(() => { const k = document.querySelector('[data-kinglet=keyboard]'); return k ? getComputedStyle(k).height : null; })()`)) as string | null;
+      await shot('30-clavier');
+      await js(`window.kinglet.updateSettings({ keyboard: false })`);
+      await sleep(300);
+      const kbOff = (await phone().view.webContents.executeJavaScript(`!document.querySelector('[data-kinglet=keyboard]')`)) as boolean;
+      criteria.push({ id: 'keyboard', ok: kb === '336px' && kbTablet === '320px' && kbOff, detail: `iphone-16 ${kb}, ipad-air ${kbTablet}, retiré ${kbOff}` });
+
+      await js(`window.kinglet.setTabOrder(true)`);
+      const tourOk = await waitFor(() => phone().view.webContents.executeJavaScript(`document.querySelectorAll('[data-kinglet=tab-order] > div').length > 0`) as Promise<boolean>, 5000);
+      const badges = (await phone().view.webContents.executeJavaScript(`document.querySelectorAll('[data-kinglet=tab-order] > div').length / 2`)) as number;
+      await shot('31-parcours-clavier');
+      await js(`window.kinglet.setTabOrder(false)`);
+      await sleep(300);
+      criteria.push({ id: 'tab-order', ok: tourOk && badges > 0, detail: `${badges} éléments numérotés sur iPhone 16` });
+
+      // The workshop page has a low-contrast, tiny link: axe must flag it.
+      await js(`window.kinglet.navigate('http://localhost:5173/atelier.html')`);
+      await sleep(1500);
+      const a11yReport = await js<Report & { a11y?: { violations: { id: string; impact: string; nodes: number }[]; focus: { count: number; total: number } | null } }>(`window.kinglet.analyze('http://localhost:5173/atelier.html')`);
+      await js(`window.kinglet.navigate('http://localhost:5173/')`);
+      await sleep(1000);
+      const st2 = Object.fromEntries(a11yReport.checks.map((c) => [c.id, c.status]));
+      criteria.push({
+        id: 'a11y',
+        ok: !!a11yReport.a11y && st2['a11y-serious'] !== 'skip' && st2['focus-visible'] !== 'skip' && a11yReport.a11y.violations.some((v) => v.id === 'color-contrast'),
+        detail: `${a11yReport.a11y?.violations.map((v) => `${v.id}(${v.impact}, ${v.nodes})`).join(' ')} · focus ${a11yReport.a11y?.focus?.count}/${a11yReport.a11y?.focus?.total} · ${st2['a11y-serious']}/${st2['a11y-minor']}/${st2['focus-visible']}`,
+      });
+
+      const shotsFull = await js<{ id: string; width: number; height: number; size: number }[]>(`window.kinglet.export.shots(true).then((s) => s.map((x) => ({ id: x.id, width: x.width, height: x.height, size: x.dataUrl.length })))`);
+      const frames = await js<number>(`window.kinglet.export.frames().then((f) => Object.keys(f).length)`);
+      criteria.push({ id: 'export', ok: shotsFull.length === 2 && shotsFull.every((x) => x.size > 10_000) && frames === 2, detail: `${shotsFull.map((x) => `${x.id} ${x.width}×${x.height}`).join(', ')} · ${frames} images vidéo` });
+
+      // The menu itself: a sheet, a PDF, a GIF and a video, saved (no dialog in the acceptance run).
+      const { readdirSync, statSync } = await import('node:fs');
+      const exported: string[] = [];
+      for (const [item, ext] of [['Sheet · screens', 'png'], ['PDF · one device per page', 'pdf'], ['GIF of the scroll', 'gif'], ['Video of the scroll', 'webm']] as const) {
+        await clickText('button', 'Export');
+        await sleep(400);
+        await clickText('[role=menu] button', item);
+        const ok = await waitFor(() => readdirSync(outDir).some((f) => f.startsWith('export-') && f.endsWith(`.${ext}`)), 30_000, 400);
+        const file = readdirSync(outDir).find((f) => f.startsWith('export-') && f.endsWith(`.${ext}`));
+        exported.push(ok && file ? `${ext} ${Math.round(statSync(join(outDir, file)).size / 1024)} Ko` : `${ext} absent`);
+        await sleep(500);
+      }
+      criteria.push({ id: 'export-menu', ok: exported.every((x) => !x.includes('absent')), detail: exported.join(' · ') });
+      await shot('31b-export');
+
+      const audit = await js<{ pages: { path: string }[]; brokenLinks: unknown[]; duplicateTitles: unknown[] }>(`window.kinglet.audit('http://localhost:5173/', { limit: 20 })`);
+      criteria.push({ id: 'site-audit', ok: audit.pages.length >= 2, detail: `${audit.pages.map((p) => p.path).join(', ')} · ${audit.brokenLinks.length} liens cassés · ${audit.duplicateTitles.length} titres en double` });
+      ui({ type: 'shortcut', action: 'palette' });
+      await sleep(300);
+      await typeIn('Audit');
+      win.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Enter' });
+      await sleep(400);
+      await js(`[...document.querySelectorAll('button')].find((b) => /Audit the site|Audit again/.test(b.textContent))?.click()`);
+      await waitFor(() => js<boolean>(`!!document.querySelector('main') && /pages read/.test(document.querySelector('main').textContent)`), 15000);
+      await settle(400);
+      await shot('32-audit-site');
+      await js(`[...document.querySelectorAll('[role=tab]')].find((b) => b.textContent.includes('This page'))?.click()`);
+      await settle(600);
+      await shot('33-checks-page');
+      await js(`(() => { const m = document.querySelector('[aria-label="Accessibility details"]')?.closest('main'); if (m) m.scrollTop = m.scrollHeight; })()`);
+      await settle(300);
+      await shot('33b-checks-a11y-budgets');
+
+      const activeId = await js<string>(`window.kinglet.updateSettings({}).then((s) => s.activeId)`);
+      const entry = await js<{ lcpMs: number | null; bytes: number | null; score: { passed: number; total: number } | null; error: string | null }>(`window.kinglet.history.measure(${JSON.stringify(activeId)}, { url: 'http://localhost:5173/', deploymentId: 'dpl_selftest', production: true, branch: 'main', commit: 'selftest' })`);
+      const hist = await js<unknown[]>(`window.kinglet.history.load(${JSON.stringify(activeId)})`);
+      criteria.push({ id: 'history', ok: entry.lcpMs != null && (entry.bytes ?? 0) > 0 && !!entry.score && hist.length > 0, detail: `LCP ${entry.lcpMs} ms · ${entry.bytes} o · ${entry.score?.passed}/${entry.score?.total} · ${hist.length} mesure(s) ${entry.error ?? ''}` });
+
+      await clickText('nav button', 'Devices');
+      await settle(600);
+      const rv = await js<{ links: Record<string, string | null> }>(`window.kinglet.review.open(${JSON.stringify(activeId)})`);
+      const link = rv.links[activeId];
+      let reviewOk = false;
+      let reviewDetail = 'pas de lien';
+      if (link) {
+        const local = link.replace(/^http:\/\/[^/]+/, `http://127.0.0.1:${new URL(link).port}`);
+        const html = await (await fetch(local)).text();
+        const data = (await (await fetch(`${local}/data`)).json()) as { shots: { id: string }[] };
+        const post = await fetch(`${local}/pin`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ shotId: data.shots[0]?.id, fx: 0.5, fy: 0.3, text: 'Le bouton est trop petit', author: 'Alex' }) });
+        await sleep(300);
+        const pins = await js<{ comment: string; author?: string }[]>(`window.kinglet.feedback.load(${JSON.stringify(activeId)})`);
+        const got = pins.find((p) => p.comment === 'Le bouton est trop petit');
+        const bad = await fetch(local.replace(/\/r\/[^/]+/, '/r/mauvais-jeton-de-vingt-caracteres'));
+        reviewOk = html.includes('<script>') && data.shots.length === 2 && post.ok && got?.author === 'Alex' && bad.status === 404;
+        reviewDetail = `${link} · ${data.shots.length} captures · retour du client ${got ? `de ${got.author}` : 'absent'} · jeton faux ${bad.status}`;
+        await clickText('nav button', 'Feedback');
+        await settle(800);
+        await shot('34-lien-relecture');
+        await clickText('nav button', 'Feedback');
+        await js(`window.kinglet.feedback.save(${JSON.stringify(activeId)}, ${JSON.stringify([])})`);
+        await js(`window.kinglet.review.close(${JSON.stringify(activeId)})`);
+      }
+      criteria.push({ id: 'review-link', ok: reviewOk, detail: reviewDetail });
+      await clickText('nav button', 'Devices');
+      await sleep(400);
+    }
 
     // 10. Partage section
     ui({ type: 'shortcut', action: 'focus-url' });

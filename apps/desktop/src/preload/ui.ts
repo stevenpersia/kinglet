@@ -80,6 +80,25 @@ const api: KingletApi = {
     paste: (projectId, text, attachments) => ipcRenderer.invoke('term:paste', projectId, text, attachments),
     focus: (on) => ipcRenderer.send('term:focus', on),
   },
+  audit: (url, opts) => ipcRenderer.invoke('site:audit', url, opts ?? {}),
+  setTabOrder: (on) => ipcRenderer.send('preview:taborder', on),
+  export: {
+    shots: (full) => ipcRenderer.invoke('export:shots', full),
+    frames: () => ipcRenderer.invoke('export:frames'),
+    scroll: (ratio) => ipcRenderer.send('export:scroll', ratio),
+    save: (data, name, kind) => ipcRenderer.invoke('export:save', data, name, kind),
+    pdf: (shots, title, name) => ipcRenderer.invoke('export:pdf', shots, title, name),
+    folder: (shots) => ipcRenderer.invoke('export:folder', shots),
+  },
+  history: {
+    load: (projectId) => ipcRenderer.invoke('history:load', projectId),
+    measure: (projectId, target) => ipcRenderer.invoke('history:measure', projectId, target ?? null),
+  },
+  review: {
+    state: () => ipcRenderer.invoke('review:state'),
+    open: (projectId) => ipcRenderer.invoke('review:open', projectId),
+    close: (projectId) => ipcRenderer.invoke('review:close', projectId),
+  },
   onEvent: (cb) => {
     const listener = (_e: unknown, ev: PreviewEvent) => cb(ev);
     ipcRenderer.on('app:event', listener);

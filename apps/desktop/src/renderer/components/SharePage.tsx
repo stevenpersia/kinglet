@@ -1,4 +1,4 @@
-import { t, type PlatformFamily, type ShareCard } from '@kinglet/core';
+import { readStructuredData, t, type PlatformFamily, type RichPreview, type ShareCard } from '@kinglet/core';
 import { useEffect, useState } from 'react';
 import type { ShareStudio } from '../../shared/types';
 import { api, cleanError, useStore } from '../store';
@@ -11,9 +11,61 @@ function Img({ src, className = '', style }: { src: string; className?: string; 
   return <img src={src} alt="" className={`block object-cover ${className}`} style={style} />;
 }
 
-function Preview({ c }: { c: ShareCard }) {
+function Stars({ value, best }: { value: number; best: number }) {
+  const n = Math.round((value / best) * 5 * 2) / 2;
+  return (
+    <span aria-label={`${value}/${best}`} className="text-[#E7711B]">
+      {'★'.repeat(Math.floor(n))}
+      {n % 1 ? '⯪' : ''}
+      <span className="text-[#DADCE0]">{'★'.repeat(5 - Math.ceil(n))}</span>
+    </span>
+  );
+}
+
+function Preview({ c, rich }: { c: ShareCard; rich?: RichPreview | null }) {
   const title = c.title ?? c.url;
   switch (c.platform) {
+    case 'telegram':
+      return (
+        <div className="rounded-lg bg-[#0E1621] p-2.5">
+          <div className="ml-6 rounded-xl rounded-br-sm bg-[#2B5278] p-2 text-[#F5F5F5]">
+            <div className="truncate pb-1.5 text-[12.5px] text-[#7DC3FF]">{c.url}</div>
+            <div className="flex gap-2 border-l-2 border-[#7DC3FF] pl-2">
+              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <span className="text-xs font-semibold text-[#7DC3FF]">{c.siteName}</span>
+                <span className="line-clamp-2 text-xs font-semibold">{title}</span>
+                {c.description && <span className="line-clamp-3 text-[11.5px] text-[#D0DCE8]">{c.description}</span>}
+                {c.image && c.layout === 'large' && <Img src={c.image} className="mt-1 w-full rounded-md" />}
+              </div>
+              {c.image && c.layout === 'small' && <Img src={c.image} className="size-14 shrink-0 rounded-md" />}
+            </div>
+          </div>
+        </div>
+      );
+    case 'facebook':
+      return (
+        <div className="overflow-hidden rounded-lg border border-[#3E4042] bg-[#242526] text-[#E4E6EB]">
+          <div className={c.layout === 'small' ? 'flex' : ''}>
+            {c.image && <Img src={c.image} className={c.layout === 'large' ? 'aspect-[1.91] w-full' : 'size-24 shrink-0'} />}
+            <div className="flex min-w-0 flex-col gap-0.5 bg-[#3A3B3C] px-3 py-2.5">
+              <span className="truncate text-[11px] tracking-wide text-[#B0B3B8] uppercase">{c.domain}</span>
+              <span className="line-clamp-2 text-[13px] font-semibold">{title}</span>
+              {c.description && <span className="truncate text-xs text-[#B0B3B8]">{c.description}</span>}
+            </div>
+          </div>
+        </div>
+      );
+    case 'bluesky':
+      return (
+        <div className="overflow-hidden rounded-xl border border-[#2E4052] bg-[#161E27] text-[#F1F3F5]">
+          {c.image && <Img src={c.image} className="aspect-[1.91] w-full" />}
+          <div className="flex flex-col gap-0.5 px-3 py-2.5">
+            <span className="line-clamp-2 text-[13px] font-semibold">{title}</span>
+            {c.description && <span className="line-clamp-2 text-xs text-[#AEBBC9]">{c.description}</span>}
+            <span className="mt-1 border-t border-[#2E4052] pt-1.5 text-[11px] text-[#788EA5]">🌐 {c.domain}</span>
+          </div>
+        </div>
+      );
     case 'whatsapp':
       return (
         <div className="rounded-lg bg-[#0B141A] p-2.5">
@@ -97,16 +149,48 @@ function Preview({ c }: { c: ShareCard }) {
       );
     case 'google':
       return (
-        <div className="flex flex-col gap-1 rounded-lg bg-white p-3 text-[#202124]">
-          <div className="flex items-center gap-2">
-            <span className="flex size-6 items-center justify-center overflow-hidden rounded-full bg-[#F1F3F4]">{c.icon && <Img src={c.icon} className="size-4" />}</span>
-            <div className="flex min-w-0 flex-col leading-tight">
-              <span className="truncate text-xs">{c.siteName}</span>
-              <span className="truncate text-[11px] text-[#4D5156]">{c.url}</span>
+        <div className="flex gap-3 rounded-lg bg-white p-3 text-[#202124]">
+          <div className="flex min-w-0 flex-1 flex-col gap-1">
+            <div className="flex items-center gap-2">
+              <span className="flex size-6 items-center justify-center overflow-hidden rounded-full bg-[#F1F3F4]">{c.icon && <Img src={c.icon} className="size-4" />}</span>
+              <div className="flex min-w-0 flex-col leading-tight">
+                <span className="truncate text-xs">{c.siteName}</span>
+                <span className="truncate text-[11px] text-[#4D5156]">{rich?.breadcrumb?.length ? `${c.domain} › ${rich.breadcrumb.join(' › ')}` : c.url}</span>
+              </div>
             </div>
+            <span className="text-[15px] text-[#1A0DAB]">{title}</span>
+            {(rich?.rating || rich?.price) && (
+              <span className="flex flex-wrap items-center gap-x-1.5 text-[11.5px] text-[#70757A]">
+                {rich.rating && (
+                  <>
+                    <span>{rich.rating.value.toLocaleString(undefined, { maximumFractionDigits: 1 })}</span>
+                    <Stars value={rich.rating.value} best={rich.rating.best} />
+                    {rich.rating.count != null && <span>({rich.rating.count})</span>}
+                  </>
+                )}
+                {rich.price && <span>· {rich.price}</span>}
+                {rich.availability && <span>· {rich.availability}</span>}
+              </span>
+            )}
+            {c.description && (
+              <span className="text-[11.5px] leading-snug text-[#4D5156]">
+                {rich?.date && <span className="text-[#70757A]">{rich.date} — </span>}
+                {c.description}
+              </span>
+            )}
+            {rich?.extra && <span className="text-[11px] text-[#70757A]">{rich.extra}</span>}
+            {rich?.faq.length ? (
+              <div className="mt-1 flex flex-col border-t border-[#EBEBEB]">
+                {rich.faq.map((f) => (
+                  <span key={f.q} className="flex items-center justify-between border-b border-[#EBEBEB] py-1.5 text-xs">
+                    {f.q}
+                    <span className="text-[#70757A]">⌄</span>
+                  </span>
+                ))}
+              </div>
+            ) : null}
           </div>
-          <span className="text-[15px] text-[#1A0DAB]">{title}</span>
-          {c.description && <span className="text-[11.5px] leading-snug text-[#4D5156]">{c.description}</span>}
+          {rich?.image && <Img src={rich.image} className="size-[72px] shrink-0 rounded-lg" />}
         </div>
       );
   }
@@ -243,8 +327,36 @@ function Desk({ bg, top, children, width = 600 }: { bg: string; top: React.React
   );
 }
 
-function Scene({ c }: { c: ShareCard }) {
+function Scene({ c, rich }: { c: ShareCard; rich?: RichPreview | null }) {
   switch (c.platform) {
+    case 'telegram':
+      return (
+        <Handset dark title={who()}>
+          <Bubble dark>{t('Got the link?', 'Tu as le lien ?')}</Bubble>
+          <div className="w-[88%] self-end">
+            <Preview c={c} />
+          </div>
+        </Handset>
+      );
+    case 'facebook':
+    case 'bluesky': {
+      const fb = c.platform === 'facebook';
+      return (
+        <Desk bg={fb ? '#18191A' : '#0E141B'} width={560} top={null}>
+          <div className={`flex flex-col gap-3 rounded-lg p-4 ${fb ? 'bg-[#242526] text-[#E4E6EB]' : 'text-[#F1F3F5]'}`}>
+            <div className="flex items-center gap-2.5">
+              <Avatar className="size-10" />
+              <div className="flex flex-col leading-tight">
+                <span className="text-[13px] font-semibold">{who()}</span>
+                <span className="text-[11.5px] opacity-60">{fb ? t('2 h · 🌐', '2 h · 🌐') : '@camille.bsky.social · 2 h'}</span>
+              </div>
+            </div>
+            <span className="text-[13px]">{t('Our new page is live 👇', 'Notre nouvelle page est en ligne 👇')}</span>
+            <Preview c={c} />
+          </div>
+        </Desk>
+      );
+    }
     case 'whatsapp':
       return (
         <Handset dark title={who()}>
@@ -335,7 +447,7 @@ function Scene({ c }: { c: ShareCard }) {
           }
         >
           <div className="-m-1.5">
-            <Preview c={c} />
+            <Preview c={c} rich={rich} />
           </div>
           {[0.75, 0.6].map((w) => (
             <div key={w} aria-hidden="true" className="flex flex-col gap-1.5 px-1.5">
@@ -389,6 +501,7 @@ export function SharePage() {
   }, [url, status]);
 
   const cards = studio?.previews.cards ?? [];
+  const rich = studio ? readStructuredData(studio.previews.meta.jsonLd ?? [], studio.previews.meta.jsonLdErrors ?? []).preview : null;
   // Families in a fixed order: the list and the arrow keys follow it.
   const ordered = FAMILIES().flatMap((f) => cards.filter((c) => c.family === f.id));
   // Default: the first platform with a problem, else the first one.
@@ -473,10 +586,10 @@ export function SharePage() {
               {t('Couldn’t read:', 'Lecture impossible :')} {error}
             </p>
           ) : !card ? (
-            <p className="m-0 text-faint">{t('Reading with the 7 crawlers…', 'Lecture par les 7 robots…')}</p>
+            <p className="m-0 text-faint">{t('Reading with the 10 crawlers…', 'Lecture par les 10 robots…')}</p>
           ) : (
             <section aria-label={t(`${card.label} preview`, `Aperçu ${card.label}`)}>
-              <Scene c={card} />
+              <Scene c={card} rich={rich} />
             </section>
           )}
         </div>

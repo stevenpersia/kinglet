@@ -95,6 +95,21 @@ export function App() {
         case 'inspect':
           useStore.setState({ inspect: e.state });
           break;
+        case 'audit':
+          useStore.setState({ auditProgress: { done: e.done, queued: e.queued } });
+          break;
+        case 'taborder':
+          useStore.setState({ tabInfo: e.devices });
+          break;
+        case 'history':
+          useStore.setState((st) => ({ histories: { ...st.histories, [e.projectId]: e.entries } }));
+          break;
+        case 'feedback':
+          useStore.setState((st) => ({ pins: { ...st.pins, [e.projectId]: e.pins } }));
+          break;
+        case 'review':
+          useStore.setState({ review: e.state });
+          break;
         case 'shortcut':
           if (e.action === 'reload') void api().reload();
           else if (e.action === 'focus-url') useStore.setState({ urlFocusTick: s.urlFocusTick + 1 });
@@ -119,7 +134,7 @@ export function App() {
       await store.loadMcp();
       const claude = await api().claude.state();
       useStore.setState({ logs: await api().logs() });
-      useStore.setState({ vercel: await api().vercel.state(), update: await api().update.state(), claude: claude.projects, claudeHooks: claude.hooks, github: await api().github.state() });
+      useStore.setState({ vercel: await api().vercel.state(), update: await api().update.state(), claude: claude.projects, claudeHooks: claude.hooks, github: await api().github.state(), review: await api().review.state() });
     });
     return off;
   }, []);

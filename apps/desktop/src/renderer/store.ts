@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { ChatAttachment, FeedbackPin, GitHubState, InspectState, ClaudeProjectState, AnalyzeReport, CrawledPage, DevicePreset, EnvId, InitState, McpActivity, McpInfo, KingletApi, PhoneState, Project, Settings, ShareReport, UpdateState, VercelState, VercelTeamProject } from '../shared/types';
+import type { HistoryEntry, ReviewState, SiteAudit, TabOrderInfo, ChatAttachment, FeedbackPin, GitHubState, InspectState, ClaudeProjectState, AnalyzeReport, CrawledPage, DevicePreset, EnvId, InitState, McpActivity, McpInfo, KingletApi, PhoneState, Project, Settings, ShareReport, UpdateState, VercelState, VercelTeamProject } from '../shared/types';
 import { activeProject, closeProject as closeTab, openProject, patchProject, projectFromUrl } from '../shared/projects';
 import { envOf, envTargets, urlOnEnv, type ProjectVercel } from './lib/env';
 import { activeIds, allPresets, listedIds } from '../shared/devices';
@@ -29,7 +29,7 @@ interface State {
   detectedFrom: string | null;
   status: LoadStatus;
   error: string | null;
-  /** Last analysis of the current page (share tags + 30 checks). */
+  /** Last analysis of the current page (share tags + 36 checks). */
   report: AnalyzeReport | null;
   share: ShareReport | null;
   shareError: string | null;
@@ -115,6 +115,22 @@ interface State {
   /** Freeze native views as images while a menu or dialog covers the stage. */
   openOverlay(): Promise<void>;
   closeOverlay(): void;
+  /** Site-wide audit of the current origin. */
+  audit: SiteAudit | null;
+  auditing: boolean;
+  auditProgress: { done: number; queued: number } | null;
+  auditError: string | null;
+  runAudit(limit?: number): Promise<void>;
+  /** Checks page: the page shown or the whole site. */
+  checksScope: 'page' | 'site';
+  /** Keyboard tour on the devices. */
+  tabOrder: boolean;
+  tabInfo: Record<string, TabOrderInfo>;
+  toggleTabOrder(on?: boolean): void;
+  /** Measures of the deployments, per project id. */
+  histories: Record<string, HistoryEntry[]>;
+  loadHistory(projectId: string): Promise<void>;
+  review: ReviewState | null;
 }
 
 let shareSeq = 0;
@@ -124,7 +140,7 @@ let overlays = 0;
 export const useStore = create<State>((set, get) => ({
   ready: false,
   presets: [],
-  settings: { projects: [], openIds: [], activeId: null, recentUrls: [], active: [], scrollSync: true, landscape: false, throttle: { network: 'off', cpu: 1 }, language: 'en', startup: 'restore', defaultSection: 'apercu', autoAnalyze: true, customDevices: [], deviceOrder: [], devicesPerProject: false, media: { colorScheme: 'auto', reducedMotion: false, moreContrast: false }, offline: false, mocks: [], onboarded: true, claudePanel: true, claudeAllowCommands: false },
+  settings: { projects: [], openIds: [], activeId: null, recentUrls: [], active: [], scrollSync: true, landscape: false, throttle: { network: 'off', cpu: 1 }, language: 'en', startup: 'restore', defaultSection: 'apercu', autoAnalyze: true, customDevices: [], deviceOrder: [], devicesPerProject: false, media: { colorScheme: 'auto', reducedMotion: false, moreContrast: false }, offline: false, mocks: [], onboarded: true, claudePanel: true, claudeAllowCommands: false, region: { locale: null, timezone: null, geo: null }, regionPerDevice: {}, textSize: { scale: 1, zoom: 1 }, keyboard: false, reviewPublicUrl: null },
   platform: null,
   url: null,
   detectedFrom: null,
@@ -180,6 +196,37 @@ export const useStore = create<State>((set, get) => ({
   phoneOpen: false,
   previewId: null,
   prodId: null,
+  audit: null,
+  auditing: false,
+  auditProgress: null,
+  auditError: null,
+  async runAudit(limit) {
+    const { url, auditing } = get();
+    if (!url || auditing) return;
+    set({ auditing: true, auditProgress: { done: 0, queued: 1 }, auditError: null });
+    try {
+      const audit = await api().audit(url, { limit });
+      set({ audit });
+    } catch (e) {
+      set({ auditError: cleanError(e) });
+    } finally {
+      set({ auditing: false, auditProgress: null });
+    }
+  },
+  checksScope: 'page',
+  tabOrder: false,
+  tabInfo: {},
+  toggleTabOrder(on) {
+    const next = on ?? !get().tabOrder;
+    set({ tabOrder: next, tabInfo: {} });
+    api().setTabOrder(next);
+  },
+  histories: {},
+  async loadHistory(projectId) {
+    const entries = await api().history.load(projectId);
+    set({ histories: { ...get().histories, [projectId]: entries } });
+  },
+  review: null,
 
   async init() {
     if (initStarted) return; // React StrictMode runs effects twice in dev
@@ -253,7 +300,7 @@ export const useStore = create<State>((set, get) => ({
     if (!project) return;
     await s.updateSettings(openProject(s.settings, project));
     // Per-page state belongs to the previous project.
-    set({ report: null, share: null, shareError: null, pages: [], crawledOrigin: null, previewId: null, prodId: null, section: s.section === 'projets' ? s.settings.defaultSection : s.section });
+    set({ report: null, share: null, shareError: null, pages: [], crawledOrigin: null, previewId: null, prodId: null, audit: null, section: s.section === 'projets' ? s.settings.defaultSection : s.section });
     api().setPreviewsVisible(get().section === 'apercu');
     const target = project.lastUrl ?? project.localOrigin ?? projectVercel(get()).project?.productionUrl ?? null;
     if (target) await get().navigate(target);

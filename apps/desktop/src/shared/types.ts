@@ -1,4 +1,4 @@
-import type { Vitals, CheckResult, CrawledPage, ImageProbe, Issue, PageMeta, ShareFix, SharePreviews, SiteFiles, VercelDeployment, VercelProject, VercelTeam, VercelUser } from '@kinglet/core';
+import type { AxeViolation, Budget, BudgetResult, HreflangReport, SiteAudit, StructuredData, Vitals, CheckResult, CrawledPage, ImageProbe, Issue, PageMeta, ShareFix, SharePreviews, SiteFiles, VercelDeployment, VercelProject, VercelTeam, VercelUser } from '@kinglet/core';
 
 export interface DevicePreset {
   id: string;
@@ -60,6 +60,8 @@ export interface Project {
   claudeClosed?: boolean;
   /** Claude Code session of the panel, to resume it (here or in a terminal). */
   claudeSession?: string | null;
+  /** Performance budgets of the project's pages. */
+  budgets?: Budget[];
 }
 
 export interface Settings {
@@ -101,6 +103,32 @@ export interface Settings {
   claudePanel: boolean;
   /** No longer used: Claude asks in its own terminal (kept so older settings still read). */
   claudeAllowCommands: boolean;
+  /** Language, time zone and position the devices pretend to have (all of them). */
+  region: RegionPrefs;
+  /** Per device, what differs from `region`. */
+  regionPerDevice: Record<string, Partial<RegionPrefs>>;
+  /** Bigger text (browser text size) and page zoom (200 %: the page reflows at half the width). */
+  textSize: TextSize;
+  /** On-screen keyboard open on phones and tablets. */
+  keyboard: boolean;
+  /** Public address of the review server (a tunnel), to share review links outside the local network. */
+  reviewPublicUrl: string | null;
+}
+
+export interface RegionPrefs {
+  /** BCP 47, e.g. "fr-FR"; null: the computer's. Sets navigator.language, Intl and Accept-Language. */
+  locale: string | null;
+  /** IANA, e.g. "America/New_York"; null: the computer's. */
+  timezone: string | null;
+  /** Position given to navigator.geolocation; null: no position (permission refused). */
+  geo: { latitude: number; longitude: number; label: string } | null;
+}
+
+export interface TextSize {
+  /** Default font size factor: 1, 1.3, 1.5 or 2 (rem, em and % grow, px stay). */
+  scale: number;
+  /** Page zoom: 1 or 2. */
+  zoom: number;
 }
 
 export type Language = 'system' | 'en' | 'fr';
@@ -175,7 +203,7 @@ export interface ShareReport {
   issues: Issue[];
 }
 
-/** Everything known about the current page: share tags, site files, the 30 checks. */
+/** Everything known about the current page: share tags, site files, the 36 checks. */
 export interface AnalyzeReport {
   url: string;
   share: ShareReport;
@@ -184,8 +212,64 @@ export interface AnalyzeReport {
   score: { passed: number; total: number };
   /** Core Web Vitals of each device (by device id). */
   vitals?: Record<string, Vitals>;
+  /** axe-core violations (merged across devices) and keyboard focus. */
+  a11y?: { violations: AxeViolation[]; focus: { count: number; total: number; examples: string[] } | null } | null;
+  structured?: StructuredData;
+  hreflang?: HreflangReport | null;
+  /** The project's budgets that apply to this page. */
+  budgets?: BudgetResult[];
 }
 
+/** One measure of a deployment (or of the page shown), kept to draw the history. */
+export interface HistoryEntry {
+  at: number;
+  deploymentId: string | null;
+  url: string;
+  production: boolean;
+  branch: string | null;
+  commit: string | null;
+  /** Device the page was rendered on. */
+  device: string;
+  score: { passed: number; total: number } | null;
+  lcpMs: number | null;
+  cls: number | null;
+  bytes: number | null;
+  requests: number | null;
+  /** Exceeded budgets, one line each. */
+  budgetFailures: string[];
+  error: string | null;
+}
+
+/** A capture for the export: one device, its viewport or the whole page. */
+export interface ExportShot {
+  id: string;
+  label: string;
+  /** CSS px of what was captured. */
+  width: number;
+  height: number;
+  /** PNG data URL. */
+  dataUrl: string;
+  /** The page was cut (very long pages). */
+  cut?: boolean;
+}
+
+export interface ReviewState {
+  running: boolean;
+  /** Link to send, per project id (null: no review open). */
+  links: Record<string, string | null>;
+  /** The link only works on the local network. */
+  localOnly: boolean;
+}
+
+export interface TabOrderInfo {
+  count: number;
+  /** Elements that show no visible focus. */
+  missing: number;
+  /** Elements with a tabindex above 0 (they jump the queue). */
+  positive: number;
+}
+
+export type { SiteAudit, Budget, BudgetResult };
 export type { CheckResult, CrawledPage, ShareFix, SharePreviews, VercelDeployment, VercelProject };
 
 export type VercelTeamProject = VercelProject & { teamId: string | null };
@@ -329,7 +413,12 @@ export type PreviewEvent =
   | { type: 'favicon'; url: string; pageUrl: string }
   | { type: 'github'; state: GitHubState }
   | { type: 'term'; projectId: string; data?: string; exit?: number | null }
-  | { type: 'inspect'; state: InspectState };
+  | { type: 'inspect'; state: InspectState }
+  | { type: 'audit'; done: number; queued: number }
+  | { type: 'taborder'; devices: Record<string, TabOrderInfo> }
+  | { type: 'history'; projectId: string; entries: HistoryEntry[] }
+  | { type: 'feedback'; projectId: string; pins: FeedbackPin[] }
+  | { type: 'review'; state: ReviewState };
 
 /** The pull request opened from a branch, and the state of its CI. */
 export interface PullRequest {
@@ -383,6 +472,13 @@ export interface FeedbackPin {
   image: string | null;
   createdAt: number;
   done: boolean;
+  /** Who wrote it: null for you, a name for a client (review link). */
+  author?: string | null;
+  /** Where the pin is on its capture (0..1), when the capture has no pin drawn on it (review link). */
+  fx?: number;
+  fy?: number;
+  /** Answers in the thread (yours and the client's). */
+  replies?: { author: string | null; text: string; at: number }[];
 }
 
 /** How an element looks on one device (inspector). null: not on this device. */
@@ -443,7 +539,7 @@ export interface KingletApi {
   analyze(url: string, opts?: { refreshSite?: boolean }): Promise<AnalyzeReport>;
   /** Pages of the site (crawl + sitemap + links of the rendered page). Cached per origin. */
   crawl(url: string, opts?: { force?: boolean }): Promise<CrawledPage[]>;
-  /** The 7 platform previews (one fetch per bot) and the suggested fix. */
+  /** The 10 platform previews (one fetch per bot) and the suggested fix. */
   sharePreviews(url: string): Promise<ShareStudio>;
   copy(text: string): void;
   mcpInfo(): Promise<McpInfo>;
@@ -526,6 +622,35 @@ export interface KingletApi {
     paste(projectId: string, text: string, attachments: ChatAttachment[]): Promise<void>;
     /** The focus entered or left the terminal (app shortcuts step aside there). */
     focus(on: boolean): void;
+  };
+  /** Every page of the site, read like Google: broken links, duplicates, sitemap, hreflang, checks per page. */
+  audit(url: string, opts?: { limit?: number }): Promise<SiteAudit>;
+  /** Keyboard tour: numbers the elements in Tab order on every device, red where the focus doesn't show. */
+  setTabOrder(on: boolean): void;
+  export: {
+    /** The viewport (or the whole page) of each device shown, PNG. */
+    shots(full: boolean): Promise<ExportShot[]>;
+    /** What each device shows right now, JPEG data URLs (video frames). */
+    frames(): Promise<Record<string, string>>;
+    /** Scroll every device to this ratio (0 top, 1 bottom). */
+    scroll(ratio: number): void;
+    /** Ask where, then save; null when cancelled. */
+    save(data: Uint8Array, name: string, kind: 'png' | 'pdf' | 'webm' | 'gif'): Promise<string | null>;
+    /** One PDF page per device, with the page address and the date. */
+    pdf(shots: ExportShot[], title: string, name: string): Promise<string | null>;
+    /** Every capture in a folder (asks which). */
+    folder(shots: ExportShot[]): Promise<string | null>;
+  };
+  history: {
+    load(projectId: string): Promise<HistoryEntry[]>;
+    /** Measure a deployment (default: the page shown) off screen and add it to the history. */
+    measure(projectId: string, target?: { url: string; deploymentId: string | null; production: boolean; branch: string | null; commit: string | null }): Promise<HistoryEntry>;
+  };
+  review: {
+    state(): Promise<ReviewState>;
+    /** Open a review link for the project: its pins and a capture of each device. */
+    open(projectId: string): Promise<ReviewState>;
+    close(projectId: string): Promise<ReviewState>;
   };
   onEvent(cb: (e: PreviewEvent) => void): () => void;
 }

@@ -12,6 +12,8 @@ export const BOTS = {
   slack: 'Slackbot-LinkExpanding 1.0 (+https://api.slack.com/robots)',
   discord: 'Mozilla/5.0 (compatible; Discordbot/2.0; +https://discordapp.com)',
   google: 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
+  telegram: 'TelegramBot (like TwitterBot)',
+  bluesky: 'Mozilla/5.0 (compatible; Bluesky Cardyb/1.1; +mailto:support@bsky.app)',
 } as const;
 
 export type BotId = keyof typeof BOTS;

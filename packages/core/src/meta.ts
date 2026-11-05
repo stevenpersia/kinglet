@@ -40,6 +40,15 @@ export interface PageMeta {
   imgMissingAlt: number;
   /** Same-origin links found in the raw HTML. */
   links: string[];
+  /** Same-origin links that point at a fragment (#id), full URL with the hash. */
+  hashLinks: string[];
+  /** Fragment targets in the raw HTML: id attributes and <a name>. */
+  ids: string[];
+  /** JSON-LD blocks (<script type="application/ld+json">), parsed; a block that fails to parse is in jsonLdErrors. */
+  jsonLd: unknown[];
+  jsonLdErrors: string[];
+  /** <link rel="alternate" hreflang> (href resolved). */
+  hreflang: { lang: string; href: string }[];
   framework: Framework;
   /** og:* properties, keys without the "og:" prefix. */
   og: Record<string, string>;
@@ -126,6 +135,31 @@ export function parseMeta(html: string, baseUrl: string): Omit<PageMeta, 'reques
         .map((u) => u.split('#')[0]!),
     ),
   ];
+  const hashLinks = [
+    ...new Set(
+      root
+        .querySelectorAll('a[href*="#"]')
+        .map((a) => resolve(a.getAttribute('href') ?? null))
+        .filter((u): u is string => !!u && !!origin && u.startsWith(origin) && /#./.test(u)),
+    ),
+  ];
+  const ids = [...new Set([...root.querySelectorAll('[id]').map((e) => e.getAttribute('id') ?? ''), ...root.querySelectorAll('a[name]').map((e) => e.getAttribute('name') ?? '')].filter(Boolean))];
+  const jsonLd: unknown[] = [];
+  const jsonLdErrors: string[] = [];
+  for (const sc of root.querySelectorAll('script')) {
+    if ((sc.getAttribute('type') ?? '').trim().toLowerCase() !== 'application/ld+json') continue;
+    const raw = sc.rawText.trim();
+    if (!raw) continue;
+    try {
+      jsonLd.push(JSON.parse(raw));
+    } catch (e) {
+      jsonLdErrors.push((e as Error).message);
+    }
+  }
+  const hreflang = head
+    .querySelectorAll('link')
+    .filter((l) => (l.getAttribute('rel') ?? '').toLowerCase().split(/\s+/).includes('alternate') && l.getAttribute('hreflang'))
+    .map((l) => ({ lang: (l.getAttribute('hreflang') ?? '').trim(), href: resolve(l.getAttribute('href') ?? null) ?? (l.getAttribute('href') ?? '') }));
   const rawImage = og['image'] ?? og['image:url'] ?? og['image:secure_url'] ?? null;
 
   return {
@@ -143,6 +177,11 @@ export function parseMeta(html: string, baseUrl: string): Omit<PageMeta, 'reques
     imgCount: imgs.length,
     imgMissingAlt: imgs.filter((i) => i.getAttribute('alt') == null).length,
     links,
+    hashLinks,
+    ids,
+    jsonLd,
+    jsonLdErrors,
+    hreflang,
     framework: detectFramework(html),
     og,
     twitter,
