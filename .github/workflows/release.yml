@@ -89,11 +89,18 @@ jobs:
         run: |
           retry() { for i in 1 2 3 4; do "$@" && return 0; echo "Attempt $i failed, retrying" >&2; sleep $((i * 10)); done; return 1; }
           GH_TOKEN="$PRIVATE_TOKEN" gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json body --jq .body > notes.md
+          # A release needs a commit to tag: give an empty repository its README.
+          if ! gh api "repos/$RELEASES_REPO/commits?per_page=1" >/dev/null 2>&1; then
+            printf '# Kinglet releases\n\nBuilds of Kinglet for Linux (AppImage, pacman). The app updates itself from here.\n' > README.md
+            retry gh api -X PUT "repos/$RELEASES_REPO/contents/README.md" -f message="README" -f content="$(base64 -w0 README.md)" >/dev/null
+          fi
           if ! gh release view "$TAG" --repo "$RELEASES_REPO" >/dev/null 2>&1; then
             retry sh -c 'gh release view "$TAG" --repo "$RELEASES_REPO" >/dev/null 2>&1 || gh release create "$TAG" --repo "$RELEASES_REPO" --title "Kinglet ${TAG#v}" --notes-file notes.md'
           fi
           retry gh release upload "$TAG" dist/*.AppImage dist/*.pacman --repo "$RELEASES_REPO" --clobber
           retry gh release upload "$TAG" dist/latest-linux.yml --repo "$RELEASES_REPO" --clobber
+          # A release made while the repository was empty stays a draft: publish it.
+          retry gh release edit "$TAG" --repo "$RELEASES_REPO" --draft=false --latest >/dev/null
         env:
           GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
           PRIVATE_TOKEN: ${{ secrets.GITHUB_TOKEN }}
