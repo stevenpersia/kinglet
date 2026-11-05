@@ -29,8 +29,9 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
 
+      # Without captures here: the packaged run below takes them (it clears selftest-output/ first).
       - name: Acceptance test (dev build)
-        run: pnpm selftest
+        run: KINGLET_SELFTEST_SHOTS=0 pnpm selftest
 
       - name: Package AppImage + pacman
         run: pnpm dist

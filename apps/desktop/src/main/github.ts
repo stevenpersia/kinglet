@@ -67,6 +67,11 @@ export class GitHubService {
     return this.state;
   }
 
+  /** The connected token, to clone a repository (given to git for one command only). */
+  cloneToken() {
+    return this.state.connected ? this.token : null;
+  }
+
   private cache = new Map<string, { at: number; pr: PullRequest | null }>();
 
   private async get<T>(path: string): Promise<T> {

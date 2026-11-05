@@ -2,7 +2,7 @@ import { t } from '@kinglet/core';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { ChatAttachment, ChatItem, ClaudeCli } from '../../shared/types';
 import { activeProject, patchProject } from '../../shared/projects';
-import { api, claudeOpen, cleanError, useStore } from '../store';
+import { api, claudeOpen, cleanError, projectVercel, useStore } from '../store';
 import { ClaudeBanner } from './ClaudeBanner';
 import { Icon, Kbd } from './Icons';
 
@@ -125,6 +125,8 @@ function ClaudePanel() {
   const [cli, setCli] = useState<ClaudeCli | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [cloning, setCloning] = useState(false);
+  const [cloneError, setCloneError] = useState<string | null>(null);
   const list = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLTextAreaElement>(null);
 
@@ -169,6 +171,21 @@ function ClaudePanel() {
     if (r) await s.updateSettings(patchProject(s.settings, project.id, { folder: r.folder }));
   };
 
+  // The repository Vercel builds this project from, to clone it when the code isn't on this computer yet.
+  const repo = project ? projectVercel(s, project.id).project : null;
+  const clone = async () => {
+    if (!project || !repo?.gitUrl) return;
+    setCloning(true);
+    setCloneError(null);
+    try {
+      const r = await api().projects.clone(repo.gitUrl);
+      if (r) await s.updateSettings(patchProject(useStore.getState().settings, project.id, { folder: r.folder }));
+    } catch (e) {
+      setCloneError(cleanError(e));
+    }
+    setCloning(false);
+  };
+
   let body: React.ReactNode = null;
   if (!project) body = <p className="m-0 text-xs text-faint">{t('Open a project first.', 'Ouvre d’abord un projet.')}</p>;
   else if (cli && !cli.found)
@@ -187,9 +204,18 @@ function ClaudePanel() {
       <div className="flex flex-col gap-2.5 rounded-[10px] border border-line bg-card p-3 text-xs leading-relaxed text-muted">
         <span className="font-medium text-fg">{t('Where is the code?', 'Où est le code ?')}</span>
         {t('Claude works in the project folder. Choose it once; Kinglet remembers it.', 'Claude travaille dans le dossier du projet. Choisis-le une fois, Kinglet s’en souvient.')}
-        <button onClick={() => void pickFolder()} className="h-8 self-start rounded-ui bg-fg px-3 font-semibold text-bg">
-          {t('Choose the folder…', 'Choisir le dossier…')}
-        </button>
+        <div className="flex flex-wrap gap-1.5">
+          <button onClick={() => void pickFolder()} disabled={cloning} className={`h-8 rounded-ui px-3 font-semibold disabled:opacity-60 ${repo?.gitUrl ? 'border border-[#2a2a2f] bg-active text-fg hover:border-line-strong' : 'bg-fg text-bg'}`}>
+            {t('Choose the folder…', 'Choisir le dossier…')}
+          </button>
+          {repo?.gitUrl && (
+            <button onClick={() => void clone()} disabled={cloning} className="h-8 rounded-ui bg-fg px-3 font-semibold text-bg disabled:opacity-60">
+              {cloning ? t('Cloning…', 'Clonage…') : t(`Clone ${repo.repo ?? 'the repository'}…`, `Cloner ${repo.repo ?? 'le dépôt'}…`)}
+            </button>
+          )}
+        </div>
+        {repo?.gitUrl && !cloning && !cloneError && <span className="text-faint">{t('Not on this computer yet? Clone it: you choose where, Kinglet does the rest.', 'Pas encore sur cet ordinateur ? Clone-le : tu choisis où, Kinglet fait le reste.')}</span>}
+        {cloneError && <span className="text-err">{cloneError}</span>}
       </div>
     );
   else if (!chat?.items.length)

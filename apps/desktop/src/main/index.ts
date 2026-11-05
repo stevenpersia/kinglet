@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, Notification, shell } from 'electron';
 import { resolveLanguage, setLanguage, t, buildShareFix, checkShare, crawl, probeImage, readPageMeta, readSharePreviews, readSiteFiles, runChecks, score, vercelBypassHeaders, type CrawledPage, type SiteFiles } from '@kinglet/core';
@@ -9,7 +9,8 @@ import { startControlServer } from './control';
 import { mcpLaunch } from './mcp-launch';
 import { activeProject, isLocalUrl, openProject, patchProject, projectForFolder, projectFromUrl, visit } from '../shared/projects';
 import { VercelService } from './vercel';
-import { findVercelFolder, vercelLinkOf } from './folders';
+import { defaultRoots, findVercelFolder, vercelLinkOf } from './folders';
+import { cloneRepo } from './clone';
 import { ClaudeTracker, type HookPayload } from './claude';
 import { ClaudeHooks } from './claude-hooks';
 import { lanAddresses, LanProxy } from './lan';
@@ -455,6 +456,19 @@ async function createWindow() {
   ipcMain.handle('github:state', () => github.state);
   ipcMain.handle('github:connect', (_e, token: string) => github.connect(token));
   ipcMain.handle('github:disconnect', () => github.disconnect());
+  // Clone the project's repository: ask where, then git clone (null when the dialog is cancelled).
+  ipcMain.handle('projects:clone', async (_e, gitUrl: string) => {
+    if (!/^https:\/\/[\w.-]+\/[\w./-]+\.git$/.test(gitUrl)) throw new Error(t('Not a repository URL.', 'Ce n’est pas l’adresse d’un dépôt.'));
+    const home = app.getPath('home');
+    const r = await dialog.showOpenDialog(win, {
+      title: t('Where to put the code', 'Où mettre le code'),
+      buttonLabel: t('Clone here', 'Cloner ici'),
+      properties: ['openDirectory', 'createDirectory'],
+      defaultPath: defaultRoots(home).find((d) => d !== home && existsSync(d)) ?? home,
+    });
+    const parent = r.canceled ? null : (r.filePaths[0] ?? null);
+    return parent ? { folder: await cloneRepo(gitUrl, parent, github.cloneToken()) } : null;
+  });
   ipcMain.handle('github:issue', (_e, repo: string, title: string, body: string) => github.createIssue(repo, title, body));
   // Review pins, one file per project (captures included).
   const feedbackFile = (projectId: string) => join(app.getPath('userData'), 'feedback', `${projectId.replace(/[^\w.-]+/g, '_')}.json`);

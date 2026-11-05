@@ -133,7 +133,7 @@ const app = spawn(packaged ?? electronBin, args, {
     KINGLET_CLAUDE_BIN: join(root, 'fixtures/fake-claude/claude'),
     KINGLET_DEMO_DIR: demoDir,
   },
-  stdio: ['ignore', 'pipe', 'inherit'],
+  stdio: ['pipe', 'pipe', 'inherit'],
 });
 children.push(app);
 
@@ -151,6 +151,7 @@ for await (const line of createInterface({ input: app.stdout })) {
     } catch (e) {
       console.error(`  capture ${name} impossible : ${e.message}`);
     }
+    if (app.stdin.writable) app.stdin.write(`SHOT-DONE:${name}\n`);
   } else if (line.startsWith('SELFTEST:DONE')) break;
   else if (line.trim()) console.log(`  [app] ${line}`);
 }
