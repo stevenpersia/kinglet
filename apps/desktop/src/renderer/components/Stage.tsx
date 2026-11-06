@@ -253,7 +253,7 @@ function ToolTabs() {
     export: state.exporting ? t('Exporting…', 'Export…') : null,
   };
   return (
-    <nav aria-label={t('Tools', 'Outils')} className="flex w-10 shrink-0 flex-col items-center gap-1.5 border-r border-line-soft bg-[#0b0b0e] pt-3">
+    <nav aria-label={t('Tools', 'Outils')} className="flex w-10 shrink-0 flex-col items-center gap-1.5 border-r border-line-soft bg-chrome pt-3">
       {TOOLS().map((tool) => {
         const on = state.panel === tool.id;
         return (
@@ -284,7 +284,7 @@ function ToolPanel({ tool, subtitle, actions, children }: { tool: Tool; subtitle
   const state = useStore();
   const def = TOOLS().find((x) => x.id === tool)!;
   return (
-    <aside id={`${tool}-panel`} aria-label={def.label} className="relative flex w-[350px] shrink-0 flex-col border-r border-line-soft bg-[#0d0e11]">
+    <aside id={`${tool}-panel`} aria-label={def.label} className="relative flex w-[350px] shrink-0 flex-col border-r border-line-soft bg-chrome">
       <span aria-hidden="true" className="absolute inset-x-0 top-0 h-px opacity-70" style={{ background: `linear-gradient(90deg, transparent, ${def.accent} 30%, ${def.accent} 70%, transparent)` }} />
       <div className="flex shrink-0 items-center gap-3 border-b border-line-soft px-4 py-3">
         <span className="flex size-8 shrink-0 items-center justify-center rounded-lg" style={{ color: def.accent, background: `${def.tint}0.12)`, boxShadow: `inset 0 0 0 1px ${def.tint}0.25)` }}>
