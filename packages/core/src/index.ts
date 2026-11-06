@@ -20,7 +20,25 @@ export {
   type AxeViolation,
   type AxeImpact,
   type FormsSummary,
+  type PerfDetails,
 } from './checks.ts';
+export { scanContent, contentPrompt, MAX_CONTENT_TEXT, type PageContent, type ContentScan, type ContentFinding } from './content.ts';
+export {
+  assessPrivacy,
+  privacyFromHtml,
+  privacyPrompt,
+  siteOf,
+  BANNER_PROBE,
+  TRACKERS,
+  EMBEDS,
+  CMPS,
+  type PrivacyCapture,
+  type PrivacyReport,
+  type PrivacyRequest,
+  type PrivacyCookie,
+  type TrackerHit,
+  type TrackerCategory,
+} from './privacy.ts';
 export { readSiteFiles, parseRobots, parseSitemap, type SiteFiles } from './site.ts';
 export { crawl, type CrawledPage } from './crawl.ts';
 export { detectFramework, type Framework } from './meta.ts';
@@ -46,6 +64,7 @@ export { t, setLanguage, getLanguage, locale, ago, resolveLanguage, type Languag
 export { consolePrompt, formatEntries, groupEntries, type ConsoleEntry } from './console.ts';
 export { readStructuredData, flattenJsonLd, richKindLabel, type StructuredData, type StructuredItem, type RichPreview, type RichKind } from './structured.ts';
 export { readHreflang, checkHreflangTags, type HreflangReport, type HreflangIssue, type HreflangAlternate } from './hreflang.ts';
+export { checkExternalLinks, type ExternalLink, type ExternalReport } from './external.ts';
 export { auditSite, auditPrompt, type SiteAudit, type AuditPage, type BrokenLink, type Duplicate } from './audit.ts';
 export { evaluateBudgets, pathMatches, describeFailures, budgetMetricLabel, formatBudgetValue, DEFAULT_BUDGET, type Budget, type BudgetMeasure, type BudgetResult, type BudgetMetric } from './budgets.ts';
 export {

@@ -161,7 +161,7 @@ function DeployMenu({ hover }: { hover: boolean }) {
         <span className="label">Previews</span>
         <span className="text-[11px] text-faint">Vercel · every 30 s</span>
       </div>
-      {row('feat/budgets', '#128 ✓ CI', <><Dot className="bg-ok" /> Ready · checks 37/37 · LCP 1.2 s</>, 'just now', 'deploy-row', hover)}
+      {row('feat/budgets', '#128 ✓ CI', <><Dot className="bg-ok" /> Ready · checks 53/53 · LCP 1.2 s</>, 'just now', 'deploy-row', hover)}
       {row('fix/nav-contrast', '#131', <><span className="blink inline-block size-1.5 rounded-full bg-warn" /> Building…</>, '1 min')}
       {row('exp/onboarding', '#126 ✕ CI', <><Dot className="bg-err" /> <span className="text-err">Error</span> · <span className="text-[#d97757]">Ask Claude</span></>, '3 h')}
     </motion.div>
@@ -470,7 +470,7 @@ function ChecksPanel({ s }: { s: DemoState }) {
     <motion.aside initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 16 }} transition={{ duration: 0.3 }} className="flex w-[270px] shrink-0 flex-col border-l border-line-soft bg-chrome">
       <div className="flex h-11 shrink-0 items-center justify-between border-b border-line-soft px-3.5">
         <span className="text-[13px] font-semibold">Checks</span>
-        <span className={`font-mono text-xs ${fixed ? 'text-ok' : 'text-warn'}`}>{fixed ? '37' : '35'} / 37</span>
+        <span className={`font-mono text-xs ${fixed ? 'text-ok' : 'text-warn'}`}>{fixed ? '53' : '51'} / 53</span>
       </div>
       <div className="flex gap-1 border-b border-line-soft px-3 py-2">
         {['All', 'SEO', 'Share', 'Mobile', 'A11y'].map((f, i) => (

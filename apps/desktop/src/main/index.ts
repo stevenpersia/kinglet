@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, Notification, shell } from 'electron';
-import { resolveLanguage, setLanguage, t, locale, buildShareFix, checkShare, crawl, probeImage, readPageMeta, readSharePreviews, readSiteFiles, runChecks, score, vercelBypassHeaders, auditSite, auditSecurity, securitySummary, readHreflang, readStructuredData, evaluateBudgets, describeFailures, type AxeViolation, type BudgetMeasure, type CrawledPage, type HreflangReport, type SiteFiles } from '@kinglet/core';
+import { resolveLanguage, setLanguage, t, locale, buildShareFix, checkShare, crawl, probeImage, readPageMeta, readSharePreviews, readSiteFiles, runChecks, score, vercelBypassHeaders, auditSite, auditSecurity, securitySummary, readHreflang, readStructuredData, evaluateBudgets, describeFailures, assessPrivacy, type AxeViolation, type PrivacyReport, type BudgetMeasure, type CrawledPage, type HreflangReport, type SiteFiles } from '@kinglet/core';
 import { startStdio } from '@kinglet/mcp';
 import QRCode from 'qrcode';
 import type { SecurityRun, AnalyzeReport, CompareColumn, DeviceSlot, EnvId, ExportShot, FeedbackPin, HistoryEntry, InitState, McpActivity, McpInfo, NewProjectRequest, Project, PhoneQr, PhoneState, PreviewEvent, Settings, ShareStudio } from '../shared/types';
@@ -25,6 +25,7 @@ import { Terminals } from './terminal';
 import { GitHubService } from './github';
 import { execFile } from 'node:child_process';
 import { readChanges } from './changes';
+import { capturePrivacy } from './privacy';
 import { DeviceManager, shortcutFor } from './devices';
 import { PRESETS } from './presets';
 import { activeIds, allPresets, setActiveIds } from '../shared/devices';
@@ -352,14 +353,26 @@ async function createWindow(license: LicenseService) {
   const budgetMeasures = (vitals: Record<string, { lcpMs: number | null; cls: number | null }>): BudgetMeasure[] =>
     devices.perfs().map((p) => ({ deviceId: p.deviceId, label: p.label, bytes: p.bytes, requests: p.requests, lcpMs: vitals[p.deviceId]?.lcpMs ?? null, cls: vitals[p.deviceId]?.cls ?? null }));
 
+  /** A first visit without consent (privacy checks), kept 5 minutes per page: it costs a page load. */
+  const privacyCache = new Map<string, { at: number; job: Promise<PrivacyReport | null> }>();
+  const privacyOf = (url: string, refresh = false) => {
+    const hit = privacyCache.get(url);
+    if (!refresh && hit && Date.now() - hit.at < 5 * 60_000) return hit.job;
+    const job = capturePrivacy(url, (u) => bypassHeaders(u, true))
+      .then(assessPrivacy)
+      .catch(() => null);
+    privacyCache.set(url, { at: Date.now(), job });
+    return job;
+  };
+
   async function analyzePage(url: string, opts: { refreshSite?: boolean } = {}): Promise<AnalyzeReport> {
     const headers = bypassHeaders(url);
-    const [meta, rendered] = await Promise.all([readPageMeta(url, { headers }), devices.measure()]);
+    const [meta, rendered, privacy] = await Promise.all([readPageMeta(url, { headers }), devices.measure(), privacyOf(url, opts.refreshSite)]);
     const [image, hreflang] = await Promise.all([meta.ogImageUrl ? probeImage(meta.ogImageUrl, { headers: bypassHeaders(meta.ogImageUrl) }) : Promise.resolve(null), hreflangOf(meta, opts.refreshSite)]);
     const key = origin(meta.finalUrl);
     if (opts.refreshSite || !siteCache.has(key)) siteCache.set(key, readSiteFiles(meta.finalUrl, { manifest: meta.manifest, favicon: meta.icons[0] ?? null }, { headers }));
     const site = await siteCache.get(key)!.catch(() => null);
-    const checks = runChecks({ meta, image, site, rendered: rendered.devices, hreflang });
+    const checks = runChecks({ meta, image, site, rendered: rendered.devices, hreflang, privacy });
     const vitals = Object.fromEntries(rendered.devices.filter((r) => r.vitals).map((r) => [r.id, r.vitals!]));
     // Accessibility: violations merged across devices, focus from the worst device.
     const byRule = new Map<string, AxeViolation>();
@@ -373,7 +386,7 @@ async function createWindow(license: LicenseService) {
     const a11y = rendered.devices.some((r) => r.axe || r.focusMissing) ? { violations: [...byRule.values()].sort((a, b) => order[a.impact] - order[b.impact] || b.nodes - a.nodes), focus } : null;
     const project = activeProject(settings.value);
     const budgets = project?.budgets?.length ? evaluateBudgets(project.budgets, new URL(meta.finalUrl).pathname, budgetMeasures(vitals)) : [];
-    return { url, share: { meta, image, issues: checkShare(meta, image) }, site, checks, score: score(checks), vitals, a11y, structured: readStructuredData(meta.jsonLd, meta.jsonLdErrors, locale()), hreflang, budgets };
+    return { url, share: { meta, image, issues: checkShare(meta, image) }, site, checks, score: score(checks), vitals, a11y, structured: readStructuredData(meta.jsonLd, meta.jsonLdErrors, locale()), hreflang, budgets, privacy };
   }
   ipcMain.handle('page:analyze', (_e, url: string, opts: { refreshSite?: boolean }) => analyzePage(url, opts));
 
@@ -436,6 +449,11 @@ async function createWindow(license: LicenseService) {
         if (Date.now() - last < 150 && done < queued) return;
         last = Date.now();
         emit({ type: 'audit', done, queued });
+      },
+      onExternalProgress: (done, total) => {
+        if (Date.now() - last < 150 && done < total) return;
+        last = Date.now();
+        emit({ type: 'audit', done, queued: total, external: true });
       },
     });
     // Dead anchors: the raw HTML misses ids added by JavaScript. Look again in each rendered page.

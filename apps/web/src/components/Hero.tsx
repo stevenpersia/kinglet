@@ -13,7 +13,7 @@ const SCENES: { id: SceneId; label: string; color: string; caption: string }[] =
   { id: 'devices', label: 'Device tools', color: '#c6f432', caption: 'Slow 3G, the iOS keyboard, Tokyo: real-world conditions on every device at once. Then Claude fixes what they reveal.' },
   { id: 'phone', label: 'On my phone', color: '#a78bfa', caption: 'Share the dev server on the Wi-Fi, scan the code: your real phone shows localhost, with hot reload.' },
   { id: 'share', label: 'Open Graph', color: '#53bdeb', caption: 'Every Open Graph preview at a glance: WhatsApp, LinkedIn, X, Slack, Google… read by their own bots, problems first. One click and Claude adds the missing tags.' },
-  { id: 'checks', label: 'Checks', color: '#7dd3a8', caption: '37 checks on every render: SEO, share, mobile, accessibility, performance. Each failure goes to Claude in one click.' },
+  { id: 'checks', label: 'Checks', color: '#7dd3a8', caption: '53 checks on every render: SEO, share, content, mobile, accessibility, privacy, performance. Each failure goes to Claude in one click.' },
   { id: 'deploy', label: 'Deploy', color: '#e6c07b', caption: 'Claude pushes, the Vercel preview is ready: open it from the address bar with its pull request and CI, then compare with prod.' },
 ];
 const WIDTH = 1200;
@@ -110,7 +110,7 @@ export function Hero() {
           transition={{ duration: 0.6, delay: 0.1 }}
           className="m-0 max-w-[680px] text-[19px] leading-[1.55] text-muted"
         >
-          Build with Claude, watch it land on 10 devices at once, point at what’s wrong and let Claude fix it. Then ship through GitHub and Vercel with 37 checks watching your back.
+          Build with Claude, watch it land on 10 devices at once, point at what’s wrong and let Claude fix it. Then ship through GitHub and Vercel with 53 checks watching your back.
         </motion.p>
         <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.15 }} className="flex w-full flex-col items-center gap-3">
           <GetKinglet />

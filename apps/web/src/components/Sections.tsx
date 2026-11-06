@@ -156,8 +156,8 @@ export function Ship() {
                   <span>CHECKS</span>
                   <span>LCP</span>
                 </div>
-                <DeployRow dot="#7dd3a8" branch={<>main <span className="text-ghost">→ saltmint.app</span></>} pr={<span className="text-ghost">—</span>} status={<span className="text-ok">Live</span>} checks="37/37" lcp="1.1 s" />
-                <DeployRow dot="#e6c07b" branch="feat/budgets" pr={<>#128 <span className="text-ok">✓ CI</span></>} status={<span className="text-ok">Ready</span>} checks="37/37" lcp="1.2 s" />
+                <DeployRow dot="#7dd3a8" branch={<>main <span className="text-ghost">→ saltmint.app</span></>} pr={<span className="text-ghost">—</span>} status={<span className="text-ok">Live</span>} checks="53/53" lcp="1.1 s" />
+                <DeployRow dot="#e6c07b" branch="feat/budgets" pr={<>#128 <span className="text-ok">✓ CI</span></>} status={<span className="text-ok">Ready</span>} checks="53/53" lcp="1.2 s" />
                 <DeployRow dot="#e6c07b" pulse branch="fix/nav-contrast" pr={<>#131 <span className="text-warn">● CI</span></>} status={<span className="text-warn">Building</span>} checks="—" lcp="—" />
                 <DeployRow dot="#f28b82" branch="exp/onboarding" pr={<>#126 <span className="text-err">✕ CI</span></>} status={<span className="text-err">Error</span>} checks="—" lcp={<span className="text-clay">Ask Claude</span>} />
               </div>
@@ -231,23 +231,25 @@ export function Ship() {
 const FAMILIES: [string, number, number][] = [
   ['SEO', 10, 10],
   ['Share', 5, 6],
-  ['Mobile', 11, 11],
-  ['Accessibility', 3, 4],
-  ['Technical', 6, 6],
+  ['Content', 5, 6],
+  ['Mobile', 10, 10],
+  ['Accessibility', 2, 3],
+  ['Privacy', 3, 4],
+  ['Technical', 13, 14],
 ];
 
 export function Checks() {
   return (
     <section className="mx-auto max-w-[1200px] px-4 pt-36 sm:px-6">
-      <SectionHead id="checks" n="04" eyebrow="Checks & audits" title="37 checks." dim="On every render.">
+      <SectionHead id="checks" n="04" eyebrow="Checks & audits" title="53 checks." dim="On every render.">
         Measured inside the devices, on the rendered page. Each problem comes with the fix for your framework and a prompt ready for Claude.
       </SectionHead>
       <div className="mt-12 grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr))]">
         <Reveal>
           <Card className="flex h-full flex-col gap-4 p-7">
             <div className="flex items-baseline gap-2.5">
-              <span className="text-[56px] font-semibold tracking-[-0.05em]">35</span>
-              <span className="text-[22px] text-ghost">/ 37</span>
+              <span className="text-[56px] font-semibold tracking-[-0.05em]">48</span>
+              <span className="text-[22px] text-ghost">/ 53</span>
             </div>
             <div className="flex flex-col gap-3 text-[13px]">
               {FAMILIES.map(([name, ok, total], i) => (

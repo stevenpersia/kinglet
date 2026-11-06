@@ -9,7 +9,7 @@ const INCLUDED = [
   'Claude Code panel, inspector and console',
   'MCP server: 14 tools, 6 slash commands',
   'Vercel and GitHub: previews, prod, PRs, CI',
-  '37 checks, site audit, budgets, history',
+  '53 checks, site audit, budgets, history',
   'Security: leaked keys, open files, headers',
   'Open Graph previews on 10 platforms',
   'Region, keyboards, forms, mocks, export',

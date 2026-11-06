@@ -211,8 +211,8 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     const atelier = await analyze('http://localhost:5173/atelier.html');
     const st = Object.fromEntries(atelier.checks.map((c) => [c.id, c.status]));
     criteria.push({
-      id: 'checks-37',
-      ok: atelier.checks.length === 37 && st['overflow'] === 'error' && st['console'] === 'error' && st['og-site-name'] === 'warning' && st['robots'] === 'warning',
+      id: 'checks-53',
+      ok: atelier.checks.length === 53 && st['overflow'] === 'error' && st['console'] === 'error' && st['og-site-name'] === 'warning' && st['robots'] === 'warning',
       detail: `${atelier.checks.length} checks, ${atelier.score.passed}/${atelier.score.total} · débordement ${st['overflow']}, erreurs JS ${st['console']}, robots.txt ${st['robots']} (le serveur Vite renvoie sa page HTML)`,
     });
     // Measured in the devices: the « mentions » link of atelier.html is tiny and pale on purpose.

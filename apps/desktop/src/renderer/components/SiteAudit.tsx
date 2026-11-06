@@ -58,7 +58,11 @@ export function SiteAuditView() {
       </label>
       <button onClick={() => void runAudit(limit)} disabled={auditing || !url} className="flex h-8 items-center gap-2 rounded-ui bg-fg px-3 font-semibold text-bg disabled:opacity-60">
         <Icon name="search" size={13} />
-        {auditing ? t(`Reading ${auditProgress?.done ?? 0} / ${auditProgress?.queued ?? '…'}`, `Lecture ${auditProgress?.done ?? 0} / ${auditProgress?.queued ?? '…'}`) : audit ? t('Audit again', 'Réauditer') : t('Audit the site', 'Auditer le site')}
+        {auditing
+          ? auditProgress?.external
+            ? t(`External links ${auditProgress.done} / ${auditProgress.queued}`, `Liens externes ${auditProgress.done} / ${auditProgress.queued}`)
+            : t(`Reading ${auditProgress?.done ?? 0} / ${auditProgress?.queued ?? '…'}`, `Lecture ${auditProgress?.done ?? 0} / ${auditProgress?.queued ?? '…'}`)
+          : audit ? t('Audit again', 'Réauditer') : t('Audit the site', 'Auditer le site')}
       </button>
     </div>
   );
@@ -68,8 +72,8 @@ export function SiteAuditView() {
       <div className="flex flex-col items-start gap-3">
         <p className="m-0 max-w-[640px] leading-relaxed text-muted">
           {t(
-            'Reads every page found through the links, the sitemap and the rendered page, like Google (raw HTML). Finds broken links and dead anchors, duplicate titles and descriptions, pages missing from the sitemap, one-way hreflang, and the checks that fail on each page.',
-            'Lit toutes les pages trouvées par les liens, le sitemap et la page rendue, comme Google (HTML brut). Trouve les liens cassés et les ancres mortes, les titres et descriptions en double, les pages absentes du sitemap, les hreflang à sens unique, et les checks qui échouent sur chaque page.',
+            'Reads every page found through the links, the sitemap and the rendered page, like Google (raw HTML). Finds broken links (to the site’s pages and to other sites) and dead anchors, duplicate titles and descriptions, pages missing from the sitemap, one-way hreflang, and the checks that fail on each page.',
+            'Lit toutes les pages trouvées par les liens, le sitemap et la page rendue, comme Google (HTML brut). Trouve les liens cassés (vers les pages du site et vers d’autres sites) et les ancres mortes, les titres et descriptions en double, les pages absentes du sitemap, les hreflang à sens unique, et les checks qui échouent sur chaque page.',
           )}
         </p>
         {header}
@@ -80,6 +84,18 @@ export function SiteAuditView() {
   const bad = audit.pages.filter((p) => p.errors || p.warnings);
   const pageLinks = audit.brokenLinks.filter((b) => b.kind === 'page');
   const anchors = audit.brokenLinks.filter((b) => b.kind === 'anchor');
+  const external = audit.external;
+  const from = (paths: string[]) => (
+    <>
+      {paths.slice(0, 6).map((f, i) => (
+        <button key={f} onClick={() => go(f)} className="font-mono text-fg hover:underline">
+          {f}
+          {i < Math.min(paths.length, 6) - 1 ? ', ' : ''}
+        </button>
+      ))}
+      {paths.length > 6 ? ` +${paths.length - 6}` : ''}
+    </>
+  );
   const prompt = auditPrompt(audit);
   return (
     <div className="flex flex-col gap-4">
@@ -106,6 +122,7 @@ export function SiteAuditView() {
         <Tile n={audit.pages.length} label={t('pages', 'pages')} bad={false} />
         <Tile n={bad.length} label={t('pages with problems', 'pages avec problèmes')} bad />
         <Tile n={pageLinks.length} label={t('broken links', 'liens cassés')} bad />
+        {external && <Tile n={external.broken.length} label={t(`broken external links (${external.checked} checked)`, `liens externes cassés (${external.checked} vérifiés)`)} bad />}
         <Tile n={anchors.length} label={t('dead anchors', 'ancres mortes')} bad />
         <Tile n={audit.duplicateTitles.length + audit.duplicateDescriptions.length} label={t('duplicates', 'doublons')} bad />
         <Tile n={audit.notInSitemap.length + audit.sitemapBroken.length} label={t('sitemap gaps', 'écarts du sitemap')} bad />
@@ -129,6 +146,41 @@ export function SiteAuditView() {
                   </button>
                 ))}
                 {b.from.length > 6 ? ` +${b.from.length - 6}` : ''}
+              </span>
+            </Li>
+          ))}
+        </Section>
+        <Section title={t('Broken external links', 'Liens externes cassés')} count={external?.broken.length ?? 0}>
+          {external?.broken.map((b) => (
+            <Li key={b.url}>
+              <span className="flex min-w-0 items-center gap-2 font-mono text-xs">
+                <Dot className="bg-err" />
+                <button onClick={() => window.kinglet.openExternal(b.url)} className="truncate text-left hover:underline" title={b.url}>
+                  {b.url.replace(/^https?:\/\//, '')}
+                </button>
+                <span className="shrink-0 text-err">{b.status ? `HTTP ${b.status}` : (b.error ?? t('unreachable', 'injoignable'))}</span>
+              </span>
+              <span className="text-[11.5px] text-muted">
+                {t('linked from', 'lié depuis')} {from(b.from)}
+              </span>
+            </Li>
+          ))}
+        </Section>
+        <Section title={t('External links not verifiable', 'Liens externes non vérifiables')} count={external?.unverified.length ?? 0}>
+          <li className="px-3 py-2 text-[11.5px] text-muted">
+            {t('These sites turn automated visits away or did not answer in time: open them to be sure.', 'Ces sites refusent les visites automatiques ou n’ont pas répondu à temps : ouvre-les pour en être sûr.')}
+          </li>
+          {external?.unverified.map((b) => (
+            <Li key={b.url}>
+              <span className="flex min-w-0 items-center gap-2 font-mono text-xs">
+                <Dot className="bg-ghost" />
+                <button onClick={() => window.kinglet.openExternal(b.url)} className="truncate text-left hover:underline" title={b.url}>
+                  {b.url.replace(/^https?:\/\//, '')}
+                </button>
+                <span className="shrink-0 text-muted">{b.status ? `HTTP ${b.status}` : (b.error ?? '')}</span>
+              </span>
+              <span className="text-[11.5px] text-muted">
+                {t('linked from', 'lié depuis')} {from(b.from)}
               </span>
             </Li>
           ))}

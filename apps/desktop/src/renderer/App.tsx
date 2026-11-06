@@ -107,7 +107,7 @@ export function App() {
           useStore.setState({ inspect: e.state });
           break;
         case 'audit':
-          useStore.setState({ auditProgress: { done: e.done, queued: e.queued } });
+          useStore.setState({ auditProgress: { done: e.done, queued: e.queued, external: !!e.external } });
           break;
         case 'taborder':
           useStore.setState({ tabInfo: e.devices });

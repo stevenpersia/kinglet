@@ -1,4 +1,4 @@
-import type { SecurityReport, AxeViolation, Budget, BudgetResult, HreflangReport, SiteAudit, StructuredData, Vitals, CheckResult, CrawledPage, ImageProbe, Issue, PageMeta, ShareFix, SharePreviews, SiteFiles, VercelDeployment, VercelProject, VercelTeam, VercelUser } from '@kinglet/core';
+import type { SecurityReport, PrivacyReport, AxeViolation, Budget, BudgetResult, HreflangReport, SiteAudit, StructuredData, Vitals, CheckResult, CrawledPage, ImageProbe, Issue, PageMeta, ShareFix, SharePreviews, SiteFiles, VercelDeployment, VercelProject, VercelTeam, VercelUser } from '@kinglet/core';
 
 export interface DevicePreset {
   id: string;
@@ -209,7 +209,7 @@ export interface ShareReport {
   issues: Issue[];
 }
 
-/** Everything known about the current page: share tags, site files, the 37 checks. */
+/** Everything known about the current page: share tags, site files, the 53 checks. */
 export interface AnalyzeReport {
   url: string;
   share: ShareReport;
@@ -224,6 +224,8 @@ export interface AnalyzeReport {
   hreflang?: HreflangReport | null;
   /** The project's budgets that apply to this page. */
   budgets?: BudgetResult[];
+  /** A first visit without consent: trackers, cookies, banner (null when it failed). */
+  privacy?: PrivacyReport | null;
 }
 
 /** One measure of a deployment (or of the page shown), kept to draw the history. */
@@ -463,7 +465,7 @@ export type PreviewEvent =
   | { type: 'github'; state: GitHubState }
   | { type: 'term'; projectId: string; data?: string; exit?: number | null }
   | { type: 'inspect'; state: InspectState }
-  | { type: 'audit'; done: number; queued: number }
+  | { type: 'audit'; done: number; queued: number; external?: boolean }
   | { type: 'taborder'; devices: Record<string, TabOrderInfo> }
   | { type: 'history'; projectId: string; entries: HistoryEntry[] }
   | { type: 'feedback'; projectId: string; pins: FeedbackPin[] }

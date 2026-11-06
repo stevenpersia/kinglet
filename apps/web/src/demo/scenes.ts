@@ -78,7 +78,7 @@ export const CLAUDE: Partial<Record<SceneId, Conversation>> = {
     lines: [
       { k: 'tool', text: 'kinglet - screenshot', note: 'iphone-16, laptop' },
       { k: 'edit', text: 'Update(components/Hero.tsx)', note: '+2 −2', ok: true },
-      { k: 'tool', text: 'kinglet - run_checks', note: 'contrast ✓ 37/37', ok: true },
+      { k: 'tool', text: 'kinglet - run_checks', note: 'contrast ✓ 53/53', ok: true },
       { k: 'say', text: 'Done: mint with dark text, checked on both devices.' },
     ],
   },
@@ -116,10 +116,10 @@ export const CLAUDE: Partial<Record<SceneId, Conversation>> = {
     prompt: 'Fix the failing checks',
     note: 'Tap targets · og:image size',
     lines: [
-      { k: 'tool', text: 'kinglet - run_checks', note: '35/37' },
+      { k: 'tool', text: 'kinglet - run_checks', note: '51/53' },
       { k: 'edit', text: 'Update(components/Nav.tsx)', note: '+3 −3', ok: true },
       { k: 'edit', text: 'Update(app/layout.tsx)', note: '+1 −1', ok: true },
-      { k: 'tool', text: 'kinglet - run_checks', note: '37/37', ok: true },
+      { k: 'tool', text: 'kinglet - run_checks', note: '53/53', ok: true },
     ],
   },
   deploy: {
@@ -127,7 +127,7 @@ export const CLAUDE: Partial<Record<SceneId, Conversation>> = {
     lines: [
       { k: 'tool', text: 'Bash(git push origin feat/budgets)' },
       { k: 'tool', text: 'kinglet - list_deployments', note: 'Ready · PR #128 ✓ CI', ok: true },
-      { k: 'tool', text: 'kinglet - run_checks', note: 'preview · 37/37', ok: true },
+      { k: 'tool', text: 'kinglet - run_checks', note: 'preview · 53/53', ok: true },
     ],
   },
 };

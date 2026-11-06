@@ -210,7 +210,44 @@ const MEASURE = `(async () => {
   if (!insets) for (const sh of document.styleSheets) { try { for (const rule of sh.cssRules) if (rule.cssText.includes('safe-area-inset')) { insets = true; break; } } catch {} if (insets) break; }
   // Core Web Vitals, from the buffered performance entries.
   const entries = (type) => new Promise((res) => { try { const got = []; const po = new PerformanceObserver((l) => got.push(...l.getEntries())); po.observe({ type, buffered: true }); setTimeout(() => { got.push(...po.takeRecords()); po.disconnect(); res(got); }, 100); } catch { res([]); } });
-  const [lcpList, shifts] = await Promise.all([entries('largest-contentful-paint'), entries('layout-shift')]);
+  const [lcpList, shifts, frames] = await Promise.all([entries('largest-contentful-paint'), entries('layout-shift'), entries('long-animation-frame')]);
+  // Interaction to Next Paint: the slowest interaction (clicks, taps, keys) since the page loaded.
+  const events = await new Promise((res) => { try { const got = []; const po = new PerformanceObserver((l) => got.push(...l.getEntries())); po.observe({ type: 'event', buffered: true, durationThreshold: 16 }); setTimeout(() => { got.push(...po.takeRecords()); po.disconnect(); res(got); }, 100); } catch { res([]); } });
+  const byInteraction = new Map();
+  for (const e of events) if (e.interactionId) byInteraction.set(e.interactionId, Math.max(byInteraction.get(e.interactionId) || 0, e.duration));
+  // Interactions under 16 ms are not reported as events: the first one always is, as first-input.
+  const firstInput = (await entries('first-input'))[0];
+  if (firstInput && !byInteraction.size) byInteraction.set(firstInput.interactionId || 1, firstInput.duration);
+  const resources = performance.getEntriesByType('resource');
+  const bytesOf = (r) => r.transferSize || r.encodedBodySize || 0;
+  const isJs = (r) => r.initiatorType === 'script' || /\\.m?js(\\?|$)/i.test(r.name);
+  const isFont = (r) => /\\.(woff2?|ttf|otf|eot)(\\?|$)/i.test(r.name);
+  const js = resources.filter(isJs).map((r) => ({ url: r.name, bytes: bytesOf(r) })).sort((a, b) => b.bytes - a.bytes);
+  const fonts = resources.filter(isFont);
+  // CSS rules whose selector matches nothing here, and @font-face without font-display.
+  let cssBytes = 0, unusedCss = 0, cssRules = 0, cssUnreadable = 0;
+  const noDisplay = new Set();
+  const strip = (sel) => sel.replace(/::?[\\w-]+(\\((?:[^()]|\\([^()]*\\))*\\))?/g, '').trim();
+  const visit = (rules) => {
+    for (const rule of rules) {
+      if (cssRules > 30000) return;
+      if (rule.type === 1) {
+        cssRules++;
+        const len = rule.cssText.length;
+        cssBytes += len;
+        const parts = rule.selectorText.split(',').map(strip).map((x) => x.replace(/[>+~]\\s*$/, '').trim() || '*');
+        let used = false;
+        for (const sel of parts) { try { if (document.querySelector(sel)) { used = true; break; } } catch { used = true; break; } }
+        if (!used) unusedCss += len;
+      } else if (rule.type === 5) {
+        const d = rule.style.getPropertyValue('font-display');
+        cssBytes += rule.cssText.length;
+        if (!d || d === 'auto' || d === 'block') noDisplay.add((rule.style.getPropertyValue('font-family') || '?').replace(/["']/g, '').trim());
+      } else if (rule.cssRules) visit(rule.cssRules);
+      else cssBytes += (rule.cssText || '').length;
+    }
+  };
+  for (const sh of document.styleSheets) { try { visit(sh.cssRules); } catch { cssUnreadable++; if (/fonts\\.googleapis\\.com/.test(sh.href || '') && !/[?&]display=/.test(sh.href || '')) noDisplay.add('Google Fonts'); } }
   const nav = performance.getEntriesByType('navigation')[0];
   const fcp = performance.getEntriesByName('first-contentful-paint')[0];
   const lcp = lcpList.length ? lcpList[lcpList.length - 1].startTime : null;
@@ -247,6 +284,27 @@ const MEASURE = `(async () => {
       return { fields, wrongKeyboard, noAutocomplete, noLabel };
     })(),
     rootFontPx: parseFloat(getComputedStyle(document.documentElement).fontSize),
+    content: {
+      text: ((document.body && document.body.innerText) || '').replace(/\\s+/g, ' ').trim().slice(0, 100000),
+      anchors: [...document.querySelectorAll('a[href]')].filter((a) => !a.closest('[data-kinglet]')).slice(0, 500).map((a) => ({ href: (a.getAttribute('href') || '').trim(), url: /^https?:/.test(a.href) ? a.href : null, text: (a.innerText || a.getAttribute('aria-label') || a.getAttribute('title') || '').replace(/\\s+/g, ' ').trim().slice(0, 80) })),
+      images: [...document.querySelectorAll('img')].slice(0, 300).map((i) => i.currentSrc || i.src).filter((u) => /^https?:/.test(u)),
+    },
+    performance: {
+      inpMs: byInteraction.size ? Math.round(Math.max(...byInteraction.values())) : null,
+      interactions: byInteraction.size,
+      blockingMs: Math.round(frames.reduce((s, f) => s + (f.blockingDuration || 0), 0)),
+      longFrames: frames.filter((f) => (f.blockingDuration || 0) > 0).length,
+      renderBlocking: resources.filter((r) => r.renderBlockingStatus === 'blocking').map((r) => ({ url: r.name, kind: isJs(r) ? 'js' : 'css', ms: Math.round(r.responseEnd - r.startTime) })),
+      jsBytes: js.reduce((s, r) => s + r.bytes, 0),
+      jsFiles: js.slice(0, 3),
+      cssBytes,
+      unusedCssBytes: cssRules ? unusedCss : null,
+      cssRules,
+      cssUnreadable,
+      fontBytes: fonts.reduce((s, r) => s + bytesOf(r), 0),
+      fontFiles: fonts.length,
+      fontsNoDisplay: [...noDisplay].slice(0, 5),
+    },
     vitals: { lcpMs: lcp != null ? Math.round(lcp) : null, cls: Math.round(cls * 1000) / 1000, fcpMs: fcp ? Math.round(fcp.startTime) : null, ttfbMs: nav ? Math.round(nav.responseStart) : null },
   };
 })()`;
@@ -1313,7 +1371,8 @@ export class DeviceManager {
       }),
     );
     const ok = results.filter((r): r is NonNullable<typeof r> => !!r);
-    return { devices: ok.map((r) => r.device), links: ok[0]?.links ?? [] };
+    // The page's text is the same on every device: keep the first one's.
+    return { devices: ok.map((r, i) => (i === 0 ? r.device : { ...r.device, content: undefined })), links: ok[0]?.links ?? [] };
   }
 
   openDevtools(id: string) {

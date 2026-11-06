@@ -29,7 +29,7 @@ interface State {
   detectedFrom: string | null;
   status: LoadStatus;
   error: string | null;
-  /** Last analysis of the current page (share tags + 37 checks). */
+  /** Last analysis of the current page (share tags + 53 checks). */
   report: AnalyzeReport | null;
   share: ShareReport | null;
   shareError: string | null;
@@ -129,7 +129,7 @@ interface State {
   securityError: string | null;
   runSecurity(url: string, opts?: { probe?: boolean }): Promise<void>;
   auditing: boolean;
-  auditProgress: { done: number; queued: number } | null;
+  auditProgress: { done: number; queued: number; external?: boolean } | null;
   auditError: string | null;
   runAudit(limit?: number): Promise<void>;
   /** Last automatic filling of the forms (null: none shown). */

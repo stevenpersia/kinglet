@@ -133,7 +133,7 @@ function PageChecks() {
       ) : (
         <AllClear
           title={t('Nothing to fix', 'Rien à corriger')}
-          text={t('Every check that can be measured here passes: SEO, sharing, mobile, accessibility and technical.', 'Chaque check mesurable ici passe : SEO, partage, mobile, accessibilité et technique.')}
+          text={t('Every check that can be measured here passes: SEO, sharing, content, mobile, accessibility, privacy and technical.', 'Chaque check mesurable ici passe : SEO, partage, contenu, mobile, accessibilité, vie privée et technique.')}
           score={<ScoreValue passed={report.score.passed} total={report.score.total} tone="ok" />}
         />
       )}
