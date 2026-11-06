@@ -56,6 +56,41 @@ export async function cloneRepo(url: string, parent: string, githubToken: string
   }
 }
 
+/**
+ * Point the folder's origin at a GitHub repository and push its branch there. git's own credentials
+ * first; then the token connected in Kinglet, for this command only (never written in .git/config).
+ */
+export async function pushToGitHub(folder: string, cloneUrl: string, githubToken: string | null): Promise<string> {
+  const hasCommit = await git(['rev-parse', '--verify', '-q', 'HEAD'], folder).then(() => true, () => false);
+  if (!hasCommit) throw new Error(t('This folder has no commit yet: ask Claude to commit the project, then publish it.', 'Ce dossier n’a encore aucun commit : demande à Claude de committer le projet, puis publie-le.'));
+  const branch = (await git(['rev-parse', '--abbrev-ref', 'HEAD'], folder)).stdout.trim();
+  if (branch === 'HEAD') throw new Error(t('This folder is on no branch (detached HEAD).', 'Ce dossier n’est sur aucune branche (HEAD détachée).'));
+  const origin = await git(['remote', 'get-url', 'origin'], folder).then((r) => r.stdout.trim(), () => '');
+  if (!origin) await git(['remote', 'add', 'origin', cloneUrl], folder);
+  else if (!sameRepo(origin, cloneUrl)) throw new Error(t(`This folder already pushes to ${origin}.`, `Ce dossier pousse déjà vers ${origin}.`));
+  const viaToken = () => {
+    const basic = Buffer.from(`x-access-token:${githubToken}`).toString('base64');
+    return git(['-c', `http.extraHeader=Authorization: Basic ${basic}`, 'push', '-u', 'origin', branch], folder, 5 * 60_000);
+  };
+  try {
+    // With a token, use it straight away: the user's git may not know this brand-new repository's owner.
+    if (githubToken) await viaToken();
+    else await git(['push', '-u', 'origin', branch], folder, 5 * 60_000);
+  } catch (e) {
+    const stderr = (e as { stderr?: string }).stderr ?? '';
+    if (githubToken && authFailed(stderr)) {
+      try {
+        await git(['push', '-u', 'origin', branch], folder, 5 * 60_000);
+        return branch;
+      } catch {
+        throw new Error(t('Couldn’t push: the GitHub token connected in Kinglet needs Contents: Read and write on this repository.', 'Push impossible : le jeton GitHub connecté dans Kinglet doit avoir Contents : lecture et écriture sur ce dépôt.'));
+      }
+    }
+    throw new Error(lastLine(stderr) ?? (e as Error).message);
+  }
+  return branch;
+}
+
 const lastLine = (s?: string) =>
   s
     ?.split('\n')

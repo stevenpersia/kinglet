@@ -59,4 +59,19 @@ describe('samePageOn', () => {
     expect(samePageOn('http://localhost:3000/atelier?x=1#top', 'https://maisonsable.fr')).toBe('https://maisonsable.fr/atelier?x=1#top');
     expect(samePageOn(null, 'https://maisonsable.fr')).toBe('https://maisonsable.fr/');
   });
+
+  it('creates a project from a GitHub repository and deploys a branch of it', async () => {
+    const created = await client(TOKEN, 'team_1').createProject({ name: 'nouveau-site', framework: 'vite', repo: 'stevenpersia/nouveau-site' });
+    expect(created).toMatchObject({ id: 'prj_new', name: 'nouveau-site', repo: 'stevenpersia/nouveau-site', gitUrl: 'https://github.com/stevenpersia/nouveau-site.git' });
+    expect(new URLSearchParams(mock.state.lastQuery).get('teamId')).toBe('team_1');
+    expect((mock.state as unknown as { created: unknown }).created).toEqual({ name: 'nouveau-site', framework: 'vite', gitRepository: { type: 'github', repo: 'stevenpersia/nouveau-site' } });
+    const d = await client().deployFromGit({ projectName: 'nouveau-site', projectId: 'prj_new', repoId: 42, ref: 'main' });
+    expect(d).toMatchObject({ id: 'dpl_new', url: 'https://nouveau-site-abc.vercel.app', state: 'QUEUED', production: true, branch: 'main' });
+    expect((mock.state as unknown as { deployment: unknown }).deployment).toEqual({ name: 'nouveau-site', project: 'prj_new', target: 'production', gitSource: { type: 'github', repoId: '42', ref: 'main' } });
+  });
+
+  it('says what to do when Vercel can’t see the repository, or the name is taken', async () => {
+    await expect(client().createProject({ name: 'x', repo: 'stevenpersia/not-installed' })).rejects.toThrow(/GitHub app/);
+    await expect(client().createProject({ name: 'maison-sable', repo: 'stevenpersia/maison-sable' })).rejects.toThrow(/already exists/);
+  });
 });

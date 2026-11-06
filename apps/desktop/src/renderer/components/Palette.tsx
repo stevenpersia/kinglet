@@ -32,6 +32,11 @@ export function Palette() {
   const close = () => useStore.setState({ paletteOpen: false });
 
   const commands = useMemo<Command[]>(() => {
+    const active = settings.projects.find((p) => p.id === settings.activeId) ?? null;
+    const dev = active ? st.dev[active.id] : undefined;
+    const devOn = !!dev && (dev.status === 'installing' || dev.status === 'starting' || dev.status === 'running');
+    const devCommand = (id: string): Command =>
+      devOn ? { id: 'dev-stop', label: t('Stop the dev server', 'Arrêter le serveur de dev'), run: () => void api().dev.stop(id) } : { id: 'dev-start', label: t('Start the dev server (npm run dev)', 'Lancer le serveur de dev (npm run dev)'), run: () => void api().dev.start(id) };
     const go = (s: Section, label: string): Command => ({ id: `go-${s}`, label: t(`Go to ${label}`, `Aller à ${label}`), run: () => setSection(s) });
     return [
       { id: 'reload', label: t('Reload devices', 'Recharger les appareils'), hint: 'Ctrl R', run: () => void api().reload() },
@@ -60,6 +65,9 @@ export function Palette() {
           ]
         : []),
       { id: 'switcher', label: t('Switch project…', 'Changer de projet…'), hint: 'Ctrl P', run: () => useStore.setState({ switcherOpen: true }) },
+      { id: 'new-project', label: t('New project from scratch…', 'Nouveau projet de zéro…'), run: () => useStore.setState({ newProject: 'create' }) },
+      ...(active?.folder && !active.vercelProjectId ? [{ id: 'publish', label: t('Publish this project on GitHub and Vercel…', 'Publier ce projet sur GitHub et Vercel…'), run: () => useStore.setState({ newProject: 'publish' }) }] : []),
+      ...(active?.folder ? [devCommand(active.id)] : []),
       ...settings.openIds.map((id, i) => {
         const p = settings.projects.find((x) => x.id === id);
         return { id: `tab-${id}`, label: t(`Go to project ${p?.name ?? id}`, `Aller au projet ${p?.name ?? id}`), hint: i < 9 ? `Ctrl ${i + 1}` : undefined, run: () => void useStore.getState().selectProject(id) };
@@ -87,7 +95,7 @@ export function Palette() {
       go('reglages', t('Settings', 'Réglages')),
       ...settings.recentUrls.map((u) => ({ id: `open-${u}`, label: t(`Open ${u}`, `Ouvrir ${u}`), run: () => void useStore.getState().navigate(u) })),
     ];
-  }, [presets, settings, updateSettings, setSection, linked, switchEnv]);
+  }, [presets, settings, updateSettings, setSection, linked, switchEnv, st.dev]);
 
   const q = query.trim().toLowerCase();
   const results = q ? commands.filter((c) => c.label.toLowerCase().includes(q)) : commands;

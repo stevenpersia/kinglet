@@ -42,6 +42,15 @@ export function Welcome() {
         </div>
         <div className="grid w-full grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-2.5">
           <div className={card}>
+            <span className="font-medium">{t('New project', 'Nouveau projet')}</span>
+            <span className="text-xs leading-relaxed text-muted">{t('From scratch, with Claude: choose the stack together, see the site here, then publish it on GitHub and Vercel.', 'De zéro, avec Claude : choisissez la stack ensemble, vois le site ici, puis publie-le sur GitHub et Vercel.')}</span>
+            <span className="mt-auto pt-1">
+              <button onClick={() => useStore.setState({ newProject: 'create' })} className="flex h-7 items-center rounded-ui bg-fg px-2.5 text-xs font-semibold text-bg">
+                {t('Create a project', 'Créer un projet')}
+              </button>
+            </span>
+          </div>
+          <div className={card}>
             <span className="font-medium">{t('Local server', 'Serveur local')}</span>
             {servers?.length ? (
               <div className="flex flex-col gap-1">

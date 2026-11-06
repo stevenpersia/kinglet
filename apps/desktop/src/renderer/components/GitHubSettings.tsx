@@ -2,14 +2,15 @@ import { t } from '@kinglet/core';
 import { useState } from 'react';
 import { api, useStore } from '../store';
 
-/** GitHub's fine-grained token form, pre-filled with what Kinglet uses (PRs and CI of previews, issues reported from a preview). */
+/** GitHub's fine-grained token form, pre-filled with what Kinglet uses (PRs and CI of previews, issues reported from a preview, new projects). */
 export const GITHUB_TOKEN_URL =
-  'https://github.com/settings/personal-access-tokens/new?name=Kinglet&description=Pull+requests+of+previews&contents=read&pull_requests=read&issues=write';
+  'https://github.com/settings/personal-access-tokens/new?name=Kinglet&description=Pull+requests+of+previews&contents=write&pull_requests=read&issues=write&administration=write';
 
 /** What to tick when creating the GitHub token. */
 export const githubScopes = () => [
   t('Repository access: the repositories of your projects (or all)', 'Accès aux dépôts : ceux de tes projets (ou tous)'),
-  t('Contents: Read (clone a project that isn’t on this computer)', 'Contents : lecture (cloner un projet absent de cet ordinateur)'),
+  t('Contents: Read and write (clone a project, push a new one)', 'Contents : lecture et écriture (cloner un projet, pousser un nouveau)'),
+  t('Administration: Read and write, on all repositories (create the repository of a new project)', 'Administration : lecture et écriture, sur tous les dépôts (créer le dépôt d’un nouveau projet)'),
   t('Pull requests: Read', 'Pull requests : lecture'),
   t('Issues: Read and write (report a bug from a preview)', 'Issues : lecture et écriture (signaler un bug depuis une preview)'),
 ];

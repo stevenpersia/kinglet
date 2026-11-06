@@ -84,6 +84,10 @@ interface State {
   switchEnv(env: EnvId, deploymentId?: string | null): Promise<void>;
   /** Tabs */
   switcherOpen: boolean;
+  /** "New project" dialog: create one from scratch, or publish the active one (GitHub, Vercel). */
+  newProject: 'create' | 'publish' | null;
+  /** Dev servers Kinglet runs, per project id. */
+  dev: Record<string, import('../shared/types').DevServerState>;
   /** Claude Code activity per project id. */
   claude: Record<string, ClaudeProjectState>;
   /** Console and network log of the devices (since each one's last page load). */
@@ -188,6 +192,8 @@ export const useStore = create<State>((set, get) => ({
   mcp: null,
   vercel: null,
   switcherOpen: false,
+  newProject: null,
+  dev: {},
   claude: {},
   thumbs: {},
   logs: [],

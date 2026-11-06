@@ -4,6 +4,14 @@ import { safeStorage } from 'electron';
 import { t } from '@kinglet/core';
 import type { GitHubState, PullRequest } from '../shared/types';
 
+export interface CreatedRepo {
+  id: number;
+  /** owner/name */
+  fullName: string;
+  cloneUrl: string;
+  htmlUrl: string;
+}
+
 interface Stored {
   token: string;
   encrypted: boolean;
@@ -16,6 +24,7 @@ interface Stored {
 export class GitHubService {
   private file: string;
   private token: string | null = null;
+  private userId: number | null = null;
   state: GitHubState = { connected: false, user: null, error: null };
 
   constructor(
@@ -35,7 +44,8 @@ export class GitHubService {
     const res = await fetch(`${this.baseUrl}/user`, { headers: { authorization: `Bearer ${this.token}`, accept: 'application/vnd.github+json', 'user-agent': 'Kinglet' }, signal: AbortSignal.timeout(10_000) });
     if (res.status === 401) throw new Error(t('GitHub refused this token.', 'GitHub refuse ce jeton.'));
     if (!res.ok) throw new Error(`GitHub: HTTP ${res.status}`);
-    const u = (await res.json()) as { login: string; name: string | null; avatar_url?: string };
+    const u = (await res.json()) as { id?: number; login: string; name: string | null; avatar_url?: string };
+    this.userId = u.id ?? null;
     this.update({ connected: true, user: { login: u.login, name: u.name }, error: null });
   }
 
@@ -136,8 +146,51 @@ export class GitHubService {
     return ((await res.json()) as { html_url: string }).html_url;
   }
 
+  /** Who signs the first commit when git has no identity on this computer: the account's noreply address. */
+  identity(): { name: string; email: string } | null {
+    const u = this.state.user;
+    if (!u) return null;
+    return { name: u.name || u.login, email: this.userId ? `${this.userId}+${u.login}@users.noreply.github.com` : `${u.login}@users.noreply.github.com` };
+  }
+
+  /** Accounts a repository can be created in: the user, then their organizations. */
+  async owners(): Promise<string[]> {
+    if (!this.token || !this.state.user) return [];
+    const orgs = await this.get<{ login: string }[]>('/user/orgs?per_page=100').catch(() => []);
+    return [this.state.user.login, ...orgs.map((o) => o.login)];
+  }
+
+  /** Create an empty repository (no README: the project's first commit is pushed into it). */
+  async createRepo(opts: { name: string; owner?: string | null; private: boolean; description?: string }): Promise<CreatedRepo> {
+    if (!this.token || !this.state.user) throw new Error(t('Connect GitHub first (Settings → GitHub).', 'Connecte d’abord GitHub (Réglages → GitHub).'));
+    const org = opts.owner && opts.owner !== this.state.user.login ? opts.owner : null;
+    const res = await fetch(`${this.baseUrl}${org ? `/orgs/${encodeURIComponent(org)}/repos` : '/user/repos'}`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${this.token}`, accept: 'application/vnd.github+json', 'user-agent': 'Kinglet', 'content-type': 'application/json' },
+      body: JSON.stringify({ name: opts.name, private: opts.private, description: opts.description ?? '', auto_init: false }),
+      signal: AbortSignal.timeout(20_000),
+    });
+    const body = (await res.json().catch(() => ({}))) as { message?: string; errors?: { message?: string }[]; id?: number; full_name?: string; clone_url?: string; html_url?: string; default_branch?: string };
+    if (res.status === 422) throw new Error(t(`A repository named “${opts.name}” already exists in ${org ?? this.state.user.login}, or the name isn’t allowed.`, `Un dépôt « ${opts.name} » existe déjà chez ${org ?? this.state.user.login}, ou ce nom n’est pas accepté.`));
+    if (res.status === 401 || res.status === 403 || res.status === 404)
+      throw new Error(
+        t(
+          'This GitHub token can’t create repositories. Give it Administration: Read and write and Contents: Read and write on all repositories (fine-grained token), or the repo scope (classic token).',
+          'Ce jeton GitHub ne peut pas créer de dépôt. Donne-lui Administration : lecture et écriture et Contents : lecture et écriture sur tous les dépôts (jeton fin), ou le scope repo (jeton classique).',
+        ),
+      );
+    if (!res.ok) throw new Error(`GitHub: ${body.errors?.[0]?.message ?? body.message ?? `HTTP ${res.status}`}`);
+    return { id: body.id!, fullName: body.full_name!, cloneUrl: body.clone_url!, htmlUrl: body.html_url! };
+  }
+
+  /** A repository's numeric id (Vercel deploys a commit from it). */
+  async repoId(fullName: string): Promise<number> {
+    return (await this.get<{ id: number }>(`/repos/${fullName}`)).id;
+  }
+
   disconnect() {
     this.token = null;
+    this.userId = null;
     rmSync(this.file, { force: true });
     this.update({ connected: false, user: null, error: null });
     return this.state;

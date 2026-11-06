@@ -11,6 +11,7 @@ import { Rail } from './components/Sidebar';
 import { ClaudeBanner } from './components/ClaudeBanner';
 import { ClaudeColumn } from './components/ClaudePanel';
 import { ProjectSwitcher } from './components/ProjectSwitcher';
+import { NewProjectDialog } from './components/NewProject';
 import { ProjectsPage } from './components/ProjectsPage';
 import { Stage } from './components/Stage';
 import { Onboarding } from './components/Onboarding';
@@ -93,6 +94,13 @@ export function App() {
         case 'github':
           useStore.setState({ github: e.state });
           break;
+        case 'dev': {
+          const was = s.dev[e.projectId]?.status;
+          useStore.setState((st) => ({ dev: { ...st.dev, [e.projectId]: e.state } }));
+          // The dev server of the project shown is up: show the site.
+          if (e.state.status === 'running' && was !== 'running' && e.state.url && s.settings.activeId === e.projectId) void s.navigate(s.url && s.status === 'loaded' && new URL(s.url).origin === new URL(e.state.url).origin ? s.url : e.state.url);
+          break;
+        }
         case 'inspect':
           useStore.setState({ inspect: e.state });
           break;
@@ -135,7 +143,7 @@ export function App() {
       await store.loadMcp();
       const claude = await api().claude.state();
       useStore.setState({ logs: await api().logs() });
-      useStore.setState({ vercel: await api().vercel.state(), update: await api().update.state(), claude: claude.projects, claudeHooks: claude.hooks, github: await api().github.state(), review: await api().review.state() });
+      useStore.setState({ vercel: await api().vercel.state(), update: await api().update.state(), claude: claude.projects, claudeHooks: claude.hooks, github: await api().github.state(), review: await api().review.state(), dev: await api().dev.all() });
     });
     return off;
   }, []);
@@ -175,6 +183,7 @@ export function App() {
       <StatusBar />
       <Palette />
       <ProjectSwitcher />
+      <NewProjectDialog />
       <PhoneDialog />
       {ready && !onboarded && <Onboarding />}
     </div>

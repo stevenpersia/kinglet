@@ -6,6 +6,7 @@ Voir son site sur tous les écrans (iPhone, Android, iPad, desktop), en local, e
 
 ## Ce que fait Kinglet
 
+- **Nouveau projet** : un site de zéro avec Claude, qui choisit la stack avec toi ; Kinglet lance son serveur de dev et l'affiche, puis le publie sur GitHub et Vercel en un clic. Voir [Nouveau projet de zéro](#nouveau-projet-de-zéro).
 - **Aperçu** : ton site sur 10 appareils émulés (largeur, densité, tactile, user agent), en portrait ou paysage. Le scroll et la navigation sont synchronisés entre appareils, et chacun a ses DevTools.
 - **Partage** : l'aperçu de ton lien sur WhatsApp, iMessage, Slack, Discord, Telegram, LinkedIn, X, Facebook, Bluesky et Google.
   - Une plateforme à la fois, en taille réelle et en situation (conversation WhatsApp, iMessage ou Telegram, message Slack ou Discord, post LinkedIn, X, Facebook ou Bluesky, résultats Google), avec ses problèmes à côté. Flèches haut et bas pour passer d'une plateforme à l'autre.
@@ -101,6 +102,17 @@ Les raccourcis marchent aussi quand le focus est dans un appareil. Le bouton `�
 3. Kinglet cherche le dossier du projet sur ton disque (dans `~/dev`, `~/code`, `~/projects`…, grâce au `.vercel/project.json` écrit par `vercel link`). Sinon, choisis-le dans **Projet actif** : il sert au suivi de Claude Code.
 
 **Previews protégées.** Si le projet a un secret « Protection Bypass for Automation », Kinglet l'utilise pour ouvrir et lire les previews. Sinon, un bouton propose d'en créer un : c'est une modification du projet Vercel, faite uniquement sur ta demande. La variable `KINGLET_VERCEL_BYPASS=<secret>` reste prioritaire si tu préfères ne pas connecter ton compte. Le secret est envoyé dans l'en-tête `x-vercel-protection-bypass` aux domaines `*.vercel.app`.
+
+### Nouveau projet de zéro
+
+« Créer un projet » (écran d'accueil, `Ctrl P`, page Tous les projets ou palette `Ctrl K`) démarre un site depuis rien, sans quitter Kinglet. La stack technique se décide avec Claude, pas dans Kinglet :
+
+1. **Dossier** : donne un nom, éventuellement l'idée du projet, et l'emplacement (`~/dev`, `~/code`… le premier qui existe, ou où tu veux). Kinglet crée un dossier vide avec `git init` sur `main`, rien d'autre.
+2. **Claude** : le projet s'ouvre dans un onglet, Claude démarre dans son dossier, et sa saisie est pré-remplie (sans être envoyée) : le projet, ton idée, et la consigne de te proposer une stack, d'attendre ton accord, puis de mettre le projet en place avec un script `dev` dans `package.json` et de committer.
+3. **Serveur de dev** : dès que `package.json` a un script `dev` et que Claude a fini sa tâche, Kinglet lance `npm install` si `node_modules` manque, puis `npm run dev` (pnpm, yarn ou bun selon le fichier de verrouillage), dans ton shell de connexion pour trouver le `node` de nvm, fnm, asdf… L'adresse est lue dans la sortie du serveur, et le site apparaît sur les appareils dès qu'il répond. Une erreur affiche la sortie et propose « Demander à Claude ». La barre d'état lance ou arrête le serveur de dev de n'importe quel projet qui a un dossier ; il s'arrête avec Kinglet.
+4. **Publier** : « Publier (GitHub, Vercel) » sur la carte du projet dans Tous les projets, ou « Publier ce projet sur GitHub et Vercel… » dans la palette.
+   - **GitHub** : crée le dépôt (privé par défaut, dans ton compte ou une de tes organisations) et y pousse le projet (il faut au moins un commit). Le jeton GitHub de Kinglet sert pour ce push seulement, il n'est jamais écrit dans `.git/config` : pour les push suivants, il faut ton propre accès git (`gh auth login`, clé SSH). Le jeton doit avoir **Administration** et **Contents** en lecture et écriture (jeton fin, sur tous les dépôts) ou le scope `repo` (jeton classique).
+   - **Vercel** : crée le projet Vercel relié au dépôt (dans l'équipe choisie, framework lu dans `package.json`), lance le premier déploiement de production, et relie le dossier (`.vercel/project.json`, comme `vercel link`). Ensuite, chaque push sur `main` part en production et chaque branche a sa preview, suivies par Kinglet. Il faut l'app GitHub de Vercel installée sur le compte du dépôt.
 
 ## Sur mon téléphone
 

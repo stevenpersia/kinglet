@@ -65,6 +65,19 @@ export async function startVercelMock({ previewUrl, previewUrl2, prodUrl, port =
         state.bypass['mock-bypass-secret'] = { scope: 'automation-bypass', createdAt: Date.now(), createdBy: 'usr_1' };
         return send(200, { protectionBypass: state.bypass });
       }
+      // A new project from GitHub, and its first deployment.
+      if (p === '/v11/projects' && req.method === 'POST') {
+        const body = JSON.parse(raw || '{}');
+        state.created = body;
+        if (body.gitRepository?.repo === 'stevenpersia/not-installed') return send(400, { error: { code: 'bad_request', message: 'To link a GitHub repository, you need to install the GitHub integration first.' } });
+        if (body.name === 'maison-sable') return send(409, { error: { code: 'conflict', message: 'Project already exists' } });
+        return send(200, { id: 'prj_new', name: body.name, framework: body.framework, link: { type: 'github', org: body.gitRepository.repo.split('/')[0], repo: body.gitRepository.repo.split('/')[1] }, targets: {} });
+      }
+      if (p === '/v13/deployments' && req.method === 'POST') {
+        const body = JSON.parse(raw || '{}');
+        state.deployment = body;
+        return send(200, { id: 'dpl_new', url: `${body.name}-abc.vercel.app`, readyState: 'QUEUED', target: body.target ?? null, createdAt: Date.now(), inspectorUrl: 'https://vercel.com/x/y/dpl_new', meta: { githubCommitRef: body.gitSource.ref } });
+      }
       send(404, { error: { message: `not found: ${p}` } });
     });
   });

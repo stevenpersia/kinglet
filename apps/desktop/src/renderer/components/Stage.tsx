@@ -10,6 +10,7 @@ import { ConsoleTab } from './Console';
 import { OldProdBanner } from './EnvSwitch';
 import { Icon } from './Icons';
 import { Welcome } from './Welcome';
+import { DevServerScreen, NewProjectScreen } from './DevServer';
 import { InspectBar } from './InspectBar';
 import { MocksDialog } from './MocksDialog';
 import type { Viewport } from '../lib/layout';
@@ -713,6 +714,10 @@ function PointingBar() {
 
 export function Stage() {
   const state = useStore();
+  const dev = state.settings.activeId ? state.dev[state.settings.activeId] : undefined;
+  if (dev && (dev.status === 'installing' || dev.status === 'starting' || dev.status === 'error')) return <DevServerScreen />;
+  const active = state.settings.projects.find((p) => p.id === state.settings.activeId);
+  if (!state.url && active?.folder && !active.localOrigin && !active.lastUrl) return <NewProjectScreen />;
   if (!state.url && state.status === 'idle') return <Welcome />;
   return <Devices />;
 }
