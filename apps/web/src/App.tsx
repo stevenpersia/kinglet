@@ -49,8 +49,8 @@ function WorksWith() {
     <section aria-label="Works with" className="mx-auto max-w-[1200px] px-4 pt-20 sm:px-6">
       <div className="flex flex-wrap items-center justify-center gap-x-11 gap-y-4 text-base font-semibold tracking-[-0.01em] text-ghost">
         <span className="font-mono text-xs font-normal tracking-[0.08em]">WORKS WITH</span>
-        {names.map((n, i) => (
-          <span key={n} className={i < 3 ? 'text-muted' : ''}>
+        {names.map((n) => (
+          <span key={n} className="text-[#b4b4bc]">
             {n}
           </span>
         ))}
@@ -61,7 +61,7 @@ function WorksWith() {
 
 function FinalCta() {
   return (
-    <section className="mx-auto flex max-w-[1200px] flex-col items-center gap-6 px-4 pt-40 text-center sm:px-6">
+    <section className="mx-auto flex max-w-[1200px] flex-col items-center gap-6 px-4 pt-40 pb-32 text-center sm:px-6">
       <Reveal className="flex flex-col items-center gap-6">
         <KingletBird width={120} />
         <h2 className="m-0 max-w-[820px] text-[clamp(38px,6vw,76px)] leading-[0.98] font-semibold tracking-[-0.055em]">

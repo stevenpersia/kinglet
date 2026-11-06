@@ -18,8 +18,9 @@ const INCLUDED = [
 
 export function Pricing() {
   return (
-    <section id="pricing" className="mx-auto max-w-[1200px] px-4 pt-36 sm:px-6">
-      <div className="flex flex-col items-center gap-4 text-center">
+    <section className="mx-auto max-w-[1200px] px-4 pt-36 sm:px-6">
+      {/* The anchor is on the heading, like the other sections: the menu lands on it, not on the space above. */}
+      <div id="pricing" className="flex flex-col items-center gap-4 text-center">
         <Reveal>
           <span className="inline-flex items-center gap-2.5 font-mono text-xs tracking-[0.08em] text-faint uppercase">
             <b className="rounded-md border border-[#2a2a30] px-1.5 font-medium text-fg">07</b>Pricing
@@ -116,9 +117,9 @@ const FAQ: [string, string][] = [
 
 export function Faq() {
   return (
-    <section id="faq" className="mx-auto max-w-[880px] px-4 pt-32 sm:px-6">
+    <section className="mx-auto max-w-[880px] px-4 pt-32 sm:px-6">
       <Reveal>
-        <h2 className="m-0 text-center text-[clamp(28px,3.4vw,40px)] font-semibold tracking-[-0.04em]">Questions</h2>
+        <h2 id="faq" className="m-0 text-center text-[clamp(28px,3.4vw,40px)] font-semibold tracking-[-0.04em]">Questions</h2>
       </Reveal>
       <div className="mt-10 flex flex-col">
         {FAQ.map(([q, a]) => (
