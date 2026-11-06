@@ -4,6 +4,7 @@ import type { FeedbackPin } from '../../shared/types';
 import { activeProject } from '../../shared/projects';
 import { api, cleanError, projectVercel, useStore } from '../store';
 import { Icon } from './Icons';
+import { ToolPanel } from './Stage';
 
 const pathOf = (u: string) => {
   try {
@@ -80,18 +81,8 @@ export function FeedbackPanel() {
   };
 
   return (
-    <aside aria-label={t('Feedback', 'Retours')} className="flex w-[360px] shrink-0 flex-col border-r border-line-soft bg-chrome">
-      <div className="flex h-11 shrink-0 items-center justify-between border-b border-line-soft pr-2 pl-4">
-        <span className="label">{t('Feedback', 'Retours')}</span>
-        <span className="flex items-center gap-2">
-          <span className="font-mono text-xs text-muted">{t(`${open.length} open`, `${open.length} ouvert${open.length > 1 ? 's' : ''}`)}</span>
-          <button onClick={() => useStore.setState({ panel: null })} aria-label={t('Close', 'Fermer')} className="flex size-7 items-center justify-center rounded-md text-faint hover:bg-active hover:text-fg">
-            <Icon name="close" size={12} />
-          </button>
-        </span>
-      </div>
-
-      <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto p-3">
+    <ToolPanel tool="feedback" subtitle={t(`${open.length} open · ${list.length - open.length} done`, `${open.length} ouvert${open.length > 1 ? 's' : ''} · ${list.length - open.length} traité${list.length - open.length > 1 ? 's' : ''}`)}>
+      <div className="flex flex-col gap-2.5 p-3">
         <button onClick={() => void s.startPointing('feedback')} className={`flex h-8 shrink-0 items-center justify-center gap-2 rounded-ui text-xs font-semibold ${s.pointing ? 'border border-[#d97757] text-[#d97757]' : 'bg-fg text-bg'}`}>
           <Icon name="pin" size={12} />
           {s.pointing ? t('Click a spot on a device…', 'Clique un endroit d’un appareil…') : t('Pin a comment', 'Épingler un retour')}
@@ -209,7 +200,7 @@ export function FeedbackPanel() {
           )}
         </div>
       )}
-    </aside>
+    </ToolPanel>
   );
 }
 

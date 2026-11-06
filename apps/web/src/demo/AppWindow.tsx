@@ -198,7 +198,6 @@ function Rail({ s }: { s: DemoState }) {
       {button('graph', s.section === 'share', 'rail-og', ogFixed ? null : { n: 1, tone: 'err' })}
       {button('checkCircle', s.checksOpen, 'rail-checks', checksFixed ? { n: '✓', tone: 'ok' } : { n: 2, tone: 'warn' })}
       {button('split', false)}
-      {button('message', false, undefined, { n: 3, tone: 'clay' })}
       <span className="flex-1" />
       {button('settings', false)}
     </nav>
@@ -250,10 +249,11 @@ function DeviceToolbar({ s }: { s: DemoState }) {
 /** Emulation, Forms, Export: tabs on the edge of the devices, as in the app. */
 function ToolTabs({ s }: { s: DemoState }) {
   const emuOn = s.slow || s.keyboard || s.tokyo;
-  const tabs: [string, 'sliders' | 'form' | 'download', string, boolean, boolean, string?][] = [
+  const tabs: [string, 'sliders' | 'form' | 'download' | 'message', string, boolean, boolean, string?][] = [
     ['Emulation', 'sliders', '#8ab4f8', s.emuMenu, emuOn, 'btn-emu'],
     ['Forms', 'form', '#7dd3a8', false, false],
     ['Export', 'download', '#e6c07b', false, false],
+    ['Feedback', 'message', '#f0a07f', false, true],
   ];
   return (
     <nav aria-label="Tools" className="flex w-9 shrink-0 flex-col items-center gap-1 border-r border-line-soft bg-[#0b0b0b] pt-2.5">

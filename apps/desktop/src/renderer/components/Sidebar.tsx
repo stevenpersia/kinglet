@@ -1,5 +1,5 @@
 import { t } from '@kinglet/core';
-import { useStore, type Panel, type Section } from '../store';
+import { useStore, type Section } from '../store';
 import { Icon, type IconName } from './Icons';
 
 type Item = { id: string; label: string; icon: IconName; on: boolean; run: () => void; badge?: { n: number | string; tone: 'err' | 'warn' | 'ok' | 'clay' } | null; hint?: string };
@@ -18,12 +18,10 @@ const TONE = {
  */
 export function Rail() {
   const s = useStore();
-  const { section, setSection, share, report, panel, togglePanel } = s;
+  const { section, setSection, share, report } = s;
   const shareErrors = share?.issues.filter((i) => i.severity === 'error').length ?? 0;
   const onDevices = section === 'apercu';
   const go = (id: Section) => () => setSection(id);
-  const open = (p: Panel) => () => togglePanel(p);
-  const pins = (s.settings.activeId ? (s.pins[s.settings.activeId] ?? []) : []).filter((p) => !p.done).length;
   const left = report ? report.score.total - report.score.passed : 0;
   const secErrors = s.security?.checks.filter((c) => c.status === 'error').length ?? 0;
   const secWarnings = s.security?.checks.filter((c) => c.status === 'warning').length ?? 0;
@@ -54,7 +52,6 @@ export function Rail() {
       badge: s.security && s.security.url === s.url ? (secErrors ? { n: secErrors, tone: 'err' } : secWarnings ? { n: secWarnings, tone: 'warn' } : { n: '✓', tone: 'ok' }) : null,
     },
     { id: 'comparer', label: t('Compare', 'Comparer'), icon: 'split', on: section === 'comparer', run: go('comparer') },
-    { id: 'feedback', label: t('Feedback', 'Retours'), icon: 'message', on: onDevices && panel === 'feedback', run: open('feedback'), badge: pins ? { n: pins, tone: 'clay' } : null },
   ];
 
   const button = (it: Item) => (
