@@ -23,15 +23,13 @@ const INCLUDED = [
 /** How many launch-price licenses are left: a bar filling up as they sell, and the count. */
 function LaunchMeter({ offer }: { offer: LaunchOffer }) {
   const sold = offer.total - offer.left;
-  const until = offer.endsAt ? ` until ${new Date(offer.endsAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}` : '';
   return (
     <div className="-mt-2 flex flex-col gap-2">
       <div aria-hidden="true" className="h-1.5 overflow-hidden rounded-full bg-[#1e1e23]">
         <div className="h-full rounded-full bg-[linear-gradient(90deg,#f0a07f,#e6c07b)] transition-[width] duration-700" style={{ width: `${Math.max(2, (sold / offer.total) * 100)}%` }} />
       </div>
       <p className="m-0 font-mono text-xs text-[#e6c07b]">
-        {offer.left} of {offer.total} left at {LAUNCH_PRICE.label}
-        {until}, then {PRICE.label}
+        {offer.left} of {offer.total} left at {LAUNCH_PRICE.label}, then {PRICE.label}
       </p>
     </div>
   );

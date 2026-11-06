@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { LAUNCH_API, LAUNCHED } from './config';
 
-/** What /api/launch-offer answers (functions/launch-offer.ts): launch-price licenses left, out of how many, until when. */
-export type LaunchOffer = { left: number; total: number; endsAt: string | null };
+/** What /api/launch-offer answers (functions/launch-offer.ts): launch-price licenses left, out of how many. */
+export type LaunchOffer = { left: number; total: number };
 
 // One request per page, shared by every price on it (hero, pricing, footer).
 let pending: Promise<LaunchOffer | null> | null = null;

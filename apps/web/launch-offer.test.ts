@@ -5,8 +5,8 @@ import handler, { offerFrom, readOffer } from './functions/launch-offer';
 const now = Date.parse('2026-12-01T12:00:00Z');
 
 it('counts the launch-price licenses left, and stops when Polar would stop applying the discount', () => {
-  expect(offerFrom({ max_redemptions: 100, redemptions_count: 63 }, now)).toEqual({ left: 37, total: 100, endsAt: null });
-  expect(offerFrom({ max_redemptions: 100, redemptions_count: 0, ends_at: '2026-12-15T00:00:00Z' }, now)).toEqual({ left: 100, total: 100, endsAt: '2026-12-15T00:00:00Z' });
+  expect(offerFrom({ max_redemptions: 100, redemptions_count: 63 }, now)).toEqual({ left: 37, total: 100 });
+  expect(offerFrom({ max_redemptions: 100, redemptions_count: 0 }, now)).toEqual({ left: 100, total: 100 });
   expect(offerFrom({ max_redemptions: 100, redemptions_count: 100 }, now)).toBe(null);
   expect(offerFrom({ max_redemptions: 100, redemptions_count: 120 }, now)).toBe(null);
   expect(offerFrom({ max_redemptions: 100, redemptions_count: 3, ends_at: '2026-11-30T00:00:00Z' }, now)).toBe(null);
@@ -18,7 +18,7 @@ it('reads the discount from Polar, and shows no offer when it cannot', async () 
   const calls: [string, RequestInit | undefined][] = [];
   const polar = (status: number, body: unknown) => (async (u: string, init?: RequestInit) => { calls.push([u, init]); return new Response(JSON.stringify(body), { status }); }) as typeof fetch;
   const env = { POLAR_ACCESS_TOKEN: 'tok', POLAR_DISCOUNT_ID: 'd1' } as NodeJS.ProcessEnv;
-  expect(await readOffer(env, polar(200, { max_redemptions: 100, redemptions_count: 10 }), now)).toEqual({ left: 90, total: 100, endsAt: null });
+  expect(await readOffer(env, polar(200, { max_redemptions: 100, redemptions_count: 10 }), now)).toEqual({ left: 90, total: 100 });
   expect(calls[0][0]).toBe('https://api.polar.sh/v1/discounts/d1');
   expect(new Headers(calls[0][1]?.headers).get('authorization')).toBe('Bearer tok');
   expect(await readOffer({ ...env, POLAR_API: 'https://sandbox-api.polar.sh/' }, polar(200, {}), now)).toBe(null);
