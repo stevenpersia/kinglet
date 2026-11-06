@@ -6,16 +6,23 @@
 export const PUBLISHER = {
   name: 'Steven Persia',
   /** Legal status, e.g. "Entrepreneur individuel (micro-entreprise)". */
-  status: null as string | null,
-  /** SIREN or SIRET number. */
-  siret: null as string | null,
+  status: 'Entrepreneur individuel (micro-entreprise)' as string | null,
+  /** SIREN number. */
+  siren: '532 606 746' as string | null,
   /** Intra-community VAT number, or "Not applicable (art. 293 B of the French tax code)" under the VAT franchise. */
-  vat: null as string | null,
+  vat: 'Not applicable (art. 293 B of the French tax code)' as string | null,
   /** Postal address (a domiciliation address is fine). */
-  address: null as string | null,
+  address: '7 place de la Mairie, 23220 Linard-Malval' as string | null,
   /** Contact address shown on every legal page (support, refunds, privacy requests). */
-  email: null as string | null,
+  email: 'contact@getkinglet.com' as string | null,
   country: 'France',
+};
+
+/** The consumer mediator the publisher is registered with (article L612-1 of the French Consumer Code). */
+export const MEDIATOR = {
+  name: 'La Médiation Professionnelle (SMP)',
+  address: 'Alteritae, 5 rue Salvaing, 12000 Rodez, France',
+  url: 'https://www.mediateur-consommation-smp.fr',
 };
 
 /** Date of the current version of the legal pages. Change it with every change to their content. */

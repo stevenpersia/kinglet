@@ -1,6 +1,6 @@
 import { PageShell } from './components/Shell';
 import { PORTAL_URL, PRICE } from './config';
-import { LEGAL_UPDATED, PUBLISHER, REFUND_DAYS } from './publisher';
+import { LEGAL_UPDATED, MEDIATOR, PUBLISHER, REFUND_DAYS } from './publisher';
 
 /**
  * The legal pages (/legal, /terms, /privacy): static HTML without JavaScript, like /thanks.
@@ -53,8 +53,8 @@ export function LegalNotice() {
       <Table>
         <Row k="Name">{PUBLISHER.name}</Row>
         <Row k="Status">{field(PUBLISHER.status, 'legal status')}</Row>
-        <Row k="SIRET">{field(PUBLISHER.siret, 'SIRET number')}</Row>
-        <Row k="VAT number">{field(PUBLISHER.vat, 'VAT number or “not applicable”')}</Row>
+        <Row k="SIREN">{field(PUBLISHER.siren, 'SIREN number')}</Row>
+        <Row k="VAT">{field(PUBLISHER.vat, 'VAT number or “not applicable”')}</Row>
         <Row k="Address">
           {field(PUBLISHER.address, 'postal address')}, {PUBLISHER.country}
         </Row>
@@ -194,6 +194,10 @@ export function Terms() {
       <p>
         We may update these terms; the date at the top changes when we do. The terms in force when you bought your license keep applying to it, unless a change is in your favour. These terms are governed by French law. If you are a
         consumer, you also keep the protection of the mandatory rules of the country where you live, and you can go to the courts there. Write to us first at <Email />: most problems are solved by email.
+      </p>
+      <p>
+        If you are a consumer and a written complaint to us hasn’t settled the matter within one month, you can refer it free of charge to the consumer mediator we are registered with (articles L612-1 and following of the French
+        Consumer Code): <strong>{MEDIATOR.name}</strong>, {MEDIATOR.address}, <a href={MEDIATOR.url}>{MEDIATOR.url.replace('https://', '')}</a>.
       </p>
     </Doc>
   );

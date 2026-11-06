@@ -78,3 +78,13 @@ it('has the legal pages, linked from every page, without JavaScript', async () =
   expect(sitemap).toContain(`${site}/terms/`);
   expect(sitemap).not.toContain('/thanks');
 });
+
+it('names the publisher and the consumer mediator, with nothing left to fill in', async () => {
+  const legal = (await (await fetch(`${site}/legal/`)).text()).replaceAll('<!-- -->', '');
+  expect(legal).not.toContain('to fill in');
+  expect(legal).toContain('532 606 746');
+  expect(legal).toContain('contact@getkinglet.com');
+  const terms = (await (await fetch(`${site}/terms/`)).text()).replaceAll('<!-- -->', '');
+  expect(terms).not.toContain('to fill in');
+  expect(terms).toContain('La Médiation Professionnelle');
+});
