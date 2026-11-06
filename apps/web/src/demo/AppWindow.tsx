@@ -23,6 +23,7 @@ function scaleOf(s: DemoState) {
   if (s.consoleOpen) return 0.28;
   if (s.checksOpen) return 0.27;
   if (s.picked) return 0.35;
+  if (s.emuMenu) return 0.25;
   return 0.43;
 }
 
@@ -222,7 +223,6 @@ function DeviceToolbar({ s }: { s: DemoState }) {
     </span>
   );
   const errors = errorsOf(s);
-  const emuCount = [s.slow, s.tokyo, s.keyboard].filter(Boolean).length;
   return (
     <div className="relative z-20 flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-line-soft bg-chrome px-4 py-2">
       <div className="flex min-w-0 flex-wrap items-center gap-0.5 rounded-[9px] border border-line bg-card p-[3px]">
@@ -240,36 +240,48 @@ function DeviceToolbar({ s }: { s: DemoState }) {
         {iconButton('link', true, undefined, 'ok')}
       </div>
       <span className="h-5 w-px bg-line" />
-      <span data-target="btn-emu" className={`inline-flex h-8 items-center gap-1.5 rounded-[7px] px-2.5 text-xs whitespace-nowrap ${s.emuMenu || emuCount ? 'bg-active text-fg' : 'text-muted'}`}>
-        <Icon name="sliders" size={14} />
-        Emulation
-        {emuCount > 0 && <span className="rounded-full bg-local px-1.5 font-mono text-[10px] leading-4 font-semibold text-bg">{emuCount}</span>}
-      </span>
       <div className="ml-auto flex items-center gap-1">
-        <span className="flex size-8 items-center justify-center rounded-[7px] text-muted">
-          <Icon name="form" size={15} />
-        </span>
-        <span className="flex size-8 items-center justify-center rounded-[7px] text-muted">
-          <Icon name="download" size={15} />
-        </span>
         <span className="ml-1 inline-flex h-7 items-center rounded-md border border-line px-2 font-mono text-[11px] text-muted">{Math.round(scaleOf(s) * 100)} %</span>
       </div>
-      <AnimatePresence>{s.emuMenu && <EmulationMenu s={s} />}</AnimatePresence>
     </div>
   );
 }
 
-function EmulationMenu({ s }: { s: DemoState }) {
+/** Emulation, Forms, Export: tabs on the edge of the devices, as in the app. */
+function ToolTabs({ s }: { s: DemoState }) {
+  const emuOn = s.slow || s.keyboard || s.tokyo;
+  const tabs: [string, 'sliders' | 'form' | 'download', string, boolean, boolean, string?][] = [
+    ['Emulation', 'sliders', '#8ab4f8', s.emuMenu, emuOn, 'btn-emu'],
+    ['Forms', 'form', '#7dd3a8', false, false],
+    ['Export', 'download', '#e6c07b', false, false],
+  ];
+  return (
+    <nav aria-label="Tools" className="flex w-9 shrink-0 flex-col items-center gap-1 border-r border-line-soft bg-[#0b0b0b] pt-2.5">
+      {tabs.map(([label, icon, accent, on, active, target]) => (
+        <span
+          key={label}
+          data-target={target}
+          className={`relative flex w-7 flex-col items-center gap-1.5 rounded-[6px] px-1 py-2.5 text-[11px] transition-colors ${on ? 'text-fg' : 'text-muted'}`}
+          style={on ? { background: `${accent}1f`, boxShadow: `inset 0 0 0 1px ${accent}59` } : undefined}
+        >
+          <span style={{ color: on || active ? accent : undefined }}>
+            <Icon name={icon} size={12} />
+          </span>
+          <span className="[writing-mode:vertical-rl] rotate-180 whitespace-nowrap">{label}</span>
+          {active && <span className="absolute top-1 right-1 size-1.5 rounded-full" style={{ background: accent }} />}
+        </span>
+      ))}
+    </nav>
+  );
+}
+
+function EmulationPanel({ s }: { s: DemoState }) {
   const group = (label: string, items: [string, boolean, string?][]) => (
-    <div className="flex flex-col gap-1 px-2.5 py-1.5">
+    <div className="flex flex-col gap-1.5 rounded-[9px] border border-line-soft bg-[#1a1a1b] p-2.5">
       <span className="label">{label}</span>
       <div className="flex flex-wrap gap-1">
         {items.map(([l, on, target]) => (
-          <span
-            key={l}
-            data-target={target}
-            className={`inline-flex h-6 items-center rounded-md px-2 text-[11.5px] transition-colors ${on ? 'bg-raised text-fg shadow-[inset_0_0_0_1px_#2e2e33]' : 'text-faint'}`}
-          >
+          <span key={l} data-target={target} className={`inline-flex h-6 items-center rounded-md px-2 text-[11px] transition-colors ${on ? 'bg-raised text-fg shadow-[inset_0_0_0_1px_#2e2e33]' : 'text-faint'}`}>
             {l}
           </span>
         ))}
@@ -277,12 +289,33 @@ function EmulationMenu({ s }: { s: DemoState }) {
     </div>
   );
   return (
-    <motion.div {...pop} className="absolute top-11 left-[400px] z-50 flex w-80 origin-top-left flex-col rounded-[10px] border border-line bg-card p-1 py-1.5 shadow-2xl shadow-black/60">
-      {group('Network', [['Full speed', !s.slow], ['4G', false], ['Slow 3G', s.slow, 'emu-slow'], ['Offline', false]])}
-      {group('CPU', [['×1', !s.slow], ['×4 mid-range', s.slow], ['×6 low-end', false]])}
-      {group('Keyboard', [['None', !s.keyboard], ['iOS', s.keyboard, 'emu-ios'], ['Android', false]])}
-      {group('Region · iPhone 16', [['Same as the computer', !s.tokyo], ['Tokyo · ja-JP', s.tokyo, 'emu-tokyo'], ['Berlin', false]])}
-    </motion.div>
+    <motion.aside
+      initial={{ width: 0, opacity: 0 }}
+      animate={{ width: 250, opacity: 1 }}
+      exit={{ width: 0, opacity: 0 }}
+      transition={{ duration: 0.3, ease: [0.2, 0.8, 0.2, 1] }}
+      className="relative flex shrink-0 flex-col overflow-hidden border-r border-line-soft bg-[#131314]"
+    >
+      <span aria-hidden="true" className="absolute inset-x-0 top-0 h-px bg-[linear-gradient(90deg,transparent,#8ab4f8_30%,#8ab4f8_70%,transparent)] opacity-70" />
+      <div className="flex w-[250px] items-center gap-2.5 border-b border-line-soft px-3 py-2.5">
+        <span className="flex size-7 items-center justify-center rounded-md bg-[rgba(138,180,248,0.12)] text-local shadow-[inset_0_0_0_1px_rgba(138,180,248,0.25)]">
+          <Icon name="sliders" size={13} />
+        </span>
+        <span className="flex flex-col">
+          <span className="text-[12.5px] font-semibold">Emulation</span>
+          <span className="flex items-center gap-1 text-[10.5px] text-faint">
+            <span className="size-1.5 rounded-full bg-ok" />
+            Live on 2 devices
+          </span>
+        </span>
+      </div>
+      <div className="flex w-[250px] flex-col gap-2 p-2.5">
+        {group('Network', [['Full speed', !s.slow], ['4G', false], ['Slow 3G', s.slow, 'emu-slow'], ['Offline', false]])}
+        {group('CPU', [['×1', !s.slow], ['×4 mid-range', s.slow], ['×6', false]])}
+        {group('Keyboard', [['None', !s.keyboard], ['iOS', s.keyboard, 'emu-ios'], ['Android', false]])}
+        {group('Region · iPhone 16', [['Computer’s', !s.tokyo], ['Tokyo · ja-JP', s.tokyo, 'emu-tokyo'], ['Berlin', false]])}
+      </div>
+    </motion.aside>
   );
 }
 
@@ -869,6 +902,8 @@ export const AppWindow = forwardRef<HTMLDivElement, { s: DemoState; children?: R
       <EnvBar s={s} />
       <div className="relative flex min-h-0 flex-1">
         <Rail s={s} />
+        <AnimatePresence>{s.section !== 'share' && s.emuMenu && <EmulationPanel key="emu" s={s} />}</AnimatePresence>
+        {s.section !== 'share' && <ToolTabs s={s} />}
         <main className="stage-bg relative flex min-w-0 flex-1 flex-col">
           {s.section === 'share' ? (
             <OpenGraphPage s={s} />

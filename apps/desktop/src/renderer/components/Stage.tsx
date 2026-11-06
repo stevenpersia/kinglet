@@ -253,7 +253,7 @@ function ToolTabs() {
     export: state.exporting ? t('Exporting…', 'Export…') : null,
   };
   return (
-    <nav aria-label={t('Tools', 'Outils')} className="flex w-10 shrink-0 flex-col items-center gap-1.5 border-r border-line-soft bg-chrome pt-3">
+    <nav aria-label={t('Tools', 'Outils')} className="flex w-10 shrink-0 flex-col items-center gap-1.5 border-r border-line-soft bg-[#0b0b0b] pt-3">
       {TOOLS().map((tool) => {
         const on = state.panel === tool.id;
         return (
@@ -284,7 +284,7 @@ function ToolPanel({ tool, subtitle, actions, children }: { tool: Tool; subtitle
   const state = useStore();
   const def = TOOLS().find((x) => x.id === tool)!;
   return (
-    <aside id={`${tool}-panel`} aria-label={def.label} className="relative flex w-[350px] shrink-0 flex-col border-r border-line-soft bg-chrome">
+    <aside id={`${tool}-panel`} aria-label={def.label} className="relative flex w-[350px] shrink-0 flex-col border-r border-line-soft bg-[#131314]">
       <span aria-hidden="true" className="absolute inset-x-0 top-0 h-px opacity-70" style={{ background: `linear-gradient(90deg, transparent, ${def.accent} 30%, ${def.accent} 70%, transparent)` }} />
       <div className="flex shrink-0 items-center gap-3 border-b border-line-soft px-4 py-3">
         <span className="flex size-8 shrink-0 items-center justify-center rounded-lg" style={{ color: def.accent, background: `${def.tint}0.12)`, boxShadow: `inset 0 0 0 1px ${def.tint}0.25)` }}>
@@ -496,7 +496,7 @@ export function EmulationPanel() {
   );
 }
 
-const bigRow = 'flex w-full items-center gap-3 rounded-[10px] border border-line-soft bg-card px-3.5 py-3 text-left hover:border-line-strong disabled:opacity-50';
+const bigRow = 'flex w-full items-center gap-3 rounded-[10px] border border-line-soft bg-[#1a1a1b] px-3.5 py-3 text-left hover:border-line-strong disabled:opacity-50';
 
 /** Fill the forms of every device at once: good data, wrong data, or empty. Nothing is submitted. */
 export function FormsPanel() {
@@ -523,7 +523,7 @@ export function FormsPanel() {
           </button>
         ))}
         {forms?.mode === 'invalid' && (
-          <div className="rounded-[10px] border border-line-soft bg-card p-3 text-xs">
+          <div className="rounded-[10px] border border-line-soft bg-[#1a1a1b] p-3 text-xs">
             {accepting.length ? (
               <>
                 <span className="font-medium text-warn">{t(`${accepting.length} field${accepting.length > 1 ? 's' : ''} accept${accepting.length > 1 ? '' : 's'} anything`, `${accepting.length} champ${accepting.length > 1 ? 's' : ''} accepte${accepting.length > 1 ? 'nt' : ''} n’importe quoi`)}</span>
@@ -622,7 +622,7 @@ export function ExportPanel() {
           </div>
         ))}
         {done && (
-          <p role="status" className={`m-0 rounded-[10px] border px-3 py-2.5 text-xs break-all ${done.ok ? 'border-line-soft bg-card text-muted' : 'border-[#5c3330] text-err'}`}>
+          <p role="status" className={`m-0 rounded-[10px] border px-3 py-2.5 text-xs break-all ${done.ok ? 'border-line-soft bg-[#1a1a1b] text-muted' : 'border-[#5c3330] text-err'}`}>
             {done.text}
           </p>
         )}
