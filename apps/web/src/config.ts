@@ -24,3 +24,7 @@ export const CHECKOUT_URL: string | null = null;
 export const LAUNCHED = CHECKOUT_URL !== null;
 /** Where buyers download the app (public releases). */
 export const DOWNLOAD_URL = 'https://github.com/stevenpersia/kinglet-releases/releases/latest';
+/** Polar's customer portal: buyers find their order and license key there, from their email. */
+export const PORTAL_URL = 'https://polar.sh/kinglet/portal';
+// Polar checkout link (Products → Checkout Links): Success URL https://getkinglet.com/thanks?checkout_id={CHECKOUT_ID}
+// (src/Thanks.tsx), Return URL https://getkinglet.com/#pricing.

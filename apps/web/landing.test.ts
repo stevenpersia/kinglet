@@ -44,3 +44,15 @@ it('looks right when shared, on all 10 platforms', async () => {
   const previews = await readSharePreviews(`${site}/`);
   expect(previews.cards.map((c) => `${c.platform}:${c.status}${c.problems.length ? ` (${c.problems.join('; ')})` : ''}`)).toEqual(previews.cards.map((c) => `${c.platform}:ok`));
 });
+
+it('has a thanks page for after paying, out of search results and without JavaScript', async () => {
+  const res = await fetch(`${site}/thanks/`);
+  expect(res.status).toBe(200);
+  const html = await res.text();
+  expect(html).toContain('Thanks, Kinglet is yours.');
+  expect(html).toContain('noindex');
+  expect(html).toContain('https://polar.sh/kinglet/portal');
+  expect(html).toContain('/releases/latest');
+  expect(html).not.toMatch(/<script/);
+  expect(html).toMatch(/<link rel="stylesheet"/);
+});

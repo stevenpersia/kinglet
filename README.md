@@ -200,7 +200,7 @@ Code : `apps/desktop/src/main/license.ts` (logique, testée dans `license.test.t
 
 À faire avant la sortie :
 
-1. Dans Polar : créer l'organisation, puis dans *Benefits* un avantage **License Keys** (préfixe `KINGLET`, sans expiration, **limite d'activations à 3** — le site le dit — et « laisser les clients désactiver leurs activations » coché). Créer le produit Kinglet à 49 $ en paiement unique avec cet avantage, et un lien de paiement (*Checkout Links*) qui renvoie, une fois payé, vers les [releases](https://github.com/stevenpersia/kinglet-releases/releases/latest).
+1. Dans Polar : créer l'organisation, puis dans *Benefits* un avantage **License Keys** (préfixe `KINGLET`, sans expiration, **limite d'activations à 3** — le site le dit — et « laisser les clients désactiver leurs activations » coché). Créer le produit Kinglet à 49 $ en paiement unique avec cet avantage (visibilité *Private* : il ne s'achète que par le lien), et un lien de paiement (*Checkout Links*) avec en *Success URL* `https://getkinglet.com/thanks?checkout_id={CHECKOUT_ID}` et en *Return URL* `https://getkinglet.com/#pricing`. La page `/thanks` (`apps/web/src/Thanks.tsx`, HTML statique sans JavaScript, hors des moteurs de recherche) dit où trouver la clé, donne le téléchargement et explique l'activation.
 2. Mettre l'ID de l'organisation et celui de l'avantage dans `apps/desktop/src/main/license-config.ts` (tant qu'ils sont vides, l'app installée refuse toutes les clés), et l'adresse de l'espace client (`polar.sh/<slug>/portal`) dans `ORDERS_URL`.
 3. Mettre le lien de paiement dans `CHECKOUT_URL` de `apps/web/src/config.ts` : tous les « Join the list » du site deviennent « Buy Kinglet » et la FAQ change. Créer un code de remise pour l'e-mail de lancement à la liste.
 
