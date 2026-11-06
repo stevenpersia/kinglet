@@ -682,6 +682,15 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     await js(`document.querySelector('button[aria-controls=feedback-panel]')?.click()`);
     await clickText('#feedback-panel button', 'Pin a comment');
     await waitFor(() => js<boolean>(`!!document.querySelector('.cursor-crosshair')`), 4000);
+    // Hovering picks the element under the mouse, like the inspector: boxed here, dashed on the other devices.
+    await js(`(() => {
+      const el = document.querySelector('.cursor-crosshair');
+      const r = el.getBoundingClientRect();
+      el.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, clientX: r.left + r.width * 0.3, clientY: r.top + r.height * 0.15 }));
+    })()`);
+    const hovered = await waitFor(() => js<boolean>(`/×/.test(document.querySelector('[data-hover-box=own]')?.textContent ?? '')`), 4000);
+    const hoverOthers = await js<number>(`document.querySelectorAll('[data-hover-box=other]').length`);
+    await shot('34a-retours-survol');
     await js(`(() => {
       const el = document.querySelector('.cursor-crosshair');
       const r = el.getBoundingClientRect();
@@ -696,8 +705,11 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     await sleep(300);
     await clickText('#feedback-panel button', 'Open an issue');
     const issued = await waitFor(() => js<boolean>(`document.querySelector('#feedback-panel')?.textContent.includes('Issue opened') ?? false`), 6000);
+    const panelText = await js<string>(`document.querySelector('#feedback-panel')?.textContent ?? ''`);
+    const withShots = issued && !panelText.includes('captures were left out');
+    const pinElement = await js<string>(`document.querySelector('#feedback-panel code')?.textContent ?? ''`);
     await shot('34-retours');
-    criteria.push({ id: 'feedback-pins', ok: pinAdded && issued, detail: `épingle ${pinAdded ? 'posée' : 'absente'} · issue ${issued ? 'ouverte (#7)' : 'non ouverte'}` });
+    criteria.push({ id: 'feedback-pins', ok: hovered && pinAdded && !!pinElement && issued && withShots, detail: `survol ${hovered ? `ok (+${hoverOthers} ailleurs)` : 'absent'} · épingle ${pinAdded ? `posée sur ${pinElement || '?'}` : 'absente'} · issue ${issued ? 'ouverte (#7)' : 'non ouverte'}${withShots ? ' avec captures' : ' sans captures'}` });
     await js(`document.querySelector('button[aria-controls=feedback-panel]')?.click()`);
 
     // 26a. Claude panel: a real terminal running Claude Code (a stand-in here) in the project folder,

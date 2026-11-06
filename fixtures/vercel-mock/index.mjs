@@ -55,6 +55,18 @@ export async function startVercelMock({ previewUrl, previewUrl2, prodUrl, port =
         state.issue = JSON.parse(raw || '{}');
         return send(201, { number: 7, html_url: 'https://github.com/stevenpersia/maison-sable/issues/7' });
       }
+      // Feedback captures: the kinglet-feedback branch, then a file per capture.
+      if (p === '/repos/stevenpersia/maison-sable/git/ref/heads/kinglet-feedback') return state.feedbackBranch ? send(200, { object: { sha: 'f00d' } }) : send(404, { message: 'Not Found' });
+      if (p === '/repos/stevenpersia/maison-sable') return send(200, { id: 42, full_name: 'stevenpersia/maison-sable', default_branch: 'main' });
+      if (p === '/repos/stevenpersia/maison-sable/git/ref/heads/main') return send(200, { object: { sha: '4f0b7d0' } });
+      if (p === '/repos/stevenpersia/maison-sable/git/refs' && req.method === 'POST') {
+        state.feedbackBranch = JSON.parse(raw || '{}').ref;
+        return send(201, { ref: state.feedbackBranch, object: { sha: '4f0b7d0' } });
+      }
+      if (p.startsWith('/repos/stevenpersia/maison-sable/contents/') && req.method === 'PUT') {
+        (state.uploads ??= []).push({ path: p.slice('/repos/stevenpersia/maison-sable/contents/'.length), branch: JSON.parse(raw || '{}').branch });
+        return send(201, { content: { path: p } });
+      }
       if (p === '/repos/stevenpersia/maison-sable/pulls')
         return send(200, url.searchParams.get('head') === 'stevenpersia:feat/hero' ? [{ number: 12, title: 'Nouveau titre du hero', state: 'open', draft: false, merged_at: null, html_url: 'https://github.com/stevenpersia/maison-sable/pull/12', head: { sha: 'a91c2e0' } }] : []);
       if (p === '/repos/stevenpersia/maison-sable/commits/a91c2e0/check-runs')

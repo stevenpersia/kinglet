@@ -76,6 +76,7 @@ const api: KingletApi = {
   localServers: () => ipcRenderer.invoke('detect:servers'),
   findFolder: (vercelProjectId) => ipcRenderer.invoke('projects:find-folder', vercelProjectId),
   elementAt: (deviceId, x, y) => ipcRenderer.invoke('preview:element-at', deviceId, x, y),
+  rectsOf: (selector) => ipcRenderer.invoke('preview:rects-of', selector),
   setInspect: (on) => ipcRenderer.send('preview:inspect', on),
   feedback: {
     load: (projectId) => ipcRenderer.invoke('feedback:load', projectId),
@@ -84,6 +85,7 @@ const api: KingletApi = {
   github: {
     state: () => ipcRenderer.invoke('github:state'),
     createIssue: (repo, title, body) => ipcRenderer.invoke('github:issue', repo, title, body),
+    uploadImages: (repo, folder, images) => ipcRenderer.invoke('github:images', repo, folder, images),
     pullRequests: (repo, branches) => ipcRenderer.invoke('github:prs', repo, branches),
     connect: (token) => ipcRenderer.invoke('github:connect', token),
     owners: () => ipcRenderer.invoke('github:owners'),

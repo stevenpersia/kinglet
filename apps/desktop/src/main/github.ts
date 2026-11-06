@@ -146,6 +146,48 @@ export class GitHubService {
     return ((await res.json()) as { html_url: string }).html_url;
   }
 
+  /**
+   * Feedback captures into the repository, so an issue can show them (the API can't attach images to an
+   * issue). They go on a branch of their own, never on the default one. Returns one URL per image.
+   */
+  async uploadImages(repo: string, folder: string, images: { name: string; dataUrl: string }[]): Promise<string[]> {
+    if (!this.token) throw new Error(t('GitHub not connected', 'GitHub non connecté'));
+    if (!/^[\w.-]+\/[\w.-]+$/.test(repo)) throw new Error('invalid repository');
+    const branch = 'kinglet-feedback';
+    const call = async (method: string, path: string, body?: unknown) => {
+      const res = await fetch(`${this.baseUrl}${path}`, {
+        method,
+        headers: { authorization: `Bearer ${this.token}`, accept: 'application/vnd.github+json', 'user-agent': 'Kinglet', ...(body ? { 'content-type': 'application/json' } : {}) },
+        body: body ? JSON.stringify(body) : undefined,
+        signal: AbortSignal.timeout(30_000),
+      });
+      return { status: res.status, json: (await res.json().catch(() => ({}))) as Record<string, unknown> };
+    };
+    const denied = () => new Error(t('This token can’t write in this repository (it needs Contents: write): the captures were left out.', 'Ce jeton ne peut pas écrire dans ce dépôt (il faut Contents : écriture) : les captures n’ont pas été jointes.'));
+    // The branch, created from the default one the first time.
+    const ref = await call('GET', `/repos/${repo}/git/ref/heads/${branch}`);
+    if (ref.status === 404) {
+      const info = await call('GET', `/repos/${repo}`);
+      const base = String(info.json.default_branch ?? 'main');
+      const head = await call('GET', `/repos/${repo}/git/ref/heads/${encodeURIComponent(base)}`);
+      const sha = (head.json.object as { sha?: string } | undefined)?.sha;
+      if (!sha) throw new Error(`GitHub: HTTP ${head.status}`);
+      const made = await call('POST', `/repos/${repo}/git/refs`, { ref: `refs/heads/${branch}`, sha });
+      if (made.status === 403 || made.status === 404) throw denied();
+      if (made.status >= 300 && made.status !== 422) throw new Error(`GitHub: HTTP ${made.status}`);
+    } else if (ref.status >= 300) throw ref.status === 403 ? denied() : new Error(`GitHub: HTTP ${ref.status}`);
+    const urls: string[] = [];
+    for (const img of images) {
+      const path = `${folder}/${img.name}`.replace(/[^\w./-]+/g, '-');
+      const content = img.dataUrl.replace(/^data:[^,]*,/, '');
+      const put = await call('PUT', `/repos/${repo}/contents/${path}`, { message: `Feedback capture: ${img.name}`, content, branch });
+      if (put.status === 403 || put.status === 404) throw denied();
+      if (put.status >= 300) throw new Error(`GitHub: HTTP ${put.status}`);
+      urls.push(`https://github.com/${repo}/blob/${branch}/${path}?raw=true`);
+    }
+    return urls;
+  }
+
   /** Who signs the first commit when git has no identity on this computer: the account's noreply address. */
   identity(): { name: string; email: string } | null {
     const u = this.state.user;

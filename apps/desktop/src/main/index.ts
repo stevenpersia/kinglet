@@ -773,6 +773,7 @@ ${shots.map((sh) => `<section><header><h1>${esc(title)}</h1><span>${esc(sh.label
   ipcMain.handle('projects:find-folder', (_e, vercelProjectId: string) => findVercelFolder(vercelProjectId));
   ipcMain.on('preview:inspect', (_e, on: boolean) => devices.setInspect(on));
   ipcMain.handle('preview:element-at', (_e, id: string, x: number, y: number) => devices.elementAt(id, x, y));
+  ipcMain.handle('preview:rects-of', (_e, selector: string) => devices.rectsOf(selector));
 
   const github = new GitHubService(app.getPath('userData'), (state) => emit({ type: 'github', state }));
   void github.restore();
@@ -793,6 +794,7 @@ ${shots.map((sh) => `<section><header><h1>${esc(title)}</h1><span>${esc(sh.label
     return parent ? { folder: await cloneRepo(gitUrl, parent, github.cloneToken()) } : null;
   });
   ipcMain.handle('github:issue', (_e, repo: string, title: string, body: string) => github.createIssue(repo, title, body));
+  ipcMain.handle('github:images', (_e, repo: string, folder: string, images: { name: string; dataUrl: string }[]) => github.uploadImages(repo, folder, images));
   ipcMain.handle('github:owners', () => github.owners());
 
   // A new project from scratch: an empty folder for Claude, the dev server, then GitHub and Vercel.

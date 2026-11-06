@@ -583,6 +583,8 @@ export interface FeedbackPin {
   /** Where the pin is on its capture (0..1), when the capture has no pin drawn on it (review link). */
   fx?: number;
   fy?: number;
+  /** The pinned element's box on its capture (0..1), when a whole element was pinned. */
+  box?: { x: number; y: number; w: number; h: number } | null;
   /** Answers in the thread (yours and the client's). */
   replies?: { author: string | null; text: string; at: number }[];
 }
@@ -731,6 +733,8 @@ export interface KingletApi {
   setInspect(on: boolean): void;
   /** The element under a point (CSS px) of a device's page. */
   elementAt(deviceId: string, x: number, y: number): Promise<ElementInfo | null>;
+  /** The box of an element (by selector) on each device, CSS px of its viewport; null where it isn't. */
+  rectsOf(selector: string): Promise<Record<string, ElementInfo['rect'] | null>>;
   feedback: {
     load(projectId: string): Promise<FeedbackPin[]>;
     save(projectId: string, pins: FeedbackPin[]): Promise<void>;
@@ -739,6 +743,8 @@ export interface KingletApi {
     state(): Promise<GitHubState>;
     /** Open an issue in a repository ("owner/name"); returns its URL. */
     createIssue(repo: string, title: string, body: string): Promise<string>;
+    /** Captures pushed to the repository's kinglet-feedback branch; returns a URL per image, for an issue. */
+    uploadImages(repo: string, folder: string, images: { name: string; dataUrl: string }[]): Promise<string[]>;
     /** Pull request of each branch of a repository ("owner/name"), by branch. */
     pullRequests(repo: string, branches: string[]): Promise<Record<string, PullRequest>>;
     connect(token: string): Promise<GitHubState>;
