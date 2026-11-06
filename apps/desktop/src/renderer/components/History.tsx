@@ -9,6 +9,7 @@ type Metric = { id: string; label: string; get: (e: HistoryEntry) => number | nu
 
 const METRICS = (): Metric[] => [
   { id: 'score', label: 'Checks', get: (e) => (e.score ? (e.score.passed / Math.max(1, e.score.total)) * 100 : null), fmt: (v) => `${Math.round(v)}${t('%', ' %')}`, good: (v) => v >= 90, higherIsBetter: true },
+  { id: 'security', label: t('Security', 'Sécurité'), get: (e) => (e.security ? (e.security.passed / Math.max(1, e.security.total)) * 100 : null), fmt: (v) => `${Math.round(v)}${t('%', ' %')}`, good: (v) => v >= 90, higherIsBetter: true },
   { id: 'lcp', label: 'LCP', get: (e) => e.lcpMs, fmt: (v) => formatBudgetValue('lcp', v), good: (v) => v <= 2500 },
   { id: 'cls', label: 'CLS', get: (e) => e.cls, fmt: (v) => formatBudgetValue('cls', v), good: (v) => v <= 0.1 },
   { id: 'weight', label: t('Weight', 'Poids'), get: (e) => (e.bytes == null ? null : e.bytes / 1024), fmt: (v) => formatBudgetValue('weight', v), good: (v) => v <= 1000 },
@@ -128,7 +129,7 @@ export function HistoryCard({ projectId, deployments }: { projectId: string; dep
                   <span className="text-err">{e.error}</span>
                 ) : (
                   <span className="shrink-0 font-mono text-[11px] text-muted">
-                    {e.score ? `${e.score.passed}/${e.score.total}` : '—'} · LCP {e.lcpMs != null ? formatBudgetValue('lcp', e.lcpMs) : '—'} · CLS {e.cls != null ? formatBudgetValue('cls', e.cls) : '—'} · {e.bytes != null ? formatBudgetValue('weight', e.bytes / 1024) : '—'}
+                    {e.score ? `${e.score.passed}/${e.score.total}` : '—'} · {t('Security', 'Sécurité')} {e.security ? `${e.security.passed}/${e.security.total}` : '—'} · LCP {e.lcpMs != null ? formatBudgetValue('lcp', e.lcpMs) : '—'} · CLS {e.cls != null ? formatBudgetValue('cls', e.cls) : '—'} · {e.bytes != null ? formatBudgetValue('weight', e.bytes / 1024) : '—'}
                   </span>
                 )}
                 {e.budgetFailures.length > 0 && (

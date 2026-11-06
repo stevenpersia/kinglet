@@ -7,9 +7,10 @@ import { GetKinglet } from './Get';
 const INCLUDED = [
   '10 emulated devices and your real phone',
   'Claude Code panel, inspector and console',
-  'MCP server: 13 tools, 5 slash commands',
+  'MCP server: 14 tools, 6 slash commands',
   'Vercel and GitHub: previews, prod, PRs, CI',
   '37 checks, site audit, budgets, history',
+  'Security: leaked keys, open files, headers',
   'Open Graph previews on 10 platforms',
   'Region, keyboards, forms, mocks, export',
   'Automatic updates',
@@ -21,7 +22,7 @@ export function Pricing() {
       <div className="flex flex-col items-center gap-4 text-center">
         <Reveal>
           <span className="inline-flex items-center gap-2.5 font-mono text-xs tracking-[0.08em] text-faint uppercase">
-            <b className="rounded-md border border-[#2a2a30] px-1.5 font-medium text-fg">06</b>Pricing
+            <b className="rounded-md border border-[#2a2a30] px-1.5 font-medium text-fg">07</b>Pricing
           </span>
         </Reveal>
         <Reveal>
@@ -99,6 +100,7 @@ export function Pricing() {
 }
 
 const FAQ: [string, string][] = [
+  ['Does it check security?', 'Yes, in its own section. Kinglet looks for API keys and tokens shipped in your HTML and JavaScript, .env, .git and source maps left reachable (tried on your own sites only), security headers, cookie flags, HTTPS, mixed content and third-party scripts. Each problem comes with the fix, and Claude can apply it.'],
   LAUNCHED
     ? ['How do I get it?', 'Buy it in Pricing: your license key is ready right away, in the receipt email and Polar’s customer portal. Download Kinglet, open it and enter the key. It works on up to 3 computers; moving to a new one is a click in Settings → License.']
     : ['When can I get it?', `Soon. Leave your email in Pricing: you’ll get one email at launch, with ${LAUNCH_OFFER} for people on the list.`],

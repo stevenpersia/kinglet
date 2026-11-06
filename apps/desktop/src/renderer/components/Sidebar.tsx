@@ -25,6 +25,8 @@ export function Rail() {
   const open = (p: Panel) => () => togglePanel(p);
   const pins = (s.settings.activeId ? (s.pins[s.settings.activeId] ?? []) : []).filter((p) => !p.done).length;
   const left = report ? report.score.total - report.score.passed : 0;
+  const secErrors = s.security?.checks.filter((c) => c.status === 'error').length ?? 0;
+  const secWarnings = s.security?.checks.filter((c) => c.status === 'warning').length ?? 0;
 
   const primary: Item[] = [
     { id: 'apercu', label: t('Devices', 'Appareils'), icon: 'devices', on: onDevices, run: go('apercu') },
@@ -42,6 +44,14 @@ export function Rail() {
       on: (onDevices && panel === 'checks') || section === 'checks',
       run: open('checks'),
       badge: report ? (left ? { n: left, tone: 'warn' } : { n: '✓', tone: 'ok' }) : null,
+    },
+    {
+      id: 'securite',
+      label: t('Security', 'Sécurité'),
+      icon: 'shield',
+      on: section === 'securite',
+      run: go('securite'),
+      badge: s.security && s.security.url === s.url ? (secErrors ? { n: secErrors, tone: 'err' } : secWarnings ? { n: secWarnings, tone: 'warn' } : { n: '✓', tone: 'ok' }) : null,
     },
     { id: 'comparer', label: t('Compare', 'Comparer'), icon: 'split', on: section === 'comparer', run: go('comparer') },
     { id: 'feedback', label: t('Feedback', 'Retours'), icon: 'message', on: onDevices && panel === 'feedback', run: open('feedback'), badge: pins ? { n: pins, tone: 'clay' } : null },

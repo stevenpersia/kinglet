@@ -48,3 +48,23 @@ export { readStructuredData, flattenJsonLd, richKindLabel, type StructuredData, 
 export { readHreflang, checkHreflangTags, type HreflangReport, type HreflangIssue, type HreflangAlternate } from './hreflang.ts';
 export { auditSite, auditPrompt, type SiteAudit, type AuditPage, type BrokenLink, type Duplicate } from './audit.ts';
 export { evaluateBudgets, pathMatches, describeFailures, budgetMetricLabel, formatBudgetValue, DEFAULT_BUDGET, type Budget, type BudgetMeasure, type BudgetResult, type BudgetMetric } from './budgets.ts';
+export {
+  auditSecurity,
+  securityPrompt,
+  securitySummary,
+  headersFix,
+  findSecrets,
+  parseSetCookie,
+  isLocalHost,
+  SECURITY_GROUPS,
+  SECURITY_HEADERS,
+  RECOMMENDED_HEADERS,
+  type SecurityReport,
+  type SecurityCheck,
+  type SecurityGroup,
+  type SecurityStatus,
+  type LeakedSecret,
+  type ExposedFile,
+  type CookieInfo,
+  type ThirdParty,
+} from './security.ts';

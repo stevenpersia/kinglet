@@ -19,6 +19,7 @@ const tools = (): [string, string][] => [
   ['get_page_meta', t('Tags as read by a share crawler', 'Balises lues comme un robot de partage')],
   ['get_share_preview', t('Previews on 10 platforms + fix', 'Aperçus sur 10 plateformes + correctif')],
   ['run_checks', t('All 37 checks, including on-device measurements', 'Les 37 checks, mesures dans les appareils incluses')],
+  ['run_security', t('Leaked keys, exposed files, headers, cookies', 'Clés exposées, fichiers accessibles, en-têtes, cookies')],
   ['audit_site', t('Every page: broken links, duplicates, sitemap, hreflang', 'Toutes les pages : liens cassés, doublons, sitemap, hreflang')],
   ['get_accessibility', t('axe-core audit and keyboard focus in the devices', 'Audit axe-core et focus clavier dans les appareils')],
   ['get_structured_data', t('JSON-LD and rich results', 'JSON-LD et résultats enrichis')],

@@ -126,6 +126,11 @@ export function Hero() {
             <span className="rounded-[5px] border border-[#26262c] px-1.5 font-mono text-[11px] text-ghost">{copied ? 'copied' : 'copy'}</span>
           </button>
         </motion.div>
+        <a href="#security" className="group inline-flex items-center gap-2 rounded-full border border-[rgba(242,139,130,0.28)] bg-[rgba(242,139,130,0.07)] px-3.5 py-1.5 text-[13px] text-[#f4c3bd] no-underline hover:border-[rgba(242,139,130,0.5)]">
+          <Icon name="shield" size={14} />
+          New: catches leaked API keys and open .env files before anyone else
+          <span className="transition-transform group-hover:translate-x-0.5">→</span>
+        </a>
         <p className="m-0 font-mono text-xs text-ghost">Coming soon to Linux · join the list for a launch discount</p>
       </div>
 

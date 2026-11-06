@@ -2,7 +2,7 @@ import { MotionConfig } from 'motion/react';
 import { KingletBird, Mark } from '../../desktop/src/renderer/components/Icons';
 import { Hero } from './components/Hero';
 import { Faq, Pricing } from './components/Pricing';
-import { AiWorkflow, Checks, DeviceLab, Mcp, Ship } from './components/Sections';
+import { AiWorkflow, Checks, DeviceLab, Mcp, Security, Ship } from './components/Sections';
 import { Reveal } from './components/ui';
 import { GetKinglet } from './components/Get';
 import { SiteFooter } from './components/Shell';
@@ -14,6 +14,7 @@ function Nav() {
     ['#lab', 'Device lab'],
     ['#ship', 'Vercel & GitHub'],
     ['#checks', 'Checks'],
+    ['#security', 'Security'],
     ['#pricing', 'Pricing'],
   ];
   return (
@@ -91,6 +92,7 @@ export function App() {
         <DeviceLab />
         <Ship />
         <Checks />
+        <Security />
         <Mcp />
         <Pricing />
         <Faq />

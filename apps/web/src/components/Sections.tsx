@@ -321,20 +321,93 @@ export function Checks() {
 
 /* ───────────── 05 · MCP ───────────── */
 
+/* ───────────── 05 · Security ───────────── */
+
+const FINDINGS: [string, string, string, string][] = [
+  ['✕', 'text-err', 'Stripe secret key', 'sk_live_51Hx…9xQa in /assets/index-4f2a.js'],
+  ['✕', 'text-err', '/.env reachable', 'OPENAI_API_KEY, DATABASE_URL… readable by anyone'],
+  ['✕', 'text-err', 'Session cookie', 'sb-access-token readable by JavaScript (no HttpOnly)'],
+  ['!', 'text-warn', 'Content-Security-Policy', 'missing: injected scripts can run anywhere'],
+  ['!', 'text-warn', 'Source maps', '3 .map files public: your whole source, comments included'],
+  ['✓', 'text-ok', 'HTTPS · HSTS · mixed content', 'all good'],
+];
+
+export function Security() {
+  return (
+    <section className="mx-auto max-w-[1200px] px-4 pt-36 sm:px-6">
+      <SectionHead id="security" n="05" eyebrow="Security" title="Leaked keys, open files." dim="Caught before anyone else.">
+        Sites built fast with AI leak secrets. Kinglet reads your site the way a visitor’s browser gets it, every script included, and tells you what anyone could grab. Then Claude fixes it.
+      </SectionHead>
+      <div className="mt-12 grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr))]">
+        <Reveal className="md:col-span-2">
+          <Card className="flex h-full flex-col gap-4 p-7">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h3 className="m-0 flex items-center gap-2.5 text-xl font-semibold tracking-[-0.03em]">
+                <Icon name="shield" size={18} />
+                Security · saltmint.app
+              </h3>
+              <span className="font-mono text-[13px]">
+                <span className="text-err">3 problems</span> <span className="text-ghost">· 2 to improve · 9/14</span>
+              </span>
+            </div>
+            <div className="overflow-x-auto rounded-xl border border-line-soft">
+              <div className="min-w-[520px]">
+                {FINDINGS.map(([mark, tone, what, detail], i) => (
+                  <motion.div
+                    key={what}
+                    initial={{ opacity: 0, x: -8 }}
+                    whileInView={{ opacity: 1, x: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ duration: 0.4, delay: 0.1 + i * 0.07 }}
+                    className={`grid items-baseline gap-3 px-4 py-2.5 text-[13px] [grid-template-columns:18px_200px_1fr] ${i ? 'border-t border-line-soft' : ''}`}
+                  >
+                    <span className={`font-mono ${tone}`}>{mark}</span>
+                    <span className="font-medium">{what}</span>
+                    <span className="truncate font-mono text-xs text-faint">{detail}</span>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="rounded-lg bg-[linear-gradient(100deg,#f0a07f,#e6c07b)] px-3 py-1.5 text-[13px] font-semibold text-[#1a120b]">Ask Claude to fix it all</span>
+              <span className="font-mono text-xs text-ghost">or /mcp__kinglet__fix_security in your terminal</span>
+            </div>
+          </Card>
+        </Reveal>
+        {(
+          [
+            ['Keys in your JavaScript', 'Stripe, OpenAI, Anthropic, AWS, GitHub, Slack, Resend, Supabase service_role, private keys: found in the HTML and every script, shown shortened. Publishable keys stay quiet.'],
+            ['Files left open', '.env, .git, .npmrc, database dumps and public source maps. Only tried on your own sites.'],
+            ['Headers and cookies', 'CSP, HSTS, framing, nosniff, referrer and permissions, plus Secure, HttpOnly and SameSite. The fix comes ready for Next.js, Nuxt, SvelteKit or vercel.json.'],
+            ['Watched on every deploy', 'HTTPS, mixed content, insecure forms and third-party scripts without integrity. A header that disappears on a new Vercel deploy sends you a notification.'],
+          ] as const
+        ).map(([title, text], i) => (
+          <Reveal key={title} delay={0.05 * (i + 1)}>
+            <Card className="flex h-full flex-col gap-3 p-7">
+              <h3 className="m-0 text-lg font-semibold tracking-[-0.03em]">{title}</h3>
+              <p className="m-0 text-sm leading-relaxed text-faint">{text}</p>
+            </Card>
+          </Reveal>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export function Mcp() {
-  const tools = ['status', 'open_url', 'set_devices', 'screenshot', 'get_page_meta', 'get_share_preview', 'run_checks', 'audit_site', 'get_accessibility', 'get_structured_data', 'list_pages', 'list_deployments', 'get_console'];
+  const tools = ['status', 'open_url', 'set_devices', 'screenshot', 'get_page_meta', 'get_share_preview', 'run_checks', 'run_security', 'audit_site', 'get_accessibility', 'get_structured_data', 'list_pages', 'list_deployments', 'get_console'];
   return (
     <section id="mcp" className="mx-auto max-w-[1200px] px-4 pt-36 sm:px-6">
       <Reveal>
         <Card className="flex flex-wrap items-center gap-10 p-[clamp(24px,5vw,56px)]">
           <div className="flex min-w-0 flex-[1_1_380px] flex-col gap-4">
             <span className="inline-flex items-center gap-2.5 font-mono text-xs tracking-[0.08em] text-faint uppercase">
-              <b className="rounded-md border border-[#2a2a30] px-1.5 font-medium text-fg">05</b>MCP server
+              <b className="rounded-md border border-[#2a2a30] px-1.5 font-medium text-fg">06</b>MCP server
             </span>
             <h2 className="m-0 text-[clamp(30px,4vw,48px)] leading-[1.02] font-semibold tracking-[-0.05em]">Your terminal Claude gets eyes too.</h2>
-            <p className="m-0 text-base leading-relaxed text-muted">13 tools and 5 slash commands for Claude Code. It screenshots devices, runs checks, audits the site and verifies its own fix. Works with the app closed, on any URL.</p>
+            <p className="m-0 text-base leading-relaxed text-muted">14 tools and 6 slash commands for Claude Code. It screenshots devices, runs checks and security, audits the site and verifies its own fix. Works with the app closed, on any URL.</p>
             <div className="flex flex-wrap gap-1.5">
-              {['fix_share', 'fix_checks', 'fix_console', 'fix_site', 'fix_accessibility'].map((c) => (
+              {['fix_open_graph', 'fix_checks', 'fix_security', 'fix_console', 'fix_site', 'fix_accessibility'].map((c) => (
                 <span key={c} className="inline-flex h-[26px] items-center rounded-[7px] border border-line bg-[#111114] px-2.5 font-mono text-xs text-muted">
                   /{c}
                 </span>

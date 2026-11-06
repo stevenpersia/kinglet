@@ -4,7 +4,7 @@ import type { McpActivity } from '../../shared/types';
 import { api, useStore } from '../store';
 import { Dot } from './Icons';
 
-export const SLASH = { share: '/mcp__kinglet__fix_share', checks: '/mcp__kinglet__fix_checks', site: '/mcp__kinglet__fix_site', a11y: '/mcp__kinglet__fix_accessibility' } as const;
+export const SLASH = { share: '/mcp__kinglet__fix_open_graph', checks: '/mcp__kinglet__fix_checks', site: '/mcp__kinglet__fix_site', a11y: '/mcp__kinglet__fix_accessibility', security: '/mcp__kinglet__fix_security' } as const;
 
 /** A button that copies a text and says so for a moment. */
 export function CopyButton({ text, label, done = t('Copied ✓', 'Copié ✓'), primary = false, className = '' }: { text: string; label: string; done?: string; primary?: boolean; className?: string }) {

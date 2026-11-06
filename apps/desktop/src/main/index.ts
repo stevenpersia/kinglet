@@ -1,10 +1,10 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, Notification, shell } from 'electron';
-import { resolveLanguage, setLanguage, t, locale, buildShareFix, checkShare, crawl, probeImage, readPageMeta, readSharePreviews, readSiteFiles, runChecks, score, vercelBypassHeaders, auditSite, readHreflang, readStructuredData, evaluateBudgets, describeFailures, type AxeViolation, type BudgetMeasure, type CrawledPage, type HreflangReport, type SiteFiles } from '@kinglet/core';
+import { resolveLanguage, setLanguage, t, locale, buildShareFix, checkShare, crawl, probeImage, readPageMeta, readSharePreviews, readSiteFiles, runChecks, score, vercelBypassHeaders, auditSite, auditSecurity, securitySummary, readHreflang, readStructuredData, evaluateBudgets, describeFailures, type AxeViolation, type BudgetMeasure, type CrawledPage, type HreflangReport, type SiteFiles } from '@kinglet/core';
 import { startStdio } from '@kinglet/mcp';
 import QRCode from 'qrcode';
-import type { AnalyzeReport, CompareColumn, DeviceSlot, EnvId, ExportShot, FeedbackPin, HistoryEntry, InitState, McpActivity, McpInfo, NewProjectRequest, Project, PhoneQr, PhoneState, PreviewEvent, Settings, ShareStudio } from '../shared/types';
+import type { SecurityRun, AnalyzeReport, CompareColumn, DeviceSlot, EnvId, ExportShot, FeedbackPin, HistoryEntry, InitState, McpActivity, McpInfo, NewProjectRequest, Project, PhoneQr, PhoneState, PreviewEvent, Settings, ShareStudio } from '../shared/types';
 import { HistoryStore } from './history';
 import { ReviewServer } from './review';
 import { startControlServer } from './control';
@@ -368,6 +368,26 @@ async function createWindow(license: LicenseService) {
   }
   ipcMain.handle('page:analyze', (_e, url: string, opts: { refreshSite?: boolean }) => analyzePage(url, opts));
 
+  /**
+   * Security: the user's own sites (local, or a host of one of their Vercel projects) also get the
+   * sensitive-file probe; any other site only when the user confirms it's theirs (`probe`).
+   */
+  const ownSite = (url: string) => {
+    if (isLocalUrl(url)) return true;
+    const host = new URL(url).host;
+    const hosts = new Set<string>();
+    for (const p of settings.value.projects) if (p.localOrigin) hosts.add(new URL(p.localOrigin).host);
+    for (const vp of vercel.state.projects) if (vp.productionUrl) hosts.add(new URL(vp.productionUrl).host);
+    for (const list of Object.values(vercel.state.deployments)) for (const d of list ?? []) hosts.add(new URL(d.url).host);
+    return hosts.has(host);
+  };
+  const mixedMessages = () => devices.allLogs().filter((l) => /Mixed Content/i.test(l.text)).map((l) => l.text);
+  ipcMain.handle('security:run', async (_e, url: string, opts: { probe?: boolean }): Promise<SecurityRun> => {
+    const own = ownSite(url);
+    const report = await auditSecurity(url, { headers: bypassHeaders(url), probe: own || !!opts?.probe, consoleMessages: mixedMessages() });
+    return { ...report, ownSite: own };
+  });
+
   ipcMain.handle('share:previews', async (_e, url: string): Promise<ShareStudio> => {
     const previews = await readSharePreviews(url, { headers: bypassHeaders(url) });
     return { previews, fix: buildShareFix(previews.meta, previews.image) };
@@ -531,9 +551,30 @@ ${shots.map((sh) => `<section><header><h1>${esc(title)}</h1><span>${esc(sh.label
       const other = await devices.snapshot(new URL(path, root).toString(), device);
       failures.push(...describeFailures(evaluateBudgets(budgets, path, [measure(other.perf, other.vitals)])));
     }
-    const entry: HistoryEntry = { at, ...target, source, device: label, score: checksScore, lcpMs: snap.vitals?.lcpMs ?? null, cls: snap.vitals?.cls ?? null, bytes: snap.perf?.bytes ?? null, requests: snap.perf?.requests ?? null, budgetFailures: failures, error: snap.error };
+    let security: HistoryEntry['security'] = null;
+    try {
+      security = securitySummary(await auditSecurity(root.toString(), { headers: bypassHeaders(root.toString()), maxScripts: 20 }));
+    } catch {
+      /* unreachable */
+    }
+    const entry: HistoryEntry = { at, ...target, source, device: label, score: checksScore, security, lcpMs: snap.vitals?.lcpMs ?? null, cls: snap.vitals?.cls ?? null, bytes: snap.perf?.bytes ?? null, requests: snap.perf?.requests ?? null, budgetFailures: failures, error: snap.error };
+    // The previous measure of the same kind (production, or previews of this project): a security header that disappears is worth a notification.
+    const previous = history
+      .load(projectId)
+      .filter((e) => e.production === entry.production && !isLocalUrl(e.url) && e.security)
+      .sort((a, b) => b.at - a.at)[0];
     const entries = history.add(projectId, entry);
     emit({ type: 'history', projectId, entries });
+    if (auto && security && previous?.security && !isLocalUrl(entry.url)) {
+      const lost = previous.security.headers.filter((h) => !security!.headers.includes(h));
+      const fresh = security.problems.filter((p) => !previous.security!.problems.includes(p));
+      if (lost.length || fresh.length)
+        notify(
+          projectId,
+          t(`Security · ${project?.name ?? ''}`, `Sécurité · ${project?.name ?? ''}`),
+          [lost.length ? t(`Header gone: ${lost.join(', ')}`, `En-tête disparu : ${lost.join(', ')}`) : '', fresh.length ? t(`New problem: ${fresh.join(', ')}`, `Nouveau problème : ${fresh.join(', ')}`) : ''].filter(Boolean).join('\n'),
+        );
+    }
     if (failures.length && auto) notify(projectId, t(`Budget exceeded · ${project?.name ?? ''}`, `Budget dépassé · ${project?.name ?? ''}`), failures.slice(0, 3).join('\n'));
     return entry;
   }
@@ -953,7 +994,17 @@ ${shots.map((sh) => `<section><header><h1>${esc(title)}</h1><span>${esc(sh.label
           const headers = bypassHeaders(t.url);
           const meta = await readPageMeta(t.url, { headers });
           const image = meta.ogImageUrl ? await probeImage(meta.ogImageUrl, { headers: bypassHeaders(meta.ogImageUrl) }) : null;
-          const values = Object.fromEntries(COMPARED.map(([k, f]) => [k, f(meta)]));
+          const values: Record<string, string | null> = Object.fromEntries(COMPARED.map(([k, f]) => [k, f(meta)]));
+          // Security, side by side: the score, the secrets and source maps found, each security header.
+          try {
+            const sec = await auditSecurity(t.url, { headers, maxScripts: 20 });
+            values['security'] = `${sec.score.passed}/${sec.score.total}`;
+            values['security · secrets'] = sec.secrets.length ? sec.secrets.map((x) => x.kind).join(', ') : '0';
+            values['security · source maps'] = sec.local ? null : String(sec.sourceMaps.length);
+            for (const [h, v] of Object.entries(sec.headers)) values[`header · ${h}`] = v;
+          } catch {
+            /* the tags above still compare */
+          }
           return { ...t, status: meta.status, error: null, values, score: score(runChecks({ meta, image, site: null })) };
         } catch (e) {
           return { ...t, status: null, error: (e as Error).message, values: {}, score: null };
