@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { SecurityRun, FormFill, HistoryEntry, ReviewState, SiteAudit, TabOrderInfo, ChatAttachment, FeedbackPin, GitHubState, InspectState, ClaudeProjectState, AnalyzeReport, CrawledPage, DevicePreset, EnvId, InitState, McpActivity, McpInfo, KingletApi, PhoneState, Project, Settings, ShareReport, UpdateState, VercelState, VercelTeamProject } from '../shared/types';
+import type { SecurityRun, FormFill, HistoryEntry, ReviewState, SiteAudit, TabOrderInfo, ChatAttachment, FeedbackPin, GitHubState, LinearState, SlackState, InspectState, ClaudeProjectState, AnalyzeReport, CrawledPage, DevicePreset, EnvId, InitState, McpActivity, McpInfo, KingletApi, PhoneState, Project, Settings, ShareReport, UpdateState, VercelState, VercelTeamProject } from '../shared/types';
 import { activeProject, closeProject as closeTab, openProject, patchProject, projectFromUrl } from '../shared/projects';
 import { envOf, envTargets, urlOnEnv, type ProjectVercel } from './lib/env';
 import { activeIds, allPresets, listedIds } from '../shared/devices';
@@ -17,7 +17,7 @@ export const cleanError = (e: unknown) => String((e as Error)?.message ?? e).rep
 export type Section = 'apercu' | 'page' | 'partage' | 'comparer' | 'deploiements' | 'checks' | 'securite' | 'reglages' | 'projets' | 'changes';
 /** Panel opened next to the devices from the left bar. */
 export type Panel = 'feedback' | 'emulation' | 'forms' | 'export';
-export type SettingsTab = 'general' | 'devices' | 'project' | 'vercel' | 'github' | 'claude' | 'mcp' | 'updates' | 'license';
+export type SettingsTab = 'general' | 'devices' | 'project' | 'vercel' | 'github' | 'linear' | 'slack' | 'claude' | 'mcp' | 'updates' | 'license';
 export type LoadStatus = 'idle' | 'loading' | 'loaded' | 'failed';
 
 interface State {
@@ -55,6 +55,8 @@ interface State {
   loadPins(projectId: string): Promise<void>;
   setPins(projectId: string, pins: FeedbackPin[]): void;
   github: GitHubState | null;
+  linear: LinearState | null;
+  slack: SlackState | null;
   /** Inspector mode, and the element hovered or picked. */
   inspecting: boolean;
   inspect: InspectState | null;
@@ -189,6 +191,8 @@ export const useStore = create<State>((set, get) => ({
     void api().feedback.save(projectId, pins);
   },
   github: null,
+  linear: null,
+  slack: null,
   inspecting: false,
   inspect: null,
   toggleInspect(on) {

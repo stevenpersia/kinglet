@@ -91,6 +91,20 @@ const api: KingletApi = {
     owners: () => ipcRenderer.invoke('github:owners'),
     disconnect: () => ipcRenderer.invoke('github:disconnect'),
   },
+  linear: {
+    state: () => ipcRenderer.invoke('linear:state'),
+    connect: (key) => ipcRenderer.invoke('linear:connect', key),
+    refresh: () => ipcRenderer.invoke('linear:refresh'),
+    disconnect: () => ipcRenderer.invoke('linear:disconnect'),
+    uploadImages: (images) => ipcRenderer.invoke('linear:images', images),
+    createIssue: (teamId, title, description) => ipcRenderer.invoke('linear:issue', teamId, title, description),
+  },
+  slack: {
+    state: () => ipcRenderer.invoke('slack:state'),
+    connect: (url) => ipcRenderer.invoke('slack:connect', url),
+    disconnect: () => ipcRenderer.invoke('slack:disconnect'),
+    send: (message) => ipcRenderer.invoke('slack:send', message),
+  },
   chat: {
     cli: () => ipcRenderer.invoke('chat:cli'),
     installMcp: () => ipcRenderer.invoke('chat:install-mcp'),

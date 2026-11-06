@@ -96,6 +96,12 @@ export function App() {
         case 'github':
           useStore.setState({ github: e.state });
           break;
+        case 'linear':
+          useStore.setState({ linear: e.state });
+          break;
+        case 'slack':
+          useStore.setState({ slack: e.state });
+          break;
         case 'dev': {
           const was = s.dev[e.projectId]?.status;
           useStore.setState((st) => ({ dev: { ...st.dev, [e.projectId]: e.state } }));
@@ -145,7 +151,7 @@ export function App() {
       await store.loadMcp();
       const claude = await api().claude.state();
       useStore.setState({ logs: await api().logs() });
-      useStore.setState({ vercel: await api().vercel.state(), update: await api().update.state(), claude: claude.projects, claudeHooks: claude.hooks, github: await api().github.state(), review: await api().review.state(), dev: await api().dev.all() });
+      useStore.setState({ vercel: await api().vercel.state(), update: await api().update.state(), claude: claude.projects, claudeHooks: claude.hooks, github: await api().github.state(), linear: await api().linear.state(), slack: await api().slack.state(), review: await api().review.state(), dev: await api().dev.all() });
     });
     return off;
   }, []);

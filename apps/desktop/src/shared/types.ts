@@ -68,6 +68,8 @@ export interface Project {
   tools?: ProjectTools;
   /** Measure the local site after each commit and each finished Claude task (history); on by default. */
   historyAuto?: boolean;
+  /** Linear team the feedback of this project goes to (its id). */
+  linearTeamId?: string | null;
 }
 
 export interface Settings {
@@ -463,6 +465,8 @@ export type PreviewEvent =
   | { type: 'perf'; perf: DevicePerf }
   | { type: 'favicon'; url: string; pageUrl: string }
   | { type: 'github'; state: GitHubState }
+  | { type: 'linear'; state: LinearState }
+  | { type: 'slack'; state: SlackState }
   | { type: 'term'; projectId: string; data?: string; exit?: number | null }
   | { type: 'inspect'; state: InspectState }
   | { type: 'audit'; done: number; queued: number; external?: boolean }
@@ -539,6 +543,23 @@ export interface PullRequest {
 export interface GitHubState {
   connected: boolean;
   user: { login: string; name: string | null } | null;
+  error: string | null;
+}
+
+/** Linear connection (personal API key), to send feedback as issues. */
+export interface LinearState {
+  connected: boolean;
+  user: { name: string; email: string | null } | null;
+  /** Teams the key can open issues in. */
+  teams: import('./feedback').LinearTeam[];
+  error: string | null;
+}
+
+/** Slack Incoming Webhook, to post feedback in a channel. */
+export interface SlackState {
+  connected: boolean;
+  /** The webhook without its secret, to recognize it. */
+  hint: string | null;
   error: string | null;
 }
 
@@ -753,6 +774,26 @@ export interface KingletApi {
     /** Accounts a new repository can go in: the user, then their organizations. */
     owners(): Promise<GitHubOwners>;
     disconnect(): Promise<GitHubState>;
+  };
+  linear: {
+    state(): Promise<LinearState>;
+    /** Check a personal API key, then keep it encrypted. */
+    connect(key: string): Promise<LinearState>;
+    /** Teams again (one created since). */
+    refresh(): Promise<LinearState>;
+    disconnect(): Promise<LinearState>;
+    /** Captures uploaded to Linear; returns a URL per image (empty when one failed), for an issue. */
+    uploadImages(images: { name: string; dataUrl: string }[]): Promise<string[]>;
+    /** Open an issue in a team; returns its URL. */
+    createIssue(teamId: string, title: string, description: string): Promise<string>;
+  };
+  slack: {
+    state(): Promise<SlackState>;
+    /** Check the webhook by posting a short message in its channel, then keep it encrypted. */
+    connect(url: string): Promise<SlackState>;
+    disconnect(): Promise<SlackState>;
+    /** Post a message (Block Kit) in the webhook's channel. */
+    send(message: import('./feedback').SlackMessage): Promise<void>;
   };
   chat: {
     cli(): Promise<ClaudeCli>;

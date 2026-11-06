@@ -23,6 +23,9 @@ import { detectLocalServer, detectLocalServers } from './detect';
 import { claudeCli, findClaude } from './claude-cli';
 import { Terminals } from './terminal';
 import { GitHubService } from './github';
+import { LinearService } from './linear';
+import { SlackService } from './slack';
+import type { SlackMessage } from '../shared/feedback';
 import { execFile } from 'node:child_process';
 import { readChanges } from './changes';
 import { capturePrivacy } from './privacy';
@@ -814,6 +817,22 @@ ${shots.map((sh) => `<section><header><h1>${esc(title)}</h1><span>${esc(sh.label
   ipcMain.handle('github:issue', (_e, repo: string, title: string, body: string) => github.createIssue(repo, title, body));
   ipcMain.handle('github:images', (_e, repo: string, folder: string, images: { name: string; dataUrl: string }[]) => github.uploadImages(repo, folder, images));
   ipcMain.handle('github:owners', () => github.owners());
+
+  // Feedback elsewhere: Linear (issues, captures included) and Slack (a message in a channel).
+  const linear = new LinearService(app.getPath('userData'), (state) => emit({ type: 'linear', state }));
+  void linear.restore();
+  ipcMain.handle('linear:state', () => linear.state);
+  ipcMain.handle('linear:connect', (_e, key: string) => linear.connect(key));
+  ipcMain.handle('linear:refresh', () => linear.refresh());
+  ipcMain.handle('linear:disconnect', () => linear.disconnect());
+  ipcMain.handle('linear:images', (_e, images: { name: string; dataUrl: string }[]) => linear.uploadImages(images));
+  ipcMain.handle('linear:issue', (_e, teamId: string, title: string, description: string) => linear.createIssue(teamId, title, description));
+  const slack = new SlackService(app.getPath('userData'), (state) => emit({ type: 'slack', state }));
+  slack.restore();
+  ipcMain.handle('slack:state', () => slack.state);
+  ipcMain.handle('slack:connect', (_e, url: string) => slack.connect(url));
+  ipcMain.handle('slack:disconnect', () => slack.disconnect());
+  ipcMain.handle('slack:send', (_e, message: SlackMessage) => slack.send(message));
 
   // A new project from scratch: an empty folder for Claude, the dev server, then GitHub and Vercel.
   const projectOf = (id: string) => {
