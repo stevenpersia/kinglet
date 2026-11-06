@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { locale, t } from '@kinglet/core';
-import type { DevicePreset, RegionPrefs, Throttle } from '../../shared/types';
+import type { DevicePreset, ElementInfo, RegionPrefs, Throttle } from '../../shared/types';
 import { composeSheet, recordScroll } from '../lib/export';
 import { activeProject } from '../../shared/projects';
 import { BEZEL, fitScale, viewportOf } from '../lib/layout';
@@ -640,8 +640,13 @@ export function ExportPanel() {
 const seconds = (ms: number) => (ms < 1000 ? `${ms} ms` : `${(ms / 1000).toLocaleString(locale(), { maximumFractionDigits: 1 })} s`);
 const weight = (b: number) => (b < 1024 * 1024 ? `${Math.max(1, Math.round(b / 1024))} ${t('KB', 'Ko')}` : `${(b / 1024 / 1024).toLocaleString(locale(), { maximumFractionDigits: 1 })} ${t('MB', 'Mo')}`);
 
-/** The capture with a numbered pin where the user pointed (fx, fy: 0..1), as a JPEG. */
-async function pinned(src: string, fx: number, fy: number, n: number): Promise<string> {
+type Box = { x: number; y: number; w: number; h: number };
+
+/**
+ * The capture with a numbered pin, as a JPEG: on the pinned element (its box, the number in its corner),
+ * or on the spot pointed at (fx, fy: 0..1) when no element was picked.
+ */
+async function pinned(src: string, fx: number, fy: number, n: number, box?: Box | null): Promise<string> {
   const img = new Image();
   img.src = src;
   await img.decode();
@@ -652,12 +657,27 @@ async function pinned(src: string, fx: number, fy: number, n: number): Promise<s
   const g = c.getContext('2d')!;
   g.drawImage(img, 0, 0, c.width, c.height);
   const r = Math.max(12, c.width / 30);
-  const x = fx * c.width;
-  const y = fy * c.height;
-  g.fillStyle = 'rgba(217,119,87,0.3)';
-  g.beginPath();
-  g.arc(x, y, r * 1.6, 0, Math.PI * 2);
-  g.fill();
+  let x = fx * c.width;
+  let y = fy * c.height;
+  if (box) {
+    const bx = box.x * c.width;
+    const by = box.y * c.height;
+    const bw = box.w * c.width;
+    const bh = box.h * c.height;
+    g.fillStyle = 'rgba(217,119,87,0.16)';
+    g.fillRect(bx, by, bw, bh);
+    g.strokeStyle = '#d97757';
+    g.lineWidth = Math.max(2, c.width / 300);
+    g.strokeRect(bx, by, bw, bh);
+    // The number on the box's corner, kept inside the capture.
+    x = Math.min(c.width - r, Math.max(r, bx));
+    y = Math.min(c.height - r, Math.max(r, by));
+  } else {
+    g.fillStyle = 'rgba(217,119,87,0.3)';
+    g.beginPath();
+    g.arc(x, y, r * 1.6, 0, Math.PI * 2);
+    g.fill();
+  }
   g.fillStyle = '#d97757';
   g.beginPath();
   g.arc(x, y, r, 0, Math.PI * 2);
@@ -670,31 +690,50 @@ async function pinned(src: string, fx: number, fy: number, n: number): Promise<s
   return c.toDataURL('image/jpeg', 0.85);
 }
 
-/** "Show Claude": the click on a device becomes a capture with a pin, and the element under it. */
-async function pointAt(preset: DevicePreset, viewport: Viewport, el: HTMLElement, e: React.MouseEvent) {
-  const s = useStore.getState();
+/** An element's box (CSS px of the page) as fractions of its device's capture. */
+function boxOf(rect: ElementInfo['rect'], viewport: Viewport, zoom: number): Box | null {
+  const x = Math.max(0, (rect.x * zoom) / viewport.width);
+  const y = Math.max(0, (rect.y * zoom) / viewport.height);
+  const w = Math.min(1 - x, ((rect.x + rect.width) * zoom) / viewport.width - x);
+  const h = Math.min(1 - y, ((rect.y + rect.height) * zoom) / viewport.height - y);
+  return w > 0 && h > 0 ? { x, y, w, h } : null;
+}
+
+/** Where the mouse is on a device, in CSS px of its page. */
+function pagePoint(viewport: Viewport, el: HTMLElement, e: React.MouseEvent) {
   const r = el.getBoundingClientRect();
   const fx = (e.clientX - r.left) / r.width;
   const fy = (e.clientY - r.top) / r.height;
   // With the page zoom, the page's CSS px are bigger than the device's.
-  const zoom = s.settings.textSize?.zoom || 1;
-  const x = Math.round((fx * viewport.width) / zoom);
-  const y = Math.round((fy * viewport.height) / zoom);
+  const zoom = useStore.getState().settings.textSize?.zoom || 1;
+  return { fx, fy, zoom, x: Math.round((fx * viewport.width) / zoom), y: Math.round((fy * viewport.height) / zoom) };
+}
+
+/**
+ * "Show Claude" or a review pin: the click on a device picks the element under it, like the inspector
+ * (Alt + click: just the spot). It becomes a capture with the element boxed and numbered.
+ */
+async function pointAt(preset: DevicePreset, viewport: Viewport, el: HTMLElement, e: React.MouseEvent) {
+  const s = useStore.getState();
+  const { fx, fy, zoom, x, y } = pagePoint(viewport, el, e);
+  const spot = e.altKey;
   // What the device showed when pointing started (a DevTools capture would wait for the hidden view).
   const shot = s.frozen?.[preset.id];
   const id = s.settings.activeId;
-  const n = (id ? (s.shown[id] ?? 0) : 0) + 1;
-  const [info, image] = await Promise.all([api().elementAt(preset.id, x, y), shot ? pinned(shot, fx, fy, n).catch(() => null) : Promise.resolve(null)]);
+  const info = await api().elementAt(preset.id, x, y);
+  const box = !spot && info ? boxOf(info.rect, viewport, zoom) : null;
   s.stopPointing();
   if (s.pointingFor === 'feedback' && id) {
     // A review pin: numbered after the others of this project, the comment comes next.
     const pins = s.pins[id] ?? [];
     const num = Math.max(0, ...pins.map((p) => p.n)) + 1;
-    const img = shot ? await pinned(shot, fx, fy, num).catch(() => null) : null;
-    s.setPins(id, [...pins, { id: `p${Date.now().toString(36)}`, n: num, deviceId: preset.id, deviceLabel: preset.label, url: s.url ?? '', x, y, selector: info?.selector ?? null, elementText: info?.text?.slice(0, 120) || null, comment: '', image: img, createdAt: Date.now(), done: false }]);
+    const img = shot ? await pinned(shot, fx, fy, num, box).catch(() => null) : null;
+    s.setPins(id, [...pins, { id: `p${Date.now().toString(36)}`, n: num, deviceId: preset.id, deviceLabel: preset.label, url: s.url ?? '', x, y, selector: spot ? null : (info?.selector ?? null), elementText: spot ? null : info?.text?.slice(0, 120) || null, comment: '', image: img, box, createdAt: Date.now(), done: false }]);
     useStore.setState({ panel: 'feedback' });
     return;
   }
+  const n = (id ? (s.shown[id] ?? 0) : 0) + 1;
+  const image = shot ? await pinned(shot, fx, fy, n, box).catch(() => null) : null;
   const where = `${preset.label} (${viewport.width}×${viewport.height})`;
   s.askClaude('', [
     ...(image ? [{ kind: 'image' as const, label: t(`${preset.label} · pin ${n}`, `${preset.label} · épingle ${n}`), dataUrl: image }] : []),
@@ -703,7 +742,7 @@ async function pointAt(preset: DevicePreset, viewport: Viewport, el: HTMLElement
       label: t(`pointed-element-${n}`, `element-montre-${n}`),
       text: [
         `Pin ${n} on ${where}, at x=${x}, y=${y} CSS px (page ${s.url ?? ''}).`,
-        info ? `Element: ${info.selector} <${info.tag}>, box ${Math.round(info.rect.x)},${Math.round(info.rect.y)} ${Math.round(info.rect.width)}×${Math.round(info.rect.height)}` : 'Element: unknown',
+        info && !spot ? `Element: ${info.selector} <${info.tag}>, box ${Math.round(info.rect.x)},${Math.round(info.rect.y)} ${Math.round(info.rect.width)}×${Math.round(info.rect.height)}` : info ? `Under the spot: ${info.selector} <${info.tag}>` : 'Element: unknown',
         info?.text ? `Text: ${info.text}` : '',
         info?.html ? `HTML: ${info.html}` : '',
       ]
@@ -711,6 +750,75 @@ async function pointAt(preset: DevicePreset, viewport: Viewport, el: HTMLElement
         .join('\n'),
     },
   ]);
+}
+
+/** The element under the mouse while pointing: boxed on its device, dashed on the others (like the inspector). */
+type PointHover = { deviceId: string; selector: string; tag: string; rect: ElementInfo['rect']; others: Record<string, ElementInfo['rect'] | null> };
+
+function usePointHover(pointing: boolean) {
+  const [hover, setHover] = useState<PointHover | null>(null);
+  const busy = useRef(false);
+  const next = useRef<{ deviceId: string; x: number; y: number } | null>(null);
+  const lastSelector = useRef<string | null>(null);
+  useEffect(() => {
+    if (!pointing) {
+      setHover(null);
+      lastSelector.current = null;
+      next.current = null;
+    }
+  }, [pointing]);
+  const run = async () => {
+    if (busy.current) return;
+    busy.current = true;
+    try {
+      while (next.current) {
+        const q = next.current;
+        next.current = null;
+        const info = await api().elementAt(q.deviceId, q.x, q.y);
+        if (!useStore.getState().pointing) break;
+        if (!info) {
+          setHover(null);
+          lastSelector.current = null;
+          continue;
+        }
+        let others: PointHover['others'] = {};
+        if (info.selector !== lastSelector.current) others = await api().rectsOf(info.selector).catch(() => ({}));
+        lastSelector.current = info.selector;
+        setHover((h) => ({ deviceId: q.deviceId, selector: info.selector, tag: info.tag, rect: info.rect, others: info.selector === h?.selector && !Object.keys(others).length ? h.others : others }));
+      }
+    } finally {
+      busy.current = false;
+    }
+  };
+  const move = (deviceId: string, viewport: Viewport, el: HTMLElement, e: React.MouseEvent) => {
+    if (e.altKey) {
+      setHover(null);
+      lastSelector.current = null;
+      return;
+    }
+    const { x, y } = pagePoint(viewport, el, e);
+    next.current = { deviceId, x, y };
+    void run();
+  };
+  return { hover, move, leave: () => setHover(null) };
+}
+
+/** The box drawn over a frozen device while pointing. */
+function HoverBox({ box, label, dashed }: { box: Box; label?: string; dashed?: boolean }) {
+  return (
+    <span
+      aria-hidden="true"
+      data-hover-box={dashed ? 'other' : 'own'}
+      className={`pointer-events-none absolute rounded-[3px] ${dashed ? 'border border-dashed border-[#d97757]/70' : 'border-2 border-[#d97757] bg-[#d97757]/15'}`}
+      style={{ left: `${box.x * 100}%`, top: `${box.y * 100}%`, width: `${box.w * 100}%`, height: `${box.h * 100}%` }}
+    >
+      {label && (
+        <span className={`absolute left-[-2px] flex items-center gap-1.5 whitespace-nowrap rounded bg-[#d97757] px-1.5 py-px font-mono text-[10px] font-medium text-white ${box.y < 0.04 ? 'top-full mt-1' : 'bottom-full mb-1'}`}>
+          {label}
+        </span>
+      )}
+    </span>
+  );
 }
 
 function PointingBar() {
@@ -725,8 +833,8 @@ function PointingBar() {
       <Icon name="target" size={13} className="text-[#d97757]" />
       <span className="flex-1">
         {useStore.getState().pointingFor === 'feedback'
-          ? t('Click the spot on a device the comment is about.', 'Clique l’endroit d’un appareil dont parle le retour.')
-          : t('Click a spot on a device to show it to Claude.', 'Clique un endroit d’un appareil pour le montrer à Claude.')}
+          ? t('Click an element to pin it · Alt: a free spot', 'Clique un élément pour l’épingler · Alt : un point libre')
+          : t('Click an element to show it to Claude · Alt: a free spot', 'Clique un élément pour le montrer à Claude · Alt : un point libre')}
       </span>
       <button onClick={stopPointing} className="h-7 rounded-ui border border-[#2a2a2f] bg-active px-2.5 text-xs font-medium text-fg hover:border-line-strong">
         {t('Cancel (Esc)', 'Annuler (Échap)')}
@@ -754,6 +862,10 @@ function Devices() {
   const stageRef = useRef<HTMLDivElement>(null);
   const slotRefs = useRef(new Map<string, HTMLDivElement>());
   const [size, setSize] = useState({ w: 0, h: 0 });
+  const point = usePointHover(state.pointing);
+  const zoom = settings.textSize?.zoom || 1;
+  // The pins already on this page, shown while pinning another one.
+  const placed = state.pointing && state.pointingFor === 'feedback' && settings.activeId ? (state.pins[settings.activeId] ?? []).filter((p) => !p.done && p.url === state.url) : [];
 
   useLayoutEffect(() => {
     const el = stageRef.current;
@@ -808,11 +920,30 @@ function Devices() {
                     if (el) slotRefs.current.set(preset.id, el);
                     else slotRefs.current.delete(preset.id);
                   }}
-                  className={`overflow-hidden bg-card ${state.pointing ? 'cursor-crosshair ring-2 ring-[#d97757]/60' : ''}`}
+                  className={`relative overflow-hidden bg-card ${state.pointing ? 'cursor-crosshair ring-2 ring-[#d97757]/60' : ''}`}
                   style={{ width: w, height: h, borderRadius: radius }}
                   onClick={state.pointing ? (e) => void pointAt(preset, viewport, e.currentTarget, e) : undefined}
+                  onMouseMove={state.pointing ? (e) => point.move(preset.id, viewport, e.currentTarget, e) : undefined}
+                  onMouseLeave={state.pointing ? point.leave : undefined}
                 >
                   {frozen?.[preset.id] && <img src={frozen[preset.id]} alt="" className="block size-full object-cover object-left-top" />}
+                  {placed
+                    .filter((p) => p.deviceId === preset.id)
+                    .map((p) => (
+                      <span key={p.id} aria-hidden="true" className="pointer-events-none absolute flex size-[18px] -translate-1/2 items-center justify-center rounded-full bg-[#d97757] text-[10px] font-semibold text-white ring-4 ring-[#d97757]/30" style={{ left: `${Math.min(100, ((p.x * zoom) / viewport.width) * 100)}%`, top: `${Math.min(100, ((p.y * zoom) / viewport.height) * 100)}%` }}>
+                        {p.n}
+                      </span>
+                    ))}
+                  {state.pointing &&
+                    point.hover &&
+                    (() => {
+                      const own = point.hover.deviceId === preset.id;
+                      const rect = own ? point.hover.rect : point.hover.others[preset.id];
+                      const box = rect ? boxOf(rect, viewport, zoom) : null;
+                      if (!box) return null;
+                      const last = point.hover.selector.split(' > ').pop();
+                      return <HoverBox box={box} dashed={!own} label={own ? `${last} · ${Math.round(rect!.width)} × ${Math.round(rect!.height)}` : undefined} />;
+                    })()}
                 </div>
               </div>
               <div style={{ maxWidth: w + pad * 2 + 80 }} className="flex flex-wrap items-center justify-center gap-x-2 gap-y-0.5 font-mono text-[11px] text-faint [&>*]:whitespace-nowrap">

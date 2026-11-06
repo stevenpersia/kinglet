@@ -403,6 +403,18 @@ export class DeviceManager {
     }
   }
 
+  /** Where an element (by selector) is on each device, in CSS px of its viewport: the same element, everywhere. */
+  async rectsOf(selector: string): Promise<Record<string, ElementInfo['rect'] | null>> {
+    const code = `(() => { try { const el = document.querySelector(${JSON.stringify(selector)}); if (!el) return null; const r = el.getBoundingClientRect(); return r.width || r.height ? { x: r.x, y: r.y, width: r.width, height: r.height } : null; } catch { return null; } })()`;
+    const out: Record<string, ElementInfo['rect'] | null> = {};
+    await Promise.all(
+      [...this.devices.values()].map(async (d) => {
+        out[d.preset.id] = ((await d.view.webContents.executeJavaScript(code).catch(() => null)) as ElementInfo['rect'] | null) ?? null;
+      }),
+    );
+    return out;
+  }
+
   /**
    * A page on another environment, rendered off screen like one of the devices: a PNG of the
    * viewport (CSS px) and the Core Web Vitals. For the visual comparison of local, preview, prod.
