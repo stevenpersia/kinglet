@@ -34,15 +34,15 @@ export function Rail() {
     { id: 'changes', label: t('Changes (git diff)', 'Modifications (git diff)'), icon: 'branch', on: section === 'changes', run: go('changes') },
   ];
   const secondary: Item[] = [
-    { id: 'page', label: 'Page', icon: 'doc', on: onDevices && panel === 'page', run: open('page') },
+    { id: 'page', label: 'Page', icon: 'doc', on: section === 'page', run: go('page') },
     { id: 'partage', label: t('Open Graph previews', 'Aperçus Open Graph'), icon: 'graph', on: section === 'partage', run: go('partage'), badge: shareErrors > 0 ? { n: shareErrors, tone: 'err' } : null },
     {
       id: 'checks',
       label: 'Checks',
      
       icon: 'checkCircle',
-      on: (onDevices && panel === 'checks') || section === 'checks',
-      run: open('checks'),
+      on: section === 'checks',
+      run: go('checks'),
       badge: report ? (left ? { n: left, tone: 'warn' } : { n: '✓', tone: 'ok' }) : null,
     },
     {

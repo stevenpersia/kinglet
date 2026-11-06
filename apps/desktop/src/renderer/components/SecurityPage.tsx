@@ -240,7 +240,7 @@ export function SecurityPage() {
   const kb = Math.max(1, Math.round(r.scanned.bytes / 1024));
 
   return (
-    <main className="flex min-h-0 min-w-0 flex-1 flex-col gap-6 overflow-y-auto p-6">
+    <main className="flex min-h-0 min-w-0 flex-1 flex-col gap-6 overflow-y-auto p-6 [&>*]:shrink-0">
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
           <h1 className="m-0 flex items-center gap-2.5 text-xl font-semibold tracking-[-0.02em]">

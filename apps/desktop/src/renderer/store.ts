@@ -14,9 +14,9 @@ export const api = (): KingletApi => window.kinglet;
 /** "Error invoking remote method 'x': Error: why" → "why". */
 export const cleanError = (e: unknown) => String((e as Error)?.message ?? e).replace(/^Error invoking remote method '[^']+': (?:\w*Error: )?/, '');
 
-export type Section = 'apercu' | 'partage' | 'comparer' | 'deploiements' | 'checks' | 'securite' | 'reglages' | 'projets' | 'changes';
+export type Section = 'apercu' | 'page' | 'partage' | 'comparer' | 'deploiements' | 'checks' | 'securite' | 'reglages' | 'projets' | 'changes';
 /** Panel opened next to the devices from the left bar. */
-export type Panel = 'page' | 'checks' | 'feedback' | 'emulation' | 'forms' | 'export';
+export type Panel = 'feedback' | 'emulation' | 'forms' | 'export';
 export type SettingsTab = 'general' | 'devices' | 'project' | 'vercel' | 'github' | 'claude' | 'mcp' | 'updates' | 'license';
 export type LoadStatus = 'idle' | 'loading' | 'loaded' | 'failed';
 
@@ -397,6 +397,9 @@ export const useStore = create<State>((set, get) => ({
   setSection(section) {
     set({ section });
     api().setPreviewsVisible(section === 'apercu');
+    // Page and Checks read the page when they open, if nothing has yet.
+    const s = get();
+    if ((section === 'page' || section === 'checks') && !s.report && !s.analyzing && s.url && s.status === 'loaded') void s.analyze(s.url);
   },
 
   openSettings(settingsTab) {
@@ -410,9 +413,6 @@ export const useStore = create<State>((set, get) => ({
       s.setSection('apercu');
       set({ panel: p });
     } else set({ panel: s.panel === p ? null : p });
-    // Without automatic analysis, opening a panel reads the page.
-    const after = get();
-    if (after.panel && (after.panel === 'page' || after.panel === 'checks') && !after.report && !after.analyzing && after.url && after.status === 'loaded') void after.analyze(after.url);
   },
 
   askClaude(text, attachments = []) {

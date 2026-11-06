@@ -64,6 +64,8 @@ export interface Project {
   claudeSession?: string | null;
   /** Performance budgets of the project's pages. */
   budgets?: Budget[];
+  /** The tools' settings of this project (emulation, network, region, keyboard, mocks, orientation, scroll sync), kept while another project is active. */
+  tools?: ProjectTools;
   /** Measure the local site after each commit and each finished Claude task (history); on by default. */
   historyAuto?: boolean;
 }
@@ -376,6 +378,10 @@ export interface LicenseState {
 
 /** A Security run: the report, and whether the site is one of the user's (local or a linked Vercel project). */
 export type SecurityRun = SecurityReport & { ownSite: boolean };
+
+/** Settings that belong to the project shown: each project keeps its own (see shared/projects.ts, withProjectTools). */
+export type ProjectToolKey = 'media' | 'textSize' | 'region' | 'regionPerDevice' | 'throttle' | 'offline' | 'keyboard' | 'mocks' | 'landscape' | 'scrollSync';
+export type ProjectTools = Partial<Pick<Settings, ProjectToolKey>>;
 
 export interface UpdateState {
   current: string;
