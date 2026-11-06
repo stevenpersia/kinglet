@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { FormFill, HistoryEntry, ReviewState, SiteAudit, TabOrderInfo, ChatAttachment, FeedbackPin, GitHubState, InspectState, ClaudeProjectState, AnalyzeReport, CrawledPage, DevicePreset, EnvId, InitState, McpActivity, McpInfo, KingletApi, PhoneState, Project, Settings, ShareReport, UpdateState, VercelState, VercelTeamProject } from '../shared/types';
+import type { SecurityRun, FormFill, HistoryEntry, ReviewState, SiteAudit, TabOrderInfo, ChatAttachment, FeedbackPin, GitHubState, InspectState, ClaudeProjectState, AnalyzeReport, CrawledPage, DevicePreset, EnvId, InitState, McpActivity, McpInfo, KingletApi, PhoneState, Project, Settings, ShareReport, UpdateState, VercelState, VercelTeamProject } from '../shared/types';
 import { activeProject, closeProject as closeTab, openProject, patchProject, projectFromUrl } from '../shared/projects';
 import { envOf, envTargets, urlOnEnv, type ProjectVercel } from './lib/env';
 import { activeIds, allPresets, listedIds } from '../shared/devices';
@@ -14,7 +14,7 @@ export const api = (): KingletApi => window.kinglet;
 /** "Error invoking remote method 'x': Error: why" → "why". */
 export const cleanError = (e: unknown) => String((e as Error)?.message ?? e).replace(/^Error invoking remote method '[^']+': (?:\w*Error: )?/, '');
 
-export type Section = 'apercu' | 'partage' | 'comparer' | 'deploiements' | 'checks' | 'reglages' | 'projets' | 'changes';
+export type Section = 'apercu' | 'partage' | 'comparer' | 'deploiements' | 'checks' | 'securite' | 'reglages' | 'projets' | 'changes';
 /** Panel opened next to the devices from the left bar. */
 export type Panel = 'page' | 'checks' | 'feedback';
 export type SettingsTab = 'general' | 'devices' | 'project' | 'vercel' | 'github' | 'claude' | 'mcp' | 'updates' | 'license';
@@ -121,6 +121,11 @@ interface State {
   closeOverlay(): void;
   /** Site-wide audit of the current origin. */
   audit: SiteAudit | null;
+  /** Security section: the last run (for the page shown), and whether one is running. */
+  security: SecurityRun | null;
+  securityRunning: boolean;
+  securityError: string | null;
+  runSecurity(url: string, opts?: { probe?: boolean }): Promise<void>;
   auditing: boolean;
   auditProgress: { done: number; queued: number } | null;
   auditError: string | null;
@@ -141,6 +146,7 @@ interface State {
 }
 
 let shareSeq = 0;
+let securitySeq = 0;
 let initStarted = false;
 let overlays = 0;
 
@@ -206,6 +212,19 @@ export const useStore = create<State>((set, get) => ({
   previewId: null,
   prodId: null,
   audit: null,
+  security: null,
+  securityRunning: false,
+  securityError: null,
+  async runSecurity(url, opts) {
+    const seq = ++securitySeq;
+    set({ securityRunning: true, securityError: null });
+    try {
+      const security = await api().security.run(url, opts);
+      if (seq === securitySeq) set({ security, securityRunning: false });
+    } catch (e) {
+      if (seq === securitySeq) set({ securityError: cleanError(e), securityRunning: false });
+    }
+  },
   auditing: false,
   auditProgress: null,
   auditError: null,
@@ -314,7 +333,7 @@ export const useStore = create<State>((set, get) => ({
     if (!project) return;
     await s.updateSettings(openProject(s.settings, project));
     // Per-page state belongs to the previous project.
-    set({ report: null, share: null, shareError: null, pages: [], crawledOrigin: null, previewId: null, prodId: null, audit: null, section: s.section === 'projets' ? s.settings.defaultSection : s.section });
+    set({ report: null, share: null, shareError: null, pages: [], crawledOrigin: null, previewId: null, prodId: null, audit: null, security: null, section: s.section === 'projets' ? s.settings.defaultSection : s.section });
     api().setPreviewsVisible(get().section === 'apercu');
     const target = project.lastUrl ?? project.localOrigin ?? projectVercel(get()).project?.productionUrl ?? null;
     if (target) await get().navigate(target);
@@ -329,7 +348,7 @@ export const useStore = create<State>((set, get) => ({
     if (wasActive && next) {
       // selectProject returns early when the id is already active: navigate directly.
       const project = get().settings.projects.find((p) => p.id === next)!;
-      set({ report: null, share: null, pages: [], crawledOrigin: null, previewId: null, prodId: null });
+      set({ report: null, share: null, pages: [], crawledOrigin: null, previewId: null, prodId: null, security: null });
       const target = project.lastUrl ?? project.localOrigin ?? projectVercel(get()).project?.productionUrl ?? null;
       if (target) await get().navigate(target);
     }

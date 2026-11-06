@@ -1,6 +1,10 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import {
+  auditSecurity,
+  securityPrompt,
+  isLocalHost,
+  type SecurityReport,
   buildShareFix,
   consolePrompt,
   formatEntries,
@@ -335,6 +339,27 @@ export function createKingletServer(opts: Options = {}) {
     },
   );
 
+  server.registerTool(
+    'run_security',
+    {
+      title: t('Check security', 'Vérifier la sécurité'),
+      description: t(
+        'Security of a page as a visitor’s browser gets it: API keys and tokens shipped in the HTML and JavaScript, public source maps, sensitive files left reachable (.env, .git, dumps: only probed on localhost, or when probe is true for the user’s own site), security headers, cookie flags, HTTPS and mixed content, insecure forms, third-party scripts and CDN integrity.',
+        'Sécurité d’une page telle que le navigateur d’un visiteur la reçoit : clés d’API et jetons envoyés dans le HTML et le JavaScript, source maps publiques, fichiers sensibles accessibles (.env, .git, sauvegardes : essayés seulement en local, ou avec probe à true pour le site de l’utilisateur), en-têtes de sécurité, attributs des cookies, HTTPS et contenu mixte, formulaires non chiffrés, scripts tiers et intégrité des CDN.',
+      ),
+      inputSchema: {
+        url: urlArg,
+        probe: z.boolean().optional().describe(t('Also try sensitive paths (.env, .git…). Only for the user’s own site.', 'Essaie aussi les chemins sensibles (.env, .git…). Seulement pour le site de l’utilisateur.')),
+      },
+    },
+    async ({ url, probe }) => {
+      const r = await resolveUrl(url);
+      if ('error' in r) return fail(r.error);
+      const report = await auditSecurity(r.url, { headers: headersFor(r.url), probe: probe ?? isLocalHost(new URL(r.url).host) });
+      return text(formatSecurity(report));
+    },
+  );
+
   // Claude Code's --permission-prompt-tool: Kinglet's Claude panel asks before a command runs.
   server.registerTool(
     'approve',
@@ -499,6 +524,23 @@ export function createKingletServer(opts: Options = {}) {
   );
 
   server.registerPrompt(
+    'fix_security',
+    {
+      title: t('Fix security problems', 'Corriger les problèmes de sécurité'),
+      description: t('Fixes the security problems Kinglet finds on the page open in Kinglet (leaked keys, exposed files, headers, cookies…), then checks again.', 'Corrige les problèmes de sécurité trouvés par Kinglet sur la page ouverte (clés exposées, fichiers, en-têtes, cookies…), puis revérifie.'),
+      argsSchema: { url: z.string().optional() },
+    },
+    async ({ url }) => {
+      const r = await resolveUrl(url);
+      if ('error' in r) return { messages: [{ role: 'user', content: { type: 'text', text: r.error } }] };
+      const report = await auditSecurity(r.url, { headers: headersFor(r.url), probe: isLocalHost(new URL(r.url).host) });
+      const bad = report.checks.some((c) => c.status === 'error' || c.status === 'warning');
+      const body = bad ? securityPrompt(report) : t(`No security problem found on ${report.finalUrl}. Nothing to do.`, `Aucun problème de sécurité trouvé sur ${report.finalUrl}. Rien à faire.`);
+      return { messages: [{ role: 'user', content: { type: 'text', text: body } }] };
+    },
+  );
+
+  server.registerPrompt(
     'fix_checks',
     {
       title: t('Fix the checks', 'Corriger les checks'),
@@ -600,4 +642,17 @@ export function createKingletServer(opts: Options = {}) {
   );
 
   return server;
+}
+
+/** A security report as text, problems first (values of secrets shortened). */
+function formatSecurity(r: SecurityReport): string {
+  const order = { error: 0, warning: 1, info: 2, ok: 3, skip: 4 } as const;
+  const mark = { error: '✕', warning: '!', info: 'i', ok: '✓', skip: '–' } as const;
+  const lines = [t(`Security of ${r.finalUrl}: ${r.score.passed}/${r.score.total}${r.local ? ' (dev server: headers and HTTPS are judged on previews and production)' : ''}`, `Sécurité de ${r.finalUrl} : ${r.score.passed}/${r.score.total}${r.local ? ' (serveur de dev : en-têtes et HTTPS jugés sur les previews et la prod)' : ''}`)];
+  for (const c of [...r.checks].sort((a, b) => order[a.status] - order[b.status])) lines.push(`${mark[c.status]} [${c.group}] ${c.label}: ${c.detail}`);
+  if (r.secrets.length) lines.push('', ...r.secrets.map((x) => `secret: ${x.kind} ${x.preview} in ${x.where}`));
+  if (r.exposedFiles.length) lines.push('', ...r.exposedFiles.map((f) => `exposed: ${f.url} (${f.what})`));
+  if (r.sourceMaps.length) lines.push('', ...r.sourceMaps.map((m) => `source map: ${m}`));
+  if (r.mixedContent.length) lines.push('', ...r.mixedContent.map((m) => `http: ${m}`));
+  return lines.join('\n');
 }

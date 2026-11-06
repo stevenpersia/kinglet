@@ -4,6 +4,7 @@ import { SidePanel } from './components/Inspector';
 import { Palette } from './components/Palette';
 import { PhoneDialog } from './components/PhoneDialog';
 import { ChecksPage } from './components/Sections';
+import { SecurityPage } from './components/SecurityPage';
 import { ComparePage, DeploymentsPage } from './components/VercelPages';
 import { SettingsPage } from './components/SettingsPage';
 import { SharePage } from './components/SharePage';
@@ -168,6 +169,8 @@ export function App() {
           <SharePage />
         ) : section === 'checks' ? (
           <ChecksPage />
+        ) : section === 'securite' ? (
+          <SecurityPage />
         ) : section === 'reglages' ? (
           <SettingsPage />
         ) : section === 'deploiements' ? (

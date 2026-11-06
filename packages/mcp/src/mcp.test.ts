@@ -55,9 +55,9 @@ describe('MCP server, app closed (headless)', () => {
   it('lists the tools and the prompts', async () => {
     const client = await connect();
     const tools = (await client.listTools()).tools.map((t) => t.name).sort();
-    expect(tools).toEqual(['approve', 'audit_site', 'get_accessibility', 'get_console', 'get_page_meta', 'get_share_preview', 'get_structured_data', 'list_deployments', 'list_pages', 'open_url', 'run_checks', 'screenshot', 'set_devices', 'status']);
+    expect(tools).toEqual(['approve', 'audit_site', 'get_accessibility', 'get_console', 'get_page_meta', 'get_share_preview', 'get_structured_data', 'list_deployments', 'list_pages', 'open_url', 'run_checks', 'run_security', 'screenshot', 'set_devices', 'status']);
     const prompts = (await client.listPrompts()).prompts.map((p) => p.name).sort();
-    expect(prompts).toEqual(['fix_accessibility', 'fix_checks', 'fix_console', 'fix_open_graph', 'fix_site']);
+    expect(prompts).toEqual(['fix_accessibility', 'fix_checks', 'fix_console', 'fix_open_graph', 'fix_security', 'fix_site']);
     await client.close();
   });
 
@@ -73,6 +73,9 @@ describe('MCP server, app closed (headless)', () => {
     expect(share).toMatch(/og:site_name/);
     expect(share).not.toMatch(/WhatsApp/);
     expect(textOf(await call(client, 'list_pages', { url: siteUrl }))).toMatch(/200 {2}\/atelier/);
+    const security = textOf(await call(client, 'run_security', { url: siteUrl }));
+    expect(security).toMatch(/Security of .*: \d+\/\d+ \(dev server/);
+    expect(security).toMatch(/Sensitive files: None of \d+ well-known paths/);
     const shot = await call(client, 'screenshot');
     expect(shot.isError).toBe(true);
     const prompt = await client.getPrompt({ name: 'fix_open_graph', arguments: { url: siteUrl } });

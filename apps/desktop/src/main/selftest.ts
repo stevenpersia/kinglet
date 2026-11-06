@@ -279,7 +279,7 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
       if (img) writeFileSync(join(outDir, 'mcp-screenshot-iphone.jpg'), Buffer.from(img, 'base64'));
       criteria.push({
         id: 'mcp',
-        ok: tools === 14 && statusText.includes('iPhone 16') && img.startsWith('/9j/') && /Checks for .* \d+\/\d+/.test(checksText) && !checksText.includes('without measures'),
+        ok: tools === 15 && statusText.includes('iPhone 16') && img.startsWith('/9j/') && /Checks for .* \d+\/\d+/.test(checksText) && !checksText.includes('without measures'),
         detail: `${tools} outils · status « ${statusText.split('\n')[1] ?? ''} » · capture ${Math.round((img.length * 3) / 4 / 1024)} Ko · ${checksText.split('\n')[0]}`,
       });
     } catch (e) {

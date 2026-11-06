@@ -1,4 +1,4 @@
-import type { AxeViolation, Budget, BudgetResult, HreflangReport, SiteAudit, StructuredData, Vitals, CheckResult, CrawledPage, ImageProbe, Issue, PageMeta, ShareFix, SharePreviews, SiteFiles, VercelDeployment, VercelProject, VercelTeam, VercelUser } from '@kinglet/core';
+import type { SecurityReport, AxeViolation, Budget, BudgetResult, HreflangReport, SiteAudit, StructuredData, Vitals, CheckResult, CrawledPage, ImageProbe, Issue, PageMeta, ShareFix, SharePreviews, SiteFiles, VercelDeployment, VercelProject, VercelTeam, VercelUser } from '@kinglet/core';
 
 export interface DevicePreset {
   id: string;
@@ -243,6 +243,8 @@ export interface HistoryEntry {
   budgetFailures: string[];
   /** What triggered the measure: a Vercel deployment, a commit, a finished Claude task, or you. */
   source?: 'vercel' | 'commit' | 'claude' | 'manual';
+  /** Security score, security headers present and problems (Security section's checks, without the file probe). */
+  security?: { passed: number; total: number; headers: string[]; problems: string[] } | null;
   error: string | null;
 }
 
@@ -371,6 +373,9 @@ export interface LicenseState {
   validatedAt: number | null;
   error: string | null;
 }
+
+/** A Security run: the report, and whether the site is one of the user's (local or a linked Vercel project). */
+export type SecurityRun = SecurityReport & { ownSite: boolean };
 
 export interface UpdateState {
   current: string;
@@ -686,6 +691,10 @@ export interface KingletApi {
     stop(projectId: string): Promise<void>;
   };
   openExternal(url: string): void;
+  security: {
+    /** Security of a page; `probe` also tries sensitive paths (.env, .git…), for the user's own site only. */
+    run(url: string, opts?: { probe?: boolean }): Promise<SecurityRun>;
+  };
   license: {
     state(): Promise<LicenseState>;
     /** Frees this computer's activation, then restarts Kinglet on the license screen. */
