@@ -1,4 +1,4 @@
-import type { SecurityReport, PrivacyReport, AxeViolation, Budget, BudgetResult, HreflangReport, SiteAudit, StructuredData, Vitals, CheckResult, CrawledPage, ImageProbe, Issue, PageMeta, ShareFix, SharePreviews, SiteFiles, VercelDeployment, VercelProject, VercelTeam, VercelUser } from '@kinglet/core';
+import type { Framework, OgImageInput, OgImageTags, SecurityReport, PrivacyReport, AxeViolation, Budget, BudgetResult, HreflangReport, SiteAudit, StructuredData, Vitals, CheckResult, CrawledPage, ImageProbe, Issue, PageMeta, ShareFix, SharePreviews, SiteFiles, VercelDeployment, VercelProject, VercelTeam, VercelUser } from '@kinglet/core';
 
 export interface DevicePreset {
   id: string;
@@ -429,6 +429,37 @@ export interface ShareStudio {
   fix: ShareFix;
 }
 
+/** Starting point of the share image editor, read from the page and the project. */
+export interface OgImageDraft {
+  input: OgImageInput;
+  /** From the project's package.json when its folder is known, else from the HTML. */
+  framework: Framework;
+  folder: string | null;
+  /** Folder served at the site root (public/, static/…), in the project folder. */
+  targetDir: string | null;
+  /** Production origin when known, else the page's origin. */
+  origin: string;
+  /** Path of the page the image is made for. */
+  page: string;
+}
+
+export interface OgImageRender {
+  dataUrl: string;
+  bytes: number;
+  format: 'png' | 'jpg';
+}
+
+export interface OgImageSaved {
+  path: string;
+  /** Path on the site, e.g. /og.png. */
+  webPath: string;
+  bytes: number;
+  format: 'png' | 'jpg';
+  /** Written in the project's static folder (served by the site). */
+  inProject: boolean;
+  tags: OgImageTags;
+}
+
 export type ShortcutAction = 'reload' | 'focus-url' | 'palette' | 'toggle-scroll-sync' | 'toggle-landscape' | 'settings' | 'switcher' | 'overview' | 'claude' | `tab-${number}`;
 
 /** A call made by Claude Code through the MCP server. */
@@ -674,6 +705,14 @@ export interface KingletApi {
   crawl(url: string, opts?: { force?: boolean }): Promise<CrawledPage[]>;
   /** The 10 platform previews (one fetch per bot) and the suggested fix. */
   sharePreviews(url: string): Promise<ShareStudio>;
+  ogImage: {
+    /** Defaults from the page (title, description, theme-color, icon) and where it would be saved. */
+    draft(url: string): Promise<OgImageDraft>;
+    /** Rendered at 1200×630, as it will be saved. */
+    render(input: OgImageInput): Promise<OgImageRender>;
+    /** Saved in the project's static folder (never over an existing file), or where the user chooses. */
+    save(input: OgImageInput, draft: OgImageDraft, choose?: boolean): Promise<OgImageSaved | null>;
+  };
   copy(text: string): void;
   mcpInfo(): Promise<McpInfo>;
   vercel: {

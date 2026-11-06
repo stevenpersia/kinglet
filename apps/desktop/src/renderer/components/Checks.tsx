@@ -1,5 +1,9 @@
 import { CHECK_GROUPS, score, t, type CheckResult, type CheckStatus } from '@kinglet/core';
 import { Dot } from './Icons';
+import { openOgImageEditor } from './OgImageEditor';
+
+/** Checks a generated share image fixes. */
+const IMAGE_CHECKS = new Set(['og-image', 'og-image-format']);
 
 export const STATUS_DOT: Record<CheckStatus, string> = {
   ok: 'bg-ok',
@@ -44,11 +48,20 @@ export function CheckGroups({ checks, compact = false, onAsk }: { checks: CheckR
                     </span>
                     {(!compact || c.status !== 'ok') && <span className="text-xs leading-snug break-words text-muted">{c.detail}</span>}
                   </div>
+                  {IMAGE_CHECKS.has(c.id) && (c.status === 'error' || c.status === 'warning') && (
+                    <button
+                      onClick={openOgImageEditor}
+                      title={t('Make a 1200×630 share image from the page', 'Générer une image de partage 1200×630 à partir de la page')}
+                      className={`ml-auto h-6 shrink-0 self-start rounded-md border border-line px-2 text-[11px] font-medium text-muted opacity-0 group-hover:opacity-100 focus:opacity-100 hover:border-line-strong hover:text-fg`}
+                    >
+                      {t('Image', 'Image')}
+                    </button>
+                  )}
                   {onAsk && (c.status === 'error' || c.status === 'warning') && (
                     <button
                       onClick={() => onAsk(c)}
                       title={t('Ask Claude to fix it', 'Demander à Claude de corriger')}
-                      className="ml-auto h-6 shrink-0 self-start rounded-md border border-[rgba(217,119,87,0.3)] px-2 text-[11px] font-medium text-[#d97757] opacity-0 group-hover:opacity-100 focus:opacity-100 hover:bg-[rgba(217,119,87,0.1)]"
+                      className={`${IMAGE_CHECKS.has(c.id) ? 'ml-1.5' : 'ml-auto'} h-6 shrink-0 self-start rounded-md border border-[rgba(217,119,87,0.3)] px-2 text-[11px] font-medium text-[#d97757] opacity-0 group-hover:opacity-100 focus:opacity-100 hover:bg-[rgba(217,119,87,0.1)]`}
                     >
                       Claude
                     </button>

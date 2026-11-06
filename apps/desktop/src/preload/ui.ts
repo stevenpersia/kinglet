@@ -17,6 +17,11 @@ const api: KingletApi = {
   analyze: (url, opts) => ipcRenderer.invoke('page:analyze', url, opts ?? {}),
   crawl: (url, opts) => ipcRenderer.invoke('site:crawl', url, opts ?? {}),
   sharePreviews: (url) => ipcRenderer.invoke('share:previews', url),
+  ogImage: {
+    draft: (url) => ipcRenderer.invoke('ogimage:draft', url),
+    render: (input) => ipcRenderer.invoke('ogimage:render', input),
+    save: (input, draft, choose) => ipcRenderer.invoke('ogimage:save', input, draft, choose),
+  },
   copy: (text) => ipcRenderer.send('clipboard:write', text),
   mcpInfo: () => ipcRenderer.invoke('mcp:info'),
   vercel: {

@@ -4,6 +4,7 @@ import type { ShareStudio } from '../../shared/types';
 import { api, cleanError, useStore } from '../store';
 import { Dot, Icon } from './Icons';
 import { CopyButton, SLASH } from './Mcp';
+import { OgImageEditorHost, openOgImageEditor } from './OgImageEditor';
 
 /* ---------------- platform renderings (approximate, for comparison) ---------------- */
 
@@ -259,6 +260,11 @@ function FixDetails({ studio }: { studio: ShareStudio }) {
         ))}
       </div>
 
+      <button onClick={openOgImageEditor} className="flex h-8 items-center justify-center gap-2 rounded-ui border border-[#2a2a2f] bg-active px-3 text-xs font-medium text-fg hover:border-line-strong">
+        <Icon name="page" size={13} />
+        {meta.og['image'] ? t('Make a new share image…', 'Générer une nouvelle image de partage…') : t('Make the share image…', 'Générer l’image de partage…')}
+      </button>
+
       {fix.changes.length === 0 ? (
         <p className="m-0 text-muted">{t('Nothing to fix: all share tags are in place.', 'Rien à corriger : toutes les balises de partage sont en place.')}</p>
       ) : (
@@ -490,6 +496,12 @@ export function SharePage() {
                     {t('Ask Claude to fix it', 'Demander à Claude de corriger')}
                   </button>
                 )}
+                {imageProblem(studio) && (
+                  <button onClick={openOgImageEditor} className="flex h-8 items-center gap-2 rounded-ui bg-fg px-3 text-xs font-semibold text-bg">
+                    <Icon name="page" size={13} />
+                    {t('Make the share image', 'Générer l’image')}
+                  </button>
+                )}
                 <button onClick={() => setFixOpen((v) => !v)} aria-expanded={fixOpen} className="flex h-8 items-center gap-1.5 rounded-ui border border-[#2a2a2f] bg-active px-3 text-xs font-medium text-fg hover:border-line-strong">
                   {fix && fix.changes.length ? t('Tags & fix', 'Balises & correctif') : t('Tags read', 'Balises lues')}
                   <svg width="10" height="10" viewBox="0 0 24 24" aria-hidden="true" className={fixOpen ? 'rotate-180' : ''}>
@@ -520,6 +532,13 @@ export function SharePage() {
           </>
         )}
       </div>
+      <OgImageEditorHost />
     </main>
   );
+}
+
+/** No share image, or one that is unreachable or too small: generating one fixes it. */
+function imageProblem({ previews }: ShareStudio) {
+  const { meta, image } = previews;
+  return !meta.ogImageUrl || !image?.ok || (image.width ?? 0) < 1200 || (image.height ?? 0) < 630 || (image.bytes ?? 0) > 300 * 1024;
 }

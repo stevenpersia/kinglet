@@ -45,6 +45,26 @@ export { detectFramework, type Framework } from './meta.ts';
 export { PLATFORMS, buildCard, readSharePreviews, type Platform, type PlatformFamily, type ShareCard, type CardStatus, type SharePreviews } from './share.ts';
 export { buildShareFix, guessSiteName, isAddedLine, type ShareFix } from './fix.ts';
 export {
+  OG_SIZE,
+  OG_MAX_BYTES,
+  OG_LAYOUTS,
+  parseColor,
+  toHex,
+  contrast,
+  textColorOn,
+  ogImageDefaults,
+  ogLogoCandidate,
+  titleSize,
+  buildOgImageHtml,
+  frameworkFromPackage,
+  staticDirFor,
+  freeName,
+  buildOgImageTags,
+  type OgLayout,
+  type OgImageInput,
+  type OgImageTags,
+} from './ogimage.ts';
+export {
   VercelClient,
   VercelError,
   VERCEL_API,

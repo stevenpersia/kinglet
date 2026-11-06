@@ -1,10 +1,10 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, Notification, shell } from 'electron';
-import { resolveLanguage, setLanguage, t, locale, buildShareFix, checkShare, crawl, probeImage, readPageMeta, readSharePreviews, readSiteFiles, runChecks, score, vercelBypassHeaders, auditSite, auditSecurity, securitySummary, readHreflang, readStructuredData, evaluateBudgets, describeFailures, assessPrivacy, type AxeViolation, type PrivacyReport, type BudgetMeasure, type CrawledPage, type HreflangReport, type SiteFiles } from '@kinglet/core';
+import { resolveLanguage, setLanguage, t, locale, buildShareFix, checkShare, crawl, probeImage, readPageMeta, readSharePreviews, readSiteFiles, runChecks, score, vercelBypassHeaders, auditSite, auditSecurity, securitySummary, readHreflang, readStructuredData, evaluateBudgets, describeFailures, assessPrivacy, type AxeViolation, type PrivacyReport, type OgImageInput, type BudgetMeasure, type CrawledPage, type HreflangReport, type SiteFiles } from '@kinglet/core';
 import { startStdio } from '@kinglet/mcp';
 import QRCode from 'qrcode';
-import type { SecurityRun, AnalyzeReport, CompareColumn, DeviceSlot, EnvId, ExportShot, FeedbackPin, HistoryEntry, InitState, McpActivity, McpInfo, NewProjectRequest, Project, PhoneQr, PhoneState, PreviewEvent, Settings, ShareStudio } from '../shared/types';
+import type { SecurityRun, AnalyzeReport, CompareColumn, DeviceSlot, EnvId, ExportShot, FeedbackPin, HistoryEntry, InitState, McpActivity, McpInfo, NewProjectRequest, Project, PhoneQr, PhoneState, PreviewEvent, Settings, ShareStudio, OgImageDraft } from '../shared/types';
 import { HistoryStore } from './history';
 import { ReviewServer } from './review';
 import { startControlServer } from './control';
@@ -33,6 +33,7 @@ import { DeviceManager, shortcutFor } from './devices';
 import { PRESETS } from './presets';
 import { activeIds, allPresets, setActiveIds } from '../shared/devices';
 import { runSelftest } from './selftest';
+import { ogImageDraft, previewOgImage, saveOgImage } from './ogimage';
 import { SettingsStore } from './settings';
 import { moveOldUserData, oldHookScript } from './rename';
 import { createLicense, openLicenseWindow } from './license-window';
@@ -417,6 +418,15 @@ async function createWindow(license: LicenseService) {
     const previews = await readSharePreviews(url, { headers: bypassHeaders(url) });
     return { previews, fix: buildShareFix(previews.meta, previews.image) };
   });
+  // Share image generated from a template (Partage page).
+  const ogContext = () => {
+    const project = activeProject(settings.value);
+    const vp = project?.vercelProjectId ? vercel.state.projects.find((p) => p.id === project.vercelProjectId) : null;
+    return { folder: project?.folder ?? null, productionUrl: vp?.productionUrl ?? null, headers: (u: string) => bypassHeaders(u) };
+  };
+  ipcMain.handle('ogimage:draft', (_e, url: string) => ogImageDraft(url, ogContext()));
+  ipcMain.handle('ogimage:render', (_e, input: OgImageInput) => previewOgImage(input));
+  ipcMain.handle('ogimage:save', (_e, input: OgImageInput, draft: OgImageDraft, choose?: boolean) => saveOgImage(win, input, draft, !!choose));
   ipcMain.on('clipboard:write', (_e, text: string) => clipboard.writeText(text));
 
   ipcMain.handle('site:crawl', async (_e, url: string, opts: { force?: boolean }) => {
