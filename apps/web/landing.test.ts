@@ -17,9 +17,9 @@ const site = `http://localhost:${PORT}`;
 
 beforeAll(async () => {
   dir = mkdtempSync(join(tmpdir(), 'kinglet-web-'));
-  build(dir, site);
+  await build(dir, site);
   server = await serve(dir, PORT);
-});
+}, 120_000);
 afterAll(() => {
   server.close();
   rmSync(dir, { recursive: true, force: true });

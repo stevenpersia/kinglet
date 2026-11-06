@@ -180,12 +180,18 @@ git tag v0.1.0 && git push origin v0.1.0
 
 Le workflow `release.yml` refait les tests, construit, teste l'app packagée (mise à jour comprise), puis crée la release avec l'AppImage, le paquet pacman et `latest-linux.yml` ici et dans `stevenpersia/kinglet-releases` (le `latest-linux.yml` de ce dépôt public est celui que lit l'outil de mise à jour). Il faut le secret `RELEASES_TOKEN` : un jeton fine-grained avec **Contents : lecture et écriture** sur `kinglet-releases`.
 
-## Landing page
+## Site web
 
-`apps/web` est un site statique : une page HTML, sans framework. Pour le déployer sur Vercel, importe le dépôt avec `apps/web` comme *Root Directory* ; `vercel.json` s'occupe du reste. Le build reprend le domaine de production Vercel pour les URL absolues (canonical, og:image, sitemap).
+`apps/web` est le site (en anglais) : React, Motion et Tailwind, pré-rendu en HTML statique au build pour que la page se lise sans JavaScript (robots, aperçus de partage, checks). Il reprend les icônes (`components/Icons.tsx`) et les couleurs Graphite de l'app (`apps/desktop/src/renderer/theme.css`, partagé), et le hero rejoue l'app (inspecteur, console, outils d'appareils, déploiements) avec les mêmes composants visuels. Pour le déployer sur Vercel, importe le dépôt avec `apps/web` comme *Root Directory* ; `vercel.json` s'occupe du reste (il n'installe que le site et ses dépendances). Le build reprend le domaine de production Vercel pour les URL absolues (canonical, og:image, sitemap) et la version de l'app depuis `apps/desktop/package.json`.
+
+Le prix (paiement unique) est dans `apps/web/src/config.ts`. Le lien de paiement vient de la variable `VITE_CHECKOUT_URL` au build ; sans elle, « Buy » mène au téléchargement.
 
 ```bash
-pnpm --filter @kinglet/web preview    # http://localhost:4173
+pnpm --filter @kinglet/web dev        # http://localhost:4173, rechargement à chaud
+```
+
+```bash
+pnpm --filter @kinglet/web preview    # build statique servi sur http://localhost:4173
 ```
 
 Ses tests la passent aux checks mesurables sans navigateur et aux 10 aperçus de partage de Kinglet : tout doit être vert.
@@ -257,7 +263,7 @@ apps/desktop        app Electron (electron-vite)
   src/renderer      interface React + Tailwind (design « Graphite »)
 packages/mcp        serveur MCP (stdio) pour Claude Code, client du serveur de contrôle de l'app
 packages/core       lecture des balises comme les robots, aperçus des 10 plateformes, correctifs, fichiers du site, exploration, 37 checks, données structurées, hreflang, audit du site, budgets
-apps/web            landing page statique (Vercel)
+apps/web            site web (React + Motion, pré-rendu statique, Vercel)
 fixtures/demo-site  site de test (Vite)
 fixtures/vercel-mock  fausse API Vercel pour les tests
 ```

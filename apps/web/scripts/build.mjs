@@ -1,12 +1,20 @@
-// Static build: copies src/ to dist/, fills in the site URL, writes robots.txt, sitemap and manifest.
+// Static build: Vite bundles the React page, then renders it to HTML (so the page reads without JavaScript),
+// fills in the head with absolute URLs, and writes robots.txt, sitemap and manifest.
 // The site URL comes from --site, KINGLET_SITE_URL, or Vercel's production domain at build time.
-import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 export const REPO = 'https://github.com/stevenpersia/kinglet';
 /** Public repository holding the releases (the code stays private). */
 export const RELEASES = 'https://github.com/stevenpersia/kinglet-releases';
+
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+
+export const TITLE = 'Kinglet — the dev environment for vibe coding';
+export const DESCRIPTION =
+  'Build with Claude, see it on 10 devices at once, point at what’s wrong and let Claude fix it. Ship through Vercel and GitHub with 37 checks.';
 
 export function siteUrl(argv = process.argv, env = process.env) {
   const i = argv.indexOf('--site');
@@ -14,25 +22,51 @@ export function siteUrl(argv = process.argv, env = process.env) {
   return raw.replace(/\/$/, '');
 }
 
-export function build(out, site) {
-  const src = join(dirname(fileURLToPath(import.meta.url)), '../src');
-  rmSync(out, { recursive: true, force: true });
-  mkdirSync(out, { recursive: true });
-  cpSync(src, out, { recursive: true });
-  const html = readFileSync(join(src, 'index.html'), 'utf8').replaceAll('{{SITE}}', site).replaceAll('{{RELEASES}}', RELEASES).replaceAll('{{REPO}}', REPO);
-  writeFileSync(join(out, 'index.html'), html);
+export function head(site) {
+  return [
+    `<title>${TITLE}</title>`,
+    `<meta name="description" content="${DESCRIPTION}">`,
+    `<link rel="canonical" href="${site}/">`,
+    '<meta name="theme-color" content="#08080a">',
+    '<meta property="og:type" content="website">',
+    '<meta property="og:site_name" content="Kinglet">',
+    `<meta property="og:title" content="${TITLE}">`,
+    '<meta property="og:description" content="Every device, every deploy. Point at it, Claude fixes it.">',
+    `<meta property="og:url" content="${site}/">`,
+    `<meta property="og:image" content="${site}/og.png">`,
+    '<meta property="og:image:width" content="1200">',
+    '<meta property="og:image:height" content="630">',
+    '<meta property="og:locale" content="en_US">',
+    '<meta name="twitter:card" content="summary_large_image">',
+    '<link rel="icon" href="/favicon.svg" type="image/svg+xml">',
+    '<link rel="apple-touch-icon" href="/apple-touch-icon.png">',
+    '<link rel="manifest" href="/manifest.webmanifest">',
+  ].join('\n  ');
+}
+
+export async function build(out, site) {
+  const { build: vite } = await import('vite');
+  const ssr = mkdtempSync(join(tmpdir(), 'kinglet-web-ssr-'));
+  try {
+    await vite({ root: ROOT, logLevel: 'warn', build: { outDir: out, emptyOutDir: true } });
+    await vite({ root: ROOT, logLevel: 'warn', ssr: { noExternal: true }, build: { ssr: 'src/entry-server.tsx', outDir: ssr, emptyOutDir: true, rollupOptions: { output: { entryFileNames: 'entry-server.mjs' } } } });
+    const { render } = await import(pathToFileURL(join(ssr, 'entry-server.mjs')).href);
+    const template = readFileSync(join(out, 'index.html'), 'utf8');
+    writeFileSync(join(out, 'index.html'), template.replace('<!--head-->', head(site)).replace('<!--app-->', render()));
+  } finally {
+    rmSync(ssr, { recursive: true, force: true });
+  }
   writeFileSync(join(out, 'robots.txt'), `User-agent: *\nAllow: /\n\nSitemap: ${site}/sitemap.xml\n`);
   writeFileSync(join(out, 'sitemap.xml'), `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n  <url><loc>${site}/</loc></url>\n</urlset>\n`);
   writeFileSync(
     join(out, 'manifest.webmanifest'),
-    JSON.stringify({ name: 'Kinglet', short_name: 'Kinglet', start_url: '/', display: 'standalone', background_color: '#0a0a0b', theme_color: '#0a0a0b', icons: [{ src: '/icon-192.png', sizes: '192x192', type: 'image/png' }, { src: '/icon-512.png', sizes: '512x512', type: 'image/png' }] }, null, 2),
+    JSON.stringify({ name: 'Kinglet', short_name: 'Kinglet', start_url: '/', display: 'standalone', background_color: '#08080a', theme_color: '#08080a', icons: [{ src: '/icon-192.png', sizes: '192x192', type: 'image/png' }, { src: '/icon-512.png', sizes: '512x512', type: 'image/png' }] }, null, 2),
   );
   return out;
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  const out = join(dirname(fileURLToPath(import.meta.url)), '../dist');
   const site = siteUrl();
-  build(out, site);
+  await build(join(ROOT, 'dist'), site);
   console.log(`dist/ built for ${site}`);
 }
