@@ -1,4 +1,4 @@
-// Vercel function: adds an email to the launch list (a Resend audience), so everyone on it can be told
+// Vercel Edge function (served at /api/waitlist, packaged by scripts/build.mjs): adds an email to the launch list (a Resend audience), so everyone on it can be told
 // when Kinglet ships, with their discount.
 // Env (Vercel project settings): RESEND_API_KEY, RESEND_AUDIENCE_ID.
 // Accepts JSON from the page ({ email }) and a plain form post (no JavaScript), which is redirected back.
@@ -49,4 +49,10 @@ export async function POST(request: Request): Promise<Response> {
   const email = validEmail(raw);
   if (!email) return reply(400, 'invalid');
   return (await addContact(email)) ? reply(200, 'ok') : reply(502, 'error');
+}
+
+/** Edge entry point. */
+export default function handler(request: Request): Promise<Response> | Response {
+  if (request.method !== 'POST') return new Response('Method not allowed', { status: 405, headers: { allow: 'POST' } });
+  return POST(request);
 }

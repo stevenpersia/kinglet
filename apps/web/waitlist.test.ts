@@ -1,6 +1,6 @@
-// The launch list endpoint (api/waitlist.ts), without the network.
+// The launch list endpoint (functions/waitlist.ts), without the network.
 import { expect, it } from 'vitest';
-import { POST, validEmail, addContact } from './api/waitlist';
+import { POST, validEmail, addContact } from './functions/waitlist';
 it('adds valid emails to the Resend audience and refuses the rest', async () => {
   expect(validEmail(' A@B.co ')).toBe('a@b.co');
   expect(validEmail('nope')).toBe(null);
