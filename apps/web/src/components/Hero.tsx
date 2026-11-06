@@ -1,11 +1,11 @@
 import { motion, useInView } from 'motion/react';
 import { useEffect, useRef, useState } from 'react';
 import { Icon } from '../../../desktop/src/renderer/components/Icons';
-import { DOWNLOAD, MCP_COMMAND } from '../config';
+import { MCP_COMMAND } from '../config';
 import { AppWindow } from '../demo/AppWindow';
 import { Cursor, type CursorCmd } from '../demo/Cursor';
 import { type DemoState, duration, finalState, initial, SCRIPTS, type SceneId } from '../demo/scenes';
-import { ButtonLink } from './ui';
+import { WaitlistForm } from './Waitlist';
 
 const SCENES: { id: SceneId; label: string; color: string; caption: string }[] = [
   { id: 'inspect', label: 'Inspect', color: '#8ab4f8', caption: 'Turn on the inspector, hover an element: it lights up on every device. Keep it, “Ask Claude”, press Enter.' },
@@ -113,24 +113,21 @@ export function Hero() {
         >
           Build with Claude, watch it land on 10 devices at once, point at what’s wrong and let Claude fix it. Then ship through GitHub and Vercel with 37 checks watching your back.
         </motion.p>
-        <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.15 }} className="flex flex-wrap justify-center gap-2.5">
-          <ButtonLink href={DOWNLOAD} primary>
-            <Icon name="download" size={16} />
-            Download for Linux
-          </ButtonLink>
+        <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.15 }} className="flex w-full flex-col items-center gap-3">
+          <WaitlistForm />
           <button
             type="button"
             onClick={copy}
-            className="inline-flex h-12 max-w-full cursor-pointer items-center gap-3 rounded-[10px] border border-[#26262c] bg-[#0f0f12] px-4 text-fg hover:border-line-strong"
+            className="inline-flex h-10 max-w-full cursor-pointer items-center gap-3 rounded-[10px] border border-[#1e1e23] bg-transparent px-3.5 text-fg hover:border-line-strong"
             aria-label="Copy the command that connects Kinglet to Claude Code"
           >
-            <span className="truncate font-mono text-[13px] text-[#c4c4cc]">
+            <span className="truncate font-mono text-[12.5px] text-[#c4c4cc]">
               <span className="text-ghost">$</span> claude mcp add kinglet
             </span>
             <span className="rounded-[5px] border border-[#26262c] px-1.5 font-mono text-[11px] text-ghost">{copied ? 'copied' : 'copy'}</span>
           </button>
         </motion.div>
-        <p className="m-0 font-mono text-xs text-ghost">Linux · AppImage &amp; pacman (Arch, CachyOS) · automatic updates</p>
+        <p className="m-0 font-mono text-xs text-ghost">Coming soon to Linux · join the list for a launch discount</p>
       </div>
 
       <div className="relative mx-auto mt-14 flex max-w-[1200px] flex-col items-center gap-3.5">
