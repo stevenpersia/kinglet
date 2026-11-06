@@ -65,24 +65,6 @@ const KIND_ICON = { phone: 'phone', tablet: 'tablet', desktop: 'laptop' } as con
 /** Trigger of a toolbar menu: plain text button, tinted when its setting is on. */
 const menuButton = 'inline-flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-[7px] px-2.5 text-xs text-muted hover:bg-active hover:text-fg disabled:opacity-50 aria-expanded:bg-active aria-expanded:text-fg';
 
-/** Opens a menu with the native views frozen as images (they would paint over it). */
-function useMenu() {
-  const { openOverlay, closeOverlay } = useStore();
-  const [open, setOpen] = useState(false);
-  const toggle = async () => {
-    if (open) {
-      setOpen(false);
-      closeOverlay();
-    } else {
-      await openOverlay();
-      setOpen(true);
-    }
-  };
-  /** Closes the menu but keeps the views frozen, for a dialog opened from it. */
-  const handOff = () => setOpen(false);
-  return { open, toggle, handOff };
-}
-
 /** One row: the devices, the view toggles, the emulation, then forms, export and zoom. */
 function DeviceToolbar({ scale }: { scale: number }) {
   const state = useStore();
@@ -164,7 +146,7 @@ function DeviceToolbar({ scale }: { scale: number }) {
 
       <span aria-hidden="true" className="h-5 w-px bg-line" />
 
-      <EmulationMenu />
+      <EmulationButton />
 
       <div className="ml-auto flex items-center gap-1">
         <FormsMenu />
@@ -197,14 +179,9 @@ function Segmented<T extends string | number>({ label, value, options, onChange,
 const pill = (on: boolean) => `h-7 rounded-md border px-2.5 text-xs ${on ? 'border-line-strong bg-raised text-fg' : 'border-line text-muted hover:border-line-strong hover:text-fg'}`;
 const section = 'text-[10.5px] font-medium tracking-[0.06em] text-faint uppercase';
 
-/**
- * Appearance, region, network and keyboard in one popover. The button sums up what isn't at its
- * default, so what is simulated shows with the menu closed.
- */
-function EmulationMenu() {
+function useEmulation() {
   const state = useStore();
-  const { settings, updateSettings, closeOverlay } = state;
-  const { open, toggle, handOff } = useMenu();
+  const { settings, updateSettings } = state;
   const [target, setTarget] = useState<string>('all');
   const [mocksOpen, setMocksOpen] = useState(false);
   const m = settings.media;
@@ -225,7 +202,7 @@ function EmulationMenu() {
     if (target === 'all') void updateSettings({ region: { ...all, ...patch } });
     else void updateSettings({ regionPerDevice: { ...per, [target]: { ...(per[target] ?? {}), ...patch } } });
   };
-  const network = settings.offline ? 'offline' : th.network;
+  const network: Throttle['network'] | 'offline' = settings.offline ? 'offline' : th.network;
   const setNetwork = (v: Throttle['network'] | 'offline') => void updateSettings(v === 'offline' ? { offline: true } : { offline: false, throttle: { ...th, network: v } });
   const resetAll = () =>
     void updateSettings({
@@ -256,12 +233,23 @@ function EmulationMenu() {
   const shown = summary.slice(0, 3);
   const field = 'h-[30px] w-full min-w-0 rounded-md border border-line bg-bg px-2 text-xs text-fg outline-none focus:border-line-strong';
 
+  return { state, settings, updateSettings, target, setTarget, mocksOpen, setMocksOpen, m, text, th, all, per, own, current, devices, hasTouch, mocksOn, setMedia, setText, setThrottle, setRegion, network, setNetwork, resetAll, summary, shown, field };
+}
+
+/**
+ * The Emulation button of the toolbar: opens the Emulation panel next to the devices (not a popover:
+ * the devices stay live while you change things). It sums up what isn't at its default.
+ */
+function EmulationButton() {
+  const { summary, shown } = useEmulation();
+  const { panel, togglePanel } = useStore();
+  const open = panel === 'emulation';
   return (
     <div className="relative min-w-0">
       <button
-        aria-haspopup="dialog"
         aria-expanded={open}
-        onClick={toggle}
+        aria-controls="emulation-panel"
+        onClick={() => togglePanel('emulation')}
         title={t('Appearance, region, network and keyboard of the devices', 'Apparence, région, réseau et clavier des appareils')}
         className={`inline-flex h-8 max-w-full items-center gap-2 rounded-lg border bg-card pr-2.5 pl-2 text-xs text-fg ${open ? 'border-local' : 'border-line-strong hover:border-[#4a4a52]'}`}
       >
@@ -281,21 +269,43 @@ function EmulationMenu() {
           <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2.4" fill="none" />
         </svg>
       </button>
-      {open && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={toggle} />
-          <div role="dialog" aria-label={t('Emulation', 'Émulation')} className="absolute top-10 left-0 z-50 flex max-h-[calc(100vh-290px)] w-[440px] flex-col rounded-xl border border-[#2a2a2f] bg-card shadow-2xl shadow-black/60">
-            <div className="flex shrink-0 items-center gap-2 border-b border-line-soft px-3.5 py-3">
-              <span className="text-[13px] font-semibold">{t('Emulation', 'Émulation')}</span>
-              <span className="text-[11.5px] text-faint">{t('every device', 'tous les appareils')}</span>
-              <span className="flex-1" />
-              {summary.length > 0 && (
-                <button onClick={resetAll} className="rounded px-1.5 py-1 text-[11.5px] text-local hover:bg-active">
-                  {t('Reset all', 'Tout réinitialiser')}
-                </button>
-              )}
-            </div>
-            <div className="flex min-h-0 flex-col gap-4 overflow-y-auto p-3.5">
+    </div>
+  );
+}
+
+/**
+ * Emulation, docked next to the devices like Page and Checks: the devices stay live, so every change
+ * (tab order, text size, dark mode, region, network…) shows on all of them at once. Styled apart from
+ * the other panels: a tool you keep open while testing, not a report.
+ */
+export function EmulationPanel() {
+  const { state, settings, updateSettings, target, setTarget, mocksOpen, setMocksOpen, m, text, th, all, per, current, devices, hasTouch, mocksOn, setMedia, setText, setThrottle, setRegion, network, setNetwork, resetAll, summary, field } = useEmulation();
+  void all;
+  return (
+    <aside id="emulation-panel" aria-label={t('Emulation', 'Émulation')} className="relative flex w-[350px] shrink-0 flex-col border-r border-line-soft bg-[#0d0e11]">
+      <span aria-hidden="true" className="absolute inset-x-0 top-0 h-px bg-[linear-gradient(90deg,transparent,#8ab4f8_30%,#8ab4f8_70%,transparent)] opacity-70" />
+      <div className="flex shrink-0 items-center gap-3 border-b border-line-soft px-4 py-3">
+        <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-local/12 text-local shadow-[inset_0_0_0_1px_rgba(138,180,248,0.25)]">
+          <Icon name="sliders" size={15} />
+        </span>
+        <span className="flex min-w-0 flex-1 flex-col">
+          <span className="text-[13.5px] font-semibold">{t('Emulation', 'Émulation')}</span>
+          <span className="flex items-center gap-1.5 text-[11.5px] text-faint">
+            <span className="size-1.5 rounded-full bg-ok" />
+            {t(`Live on ${devices.length} device${devices.length > 1 ? 's' : ''}`, `En direct sur ${devices.length} appareil${devices.length > 1 ? 's' : ''}`)}
+          </span>
+        </span>
+        {summary.length > 0 && (
+          <button onClick={resetAll} className="rounded px-1.5 py-1 text-[11.5px] text-local hover:bg-active">
+            {t('Reset all', 'Tout réinitialiser')}
+          </button>
+        )}
+        <button onClick={() => state.togglePanel('emulation')} aria-label={t('Close', 'Fermer')} title={t('Close', 'Fermer')} className="flex size-7 items-center justify-center rounded-md text-faint hover:bg-active hover:text-fg">
+          <Icon name="close" size={12} />
+        </button>
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto">
+            <div className="emulation-body flex flex-col gap-3 p-3">
               <div className="flex flex-col gap-2">
                 <span className={section}>{t('Appearance', 'Apparence')}</span>
                 <Segmented
@@ -323,7 +333,7 @@ function EmulationMenu() {
                   </button>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="w-24 shrink-0 text-[11.5px] text-faint">{t('Text size', 'Taille du texte')}</span>
+                  <span className="w-[68px] shrink-0 text-[11.5px] text-faint">{t('Text size', 'Taille du texte')}</span>
                   <div className="flex-1">
                     <Segmented label={t('Text size', 'Taille du texte')} value={text.scale} onChange={(scale) => setText({ scale })} options={[1, 1.3, 1.5, 2].map((k) => ({ id: k, label: `${Math.round(k * 100)}${t('%', ' %')}` }))} />
                   </div>
@@ -351,8 +361,8 @@ function EmulationMenu() {
                     </button>
                   ))}
                 </div>
-                <div className="grid grid-cols-3 gap-2">
-                  <label className="flex min-w-0 flex-col gap-1 text-[11px] text-faint">
+                <div className="grid grid-cols-1 gap-2">
+                  <label className="grid min-w-0 grid-cols-[88px_1fr] items-center gap-2 text-[11.5px] text-faint">
                     {t('Language', 'Langue')}
                     <select value={current.locale ?? ''} onChange={(e) => setRegion({ locale: e.target.value || null })} className={field}>
                       <option value="">{t('Computer’s', 'L’ordinateur')}</option>
@@ -363,7 +373,7 @@ function EmulationMenu() {
                       ))}
                     </select>
                   </label>
-                  <label className="flex min-w-0 flex-col gap-1 text-[11px] text-faint">
+                  <label className="grid min-w-0 grid-cols-[88px_1fr] items-center gap-2 text-[11.5px] text-faint">
                     {t('Time zone', 'Fuseau')}
                     <select value={current.timezone ?? ''} onChange={(e) => setRegion({ timezone: e.target.value || null })} className={field}>
                       <option value="">{t('Computer’s', 'L’ordinateur')}</option>
@@ -374,7 +384,7 @@ function EmulationMenu() {
                       ))}
                     </select>
                   </label>
-                  <label className="flex min-w-0 flex-col gap-1 text-[11px] text-faint">
+                  <label className="grid min-w-0 grid-cols-[88px_1fr] items-center gap-2 text-[11.5px] text-faint">
                     {t('Position', 'Position')}
                     <select value={current.geo?.label ?? ''} onChange={(e) => setRegion({ geo: PLACES.find((p) => p.label === e.target.value) ?? null })} className={field}>
                       <option value="">{t('None (refused)', 'Aucune (refusée)')}</option>
@@ -412,7 +422,7 @@ function EmulationMenu() {
                   options={[...NETWORK.map((n) => ({ id: n.id as Throttle['network'] | 'offline', label: n.label(), title: n.hint() })), { id: 'offline', label: t('Offline', 'Hors ligne') }]}
                 />
                 <div className="flex items-center gap-2">
-                  <span className="w-24 shrink-0 text-[11.5px] text-faint">CPU</span>
+                  <span className="w-[68px] shrink-0 text-[11.5px] text-faint">CPU</span>
                   <div className="flex-1">
                     <Segmented label="CPU" value={th.cpu} onChange={(cpu) => setThrottle({ cpu })} tone={(v) => (v > 1 ? 'bg-[rgba(230,192,123,0.14)] font-medium text-warn' : null)} options={CPU.map((c) => ({ id: c.id, label: c.id === 1 ? '1×' : `×${c.id}`, title: c.label() }))} />
                   </div>
@@ -421,8 +431,7 @@ function EmulationMenu() {
                   {t('Phones and tablets only, except Offline.', 'Téléphones et tablettes seulement, sauf Hors ligne.')}
                   <button
                     onClick={() => {
-                      handOff();
-                      setMocksOpen(true);
+                      void state.openOverlay().then(() => setMocksOpen(true));
                     }}
                     className="shrink-0 text-local hover:underline"
                   >
@@ -449,18 +458,16 @@ function EmulationMenu() {
                 </div>
               )}
             </div>
-          </div>
-        </>
-      )}
+      </div>
       {mocksOpen && (
         <MocksDialog
           onClose={() => {
             setMocksOpen(false);
-            closeOverlay();
+            state.closeOverlay();
           }}
         />
       )}
-    </div>
+    </aside>
   );
 }
 
