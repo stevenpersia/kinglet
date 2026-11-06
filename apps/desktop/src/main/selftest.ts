@@ -957,11 +957,6 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     await win.webContents.executeJavaScript(`[...document.querySelectorAll('nav button')].find((b) => (b.getAttribute('aria-label') || b.textContent).includes('Open Graph'))?.click()`);
     await settle(1200);
     await shot('08-section-partage');
-    for (const [layout, name] of [['List', '08b-partage-liste'], ['In context', '08c-partage-situation'], ['Grid', '']] as const) {
-      await clickText('[aria-label=Layout] button', layout);
-      await settle(500);
-      if (name) await shot(name);
-    }
   } catch (e) {
     report['error'] = (e as Error).stack;
   }

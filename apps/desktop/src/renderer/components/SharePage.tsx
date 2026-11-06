@@ -1,5 +1,5 @@
 import { readStructuredData, t, type PlatformFamily, type RichPreview, type ShareCard } from '@kinglet/core';
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { ShareStudio } from '../../shared/types';
 import { api, cleanError, useStore } from '../store';
 import { Dot, Icon } from './Icons';
@@ -290,177 +290,6 @@ function FixDetails({ studio }: { studio: ShareStudio }) {
   );
 }
 
-/* ---------------- scenes: each preview where people see it ---------------- */
-
-const who = () => 'Jessica';
-
-function Avatar({ className = '', round = true }: { className?: string; round?: boolean }) {
-  return <span aria-hidden="true" className={`block size-8 shrink-0 bg-[linear-gradient(135deg,#6b8cff,#9f7bff)] ${round ? 'rounded-full' : 'rounded-md'} ${className}`} />;
-}
-
-function Handset({ dark, children, title }: { dark: boolean; children: React.ReactNode; title: string }) {
-  return (
-    <div className={`flex h-[560px] w-[340px] shrink-0 flex-col overflow-hidden rounded-[40px] shadow-[0_0_0_1px_#2e2e33,0_30px_60px_rgba(0,0,0,0.65)] ${dark ? 'bg-[#0B141A]' : 'bg-white'}`}>
-      <div className={`flex h-[68px] shrink-0 items-end gap-2.5 px-4 pb-2.5 text-[13px] font-medium ${dark ? 'bg-[#1F2C34] text-[#E9EDEF]' : 'justify-center border-b border-[#E5E5EA] bg-[#F7F7F7] text-[#111]'}`}>
-        {dark && <Avatar className="size-7" />}
-        {title}
-      </div>
-      <div className="flex min-h-0 flex-1 flex-col justify-end gap-1.5 overflow-hidden px-2.5 py-3">{children}</div>
-      <div className={`flex h-12 shrink-0 items-center px-3 ${dark ? 'bg-[#1F2C34]' : 'border-t border-[#E5E5EA] bg-[#F7F7F7]'}`}>
-        <span className={`h-8 flex-1 rounded-full ${dark ? 'bg-[#2A3942]' : 'border border-[#D1D1D6] bg-white'}`} />
-      </div>
-    </div>
-  );
-}
-
-function Bubble({ dark, out, children }: { dark: boolean; out?: boolean; children: React.ReactNode }) {
-  const cls = dark ? (out ? 'self-end bg-[#005C4B] text-[#E9EDEF]' : 'self-start bg-[#1F2C34] text-[#E9EDEF]') : out ? 'self-end bg-[#0B84FE] text-white' : 'self-start bg-[#E9E9EB] text-[#111]';
-  return <div className={`max-w-[80%] rounded-2xl px-3 py-1.5 text-[13px] leading-snug ${cls}`}>{children}</div>;
-}
-
-function Desk({ bg, top, children, width = 600 }: { bg: string; top: React.ReactNode; children: React.ReactNode; width?: number }) {
-  return (
-    <div className="flex shrink-0 flex-col overflow-hidden rounded-xl shadow-[0_0_0_1px_#2e2e33,0_30px_60px_rgba(0,0,0,0.65)]" style={{ background: bg, width }}>
-      {top}
-      <div className="flex flex-col gap-4 p-4">{children}</div>
-    </div>
-  );
-}
-
-function Scene({ c, rich }: { c: ShareCard; rich?: RichPreview | null }) {
-  switch (c.platform) {
-    case 'telegram':
-      return (
-        <Handset dark title={who()}>
-          <Bubble dark>{t('Got the link?', 'Tu as le lien ?')}</Bubble>
-          <div className="w-[88%] self-end">
-            <Preview c={c} />
-          </div>
-        </Handset>
-      );
-    case 'facebook':
-    case 'bluesky': {
-      const fb = c.platform === 'facebook';
-      return (
-        <Desk bg={fb ? '#18191A' : '#0E141B'} width={560} top={null}>
-          <div className={`flex flex-col gap-3 rounded-lg p-4 ${fb ? 'bg-[#242526] text-[#E4E6EB]' : 'text-[#F1F3F5]'}`}>
-            <div className="flex items-center gap-2.5">
-              <Avatar className="size-10" />
-              <div className="flex flex-col leading-tight">
-                <span className="text-[13px] font-semibold">{who()}</span>
-                <span className="text-[11.5px] opacity-60">{fb ? t('2 h · 🌐', '2 h · 🌐') : '@jessica.bsky.social · 2 h'}</span>
-              </div>
-            </div>
-            <span className="text-[13px]">{t('Our new page is live 👇', 'Notre nouvelle page est en ligne 👇')}</span>
-            <Preview c={c} />
-          </div>
-        </Desk>
-      );
-    }
-    case 'whatsapp':
-      return (
-        <Handset dark title={who()}>
-          <Bubble dark>{t('Is the new page online?', 'Tu as mis la nouvelle page en ligne ?')}</Bubble>
-          <div className="w-[88%] self-end">
-            <Preview c={c} />
-          </div>
-          <Bubble dark>{t('Looks good on my side 👍', 'Ça marche de mon côté 👍')}</Bubble>
-        </Handset>
-      );
-    case 'imessage':
-      return (
-        <Handset dark={false} title={who()}>
-          <Bubble dark={false}>{t('Send me the link?', 'Tu m’envoies le lien ?')}</Bubble>
-          <Preview c={c} />
-          <span className="self-end pr-1 text-[10.5px] text-[#8E8E93]">{t('Delivered', 'Distribué')}</span>
-        </Handset>
-      );
-    case 'slack':
-    case 'discord': {
-      const slack = c.platform === 'slack';
-      return (
-        <Desk
-          bg={slack ? '#1A1D21' : '#313338'}
-          top={<div className={`flex h-11 items-center px-4 text-[13px] font-semibold ${slack ? 'border-b border-[#2C2D30] text-[#D1D2D3]' : 'border-b border-[#26272B] text-[#F2F3F5]'}`}># {t('general', 'général')}</div>}
-        >
-          <div className="flex gap-3">
-            <Avatar round={!slack} className="mt-0.5" />
-            <div className="flex min-w-0 flex-1 flex-col gap-1">
-              <span className={`text-[13px] ${slack ? 'text-[#D1D2D3]' : 'text-[#F2F3F5]'}`}>
-                <b className="font-semibold">{who()}</b> <span className="ml-1 text-[11px] text-[#ABABAD]">10:42</span>
-              </span>
-              <span className={`text-[13px] ${slack ? 'text-[#D1D2D3]' : 'text-[#DBDEE1]'}`}>
-                {t('The new page is up:', 'La nouvelle page est en ligne :')} <span className={slack ? 'text-[#1D9BD1]' : 'text-[#00A8FC]'}>{c.url}</span>
-              </span>
-              <div className="-mx-2.5 -mb-2.5">
-                <Preview c={c} />
-              </div>
-            </div>
-          </div>
-        </Desk>
-      );
-    }
-    case 'linkedin':
-      return (
-        <Desk bg="#F4F2EE" width={560} top={null}>
-          <div className="flex flex-col gap-3 rounded-lg border border-[#E0DFDC] bg-white p-4 text-[#111]">
-            <div className="flex items-center gap-2.5">
-              <Avatar className="size-10" />
-              <div className="flex flex-col leading-tight">
-                <span className="text-[13px] font-semibold">{who()}</span>
-                <span className="text-[11.5px] text-[#666]">{t('2 h · Shared publicly', '2 h · Public')}</span>
-              </div>
-            </div>
-            <span className="text-[13px]">{t('Our new page is live, tell me what you think.', 'Notre nouvelle page est en ligne, dites-moi ce que vous en pensez.')}</span>
-            <div className="-mx-2.5 -mb-2.5">
-              <Preview c={c} />
-            </div>
-          </div>
-        </Desk>
-      );
-    case 'x':
-      return (
-        <Desk bg="#000000" width={560} top={null}>
-          <div className="flex gap-3 text-[#E7E9EA]">
-            <Avatar className="size-10" />
-            <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-              <span className="text-[14px]">
-                <b className="font-semibold">{who()}</b> <span className="text-[#71767B]">@jessica · 2 h</span>
-              </span>
-              <span className="text-[14px]">{t('New page is live 👇', 'La nouvelle page est en ligne 👇')}</span>
-              <div className="-mx-2.5 -mb-2.5">
-                <Preview c={c} />
-              </div>
-            </div>
-          </div>
-        </Desk>
-      );
-    case 'google':
-      return (
-        <Desk
-          bg="#FFFFFF"
-          width={640}
-          top={
-            <div className="flex h-14 items-center border-b border-[#EBEBEB] px-4">
-              <span className="flex h-9 flex-1 items-center rounded-full border border-[#DFE1E5] px-4 text-[13px] text-[#202124]">{c.siteName}</span>
-            </div>
-          }
-        >
-          <div className="-m-1.5">
-            <Preview c={c} rich={rich} />
-          </div>
-          {[0.75, 0.6].map((w) => (
-            <div key={w} aria-hidden="true" className="flex flex-col gap-1.5 px-1.5">
-              <span className="h-2.5 w-40 rounded bg-[#F1F3F4]" />
-              <span className="h-3.5 rounded bg-[#E8EAED]" style={{ width: `${w * 100}%` }} />
-              <span className="h-2.5 w-[90%] rounded bg-[#F1F3F4]" />
-            </div>
-          ))}
-        </Desk>
-      );
-  }
-}
-
 /* ---------------- page: every preview at a glance ---------------- */
 
 const FAMILIES = (): { id: PlatformFamily; label: string }[] => [
@@ -468,17 +297,6 @@ const FAMILIES = (): { id: PlatformFamily; label: string }[] => [
   { id: 'reseau', label: t('Social', 'Réseau') },
   { id: 'recherche', label: t('Search', 'Recherche') },
 ];
-
-type Layout = 'grid' | 'list' | 'scenes';
-const LAYOUT_KEY = 'kinglet.ogLayout';
-const readLayout = (): Layout => {
-  try {
-    const v = localStorage.getItem(LAYOUT_KEY);
-    return v === 'list' || v === 'scenes' ? v : 'grid';
-  } catch {
-    return 'grid';
-  }
-};
 
 const RANK = { error: 0, warning: 1, ok: 2 } as const;
 
@@ -530,29 +348,7 @@ function Problems({ c }: { c: ShareCard }) {
   );
 }
 
-/** Scales a fixed-size scene down while keeping its footprint in the flow. */
-function Scaled({ scale, children }: { scale: number; children: React.ReactNode }) {
-  const inner = useRef<HTMLDivElement>(null);
-  const [size, setSize] = useState<{ w: number; h: number } | null>(null);
-  useLayoutEffect(() => {
-    const el = inner.current;
-    if (!el) return;
-    const measure = () => setSize({ w: el.offsetWidth, h: el.offsetHeight });
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-  return (
-    <div className="relative shrink-0" style={size ? { width: size.w * scale, height: size.h * scale } : { visibility: 'hidden' }}>
-      <div ref={inner} className="absolute top-0 left-0 w-max origin-top-left" style={{ transform: `scale(${scale})` }}>
-        {children}
-      </div>
-    </div>
-  );
-}
-
-/** Proposal A: a grid of cards, the preview as each platform draws it, its problems underneath. */
+/** A grid of cards, problems first: the preview as each platform draws it, its problems underneath. */
 function GridView({ cards, rich }: { cards: ShareCard[]; rich: RichPreview | null }) {
   return (
     <div className="grid grid-cols-[repeat(auto-fill,minmax(290px,1fr))] items-start gap-4">
@@ -564,52 +360,6 @@ function GridView({ cards, rich }: { cards: ShareCard[]; rich: RichPreview | nul
           </div>
           {c.status !== 'ok' && (
             <div className="border-t border-line-soft pt-3">
-              <Problems c={c} />
-            </div>
-          )}
-        </article>
-      ))}
-    </div>
-  );
-}
-
-/** Proposal B: one row per platform, the preview on the left, the diagnosis on the right. */
-function ListView({ cards, rich }: { cards: ShareCard[]; rich: RichPreview | null }) {
-  return (
-    <div className="flex flex-col overflow-hidden rounded-xl border border-line bg-card">
-      {cards.map((c) => (
-        <article key={c.platform} aria-label={c.label} className="flex gap-5 border-t border-line-soft p-4 first:border-t-0">
-          <div className="pointer-events-none w-[340px] shrink-0">
-            <Preview c={c} rich={rich} />
-          </div>
-          <div className="flex min-w-0 flex-1 flex-col gap-3">
-            <CardHead c={c} />
-            <Problems c={c} />
-            <span className="mt-auto truncate font-mono text-[10.5px] text-ghost" title={c.url}>
-              {c.title ? `“${c.title}”` : t('no title', 'pas de titre')}
-              {c.image ? '' : t(' · no image', ' · pas d’image')}
-            </span>
-          </div>
-        </article>
-      ))}
-    </div>
-  );
-}
-
-/** Proposal C: each preview inside a mock of the app where people see it, scaled down. */
-function ScenesView({ cards, rich }: { cards: ShareCard[]; rich: RichPreview | null }) {
-  return (
-    <div className="flex flex-wrap items-start gap-x-6 gap-y-8">
-      {cards.map((c) => (
-        <article key={c.platform} aria-label={c.label} className="flex flex-col gap-3">
-          <div className="pointer-events-none">
-            <Scaled scale={0.58}>
-              <Scene c={c} rich={rich} />
-            </Scaled>
-          </div>
-          <CardHead c={c} />
-          {c.status !== 'ok' && (
-            <div className="max-w-[330px]">
               <Problems c={c} />
             </div>
           )}
@@ -643,17 +393,7 @@ export function SharePage() {
   const [studio, setStudio] = useState<ShareStudio | null>(url ? (cache.get(url) ?? null) : null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [layout, setLayoutState] = useState<Layout>(readLayout);
   const [fixOpen, setFixOpen] = useState(false);
-
-  const setLayout = (l: Layout) => {
-    setLayoutState(l);
-    try {
-      localStorage.setItem(LAYOUT_KEY, l);
-    } catch {
-      /* not kept */
-    }
-  };
 
   const load = async (force = false) => {
     if (!url) return;
@@ -686,15 +426,8 @@ export function SharePage() {
   const todo = sorted.filter((c) => c.status !== 'ok');
   const fine = sorted.filter((c) => c.status === 'ok');
   const counts = { error: cards.filter((c) => c.status === 'error').length, warning: cards.filter((c) => c.status === 'warning').length, ok: fine.length };
-  const View = layout === 'list' ? ListView : layout === 'scenes' ? ScenesView : GridView;
   const fix = studio?.fix;
   const u = new URL(url);
-
-  const layouts: { id: Layout; label: string; icon: 'grid' | 'rows' | 'frames' }[] = [
-    { id: 'grid', label: t('Grid', 'Grille'), icon: 'grid' },
-    { id: 'list', label: t('List', 'Liste'), icon: 'rows' },
-    { id: 'scenes', label: t('In context', 'En situation'), icon: 'frames' },
-  ];
 
   return (
     <main className="stage-bg flex min-w-0 flex-1 flex-col overflow-y-auto">
@@ -714,20 +447,6 @@ export function SharePage() {
           </div>
         )}
         <span className="flex-1" />
-        <div role="radiogroup" aria-label={t('Layout', 'Disposition')} className="flex h-8 items-center gap-0.5 rounded-[9px] border border-line bg-bg p-0.5">
-          {layouts.map((l) => (
-            <button
-              key={l.id}
-              role="radio"
-              aria-checked={layout === l.id}
-              onClick={() => setLayout(l.id)}
-              className={`flex h-full items-center gap-1.5 rounded-[7px] px-2.5 text-xs font-medium ${layout === l.id ? 'bg-active text-fg shadow-[inset_0_0_0_1px_#2a2a2f]' : 'text-faint hover:text-fg'}`}
-            >
-              <Icon name={l.icon} size={13} />
-              {l.label}
-            </button>
-          ))}
-        </div>
         <button onClick={() => void load(true)} disabled={loading} className="flex h-8 shrink-0 items-center gap-2 rounded-ui border border-[#2a2a2f] bg-active px-3 text-xs font-medium hover:border-line-strong disabled:opacity-60">
           <Icon name="reload" size={13} className={loading ? 'animate-spin' : ''} />
           {loading ? t('Reading…', 'Lecture…') : t('Re-read', 'Relire')}
@@ -782,12 +501,12 @@ export function SharePage() {
 
             {todo.length > 0 && (
               <Group title={t('Needs a look', 'À revoir')} tone={counts.error ? 'bg-err' : 'bg-warn'} count={todo.length}>
-                <View cards={todo} rich={rich} />
+                <GridView cards={todo} rich={rich} />
               </Group>
             )}
             {fine.length > 0 && (
               <Group title={t('Working', 'Fonctionnent')} tone="bg-ok" count={fine.length}>
-                <View cards={fine} rich={rich} />
+                <GridView cards={fine} rich={rich} />
               </Group>
             )}
             <p className="m-0 text-[11.5px] text-ghost">
