@@ -319,6 +319,7 @@ async function createWindow(license: LicenseService) {
   ipcMain.on('preview:layout', (_e, slots: DeviceSlot[]) => devices.setLayout(slots));
   ipcMain.on('preview:visible', (_e, visible: boolean) => devices.setVisible(visible));
   ipcMain.handle('preview:freeze', () => devices.freeze());
+  ipcMain.handle('preview:refreeze', () => devices.refreeze());
   ipcMain.handle('preview:thumbnail', () => devices.thumbnail());
   ipcMain.handle('preview:logs', () => devices.allLogs());
   ipcMain.on('preview:unfreeze', () => devices.unfreeze());

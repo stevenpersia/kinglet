@@ -629,6 +629,8 @@ export interface KingletApi {
    * freeze: views are captured as images and hidden. Returns one data URL per device id.
    */
   freeze(): Promise<Record<string, string>>;
+  /** New captures of the frozen devices (an option changed while a menu is open). */
+  refreeze(): Promise<Record<string, string>>;
   unfreeze(): void;
   /** Small capture of the page on the first phone (data URL). */
   thumbnail(): Promise<string | null>;

@@ -9,6 +9,7 @@ const api: KingletApi = {
   setLayout: (slots) => ipcRenderer.send('preview:layout', slots),
   setPreviewsVisible: (visible) => ipcRenderer.send('preview:visible', visible),
   freeze: () => ipcRenderer.invoke('preview:freeze'),
+  refreeze: () => ipcRenderer.invoke('preview:refreeze'),
   unfreeze: () => ipcRenderer.send('preview:unfreeze'),
   thumbnail: () => ipcRenderer.invoke('preview:thumbnail'),
   logs: () => ipcRenderer.invoke('preview:logs'),

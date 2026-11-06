@@ -1254,6 +1254,22 @@ export class DeviceManager {
     return shots;
   }
 
+  /**
+   * New captures while frozen (a menu is open): an option changed in the menu (tab order, text size,
+   * dark mode…) shows on the devices right away, not only once the menu closes. The views stay hidden.
+   */
+  async refreeze(): Promise<Record<string, string>> {
+    if (!this.frozen || !this.visible) return {};
+    const shots: Record<string, string> = {};
+    await Promise.all(
+      this.entries().map(async (d) => {
+        const data = await this.displayed(d);
+        if (data) shots[d.preset.id] = data;
+      }),
+    );
+    return shots;
+  }
+
   unfreeze() {
     this.frozen = false;
     for (const d of this.devices.values()) d.view.setVisible(this.visible);
