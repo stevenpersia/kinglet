@@ -1,4 +1,6 @@
-import type { Project, Settings } from './types';
+import type { Project, ProjectToolKey, ProjectTools, Settings } from './types';
+
+export const PROJECT_TOOL_KEYS: ProjectToolKey[] = ['media', 'textSize', 'region', 'regionPerDevice', 'throttle', 'offline', 'keyboard', 'mocks', 'landscape', 'scrollSync'];
 
 /** Projects that are not on Vercel are identified by their local dev server. */
 export const localProjectId = (origin: string) => `local:${origin}`;
@@ -76,4 +78,33 @@ export function projectForFolder(projects: Project[], cwd: string): Project | nu
       .filter((p) => p.folder && (c === norm(p.folder) || c.startsWith(`${norm(p.folder)}/`)))
       .sort((a, b) => norm(b.folder!).length - norm(a.folder!).length)[0] ?? null
   );
+}
+
+/** The tools' settings of the project shown, as they are now. */
+export function toolsOf(s: Settings): ProjectTools {
+  return Object.fromEntries(PROJECT_TOOL_KEYS.map((k) => [k, s[k]])) as ProjectTools;
+}
+
+/**
+ * Every project keeps its own tools (emulation, network, region, keyboard, mocks, orientation,
+ * scroll sync), like its devices. The top-level settings hold the active project's: switching
+ * projects files them under the one we leave and brings back the next one's (the defaults for a
+ * project that never changed any); changing one is filed under the active project too.
+ */
+export function withProjectTools(prev: Settings, patch: Partial<Settings>, defaults: ProjectTools): Partial<Settings> {
+  const merged = { ...prev, ...patch };
+  const switching = patch.activeId !== undefined && patch.activeId !== prev.activeId;
+  let projects = merged.projects;
+  if (switching) {
+    if (prev.activeId) projects = projects.map((p) => (p.id === prev.activeId ? { ...p, tools: toolsOf(prev) } : p));
+    const next = projects.find((p) => p.id === merged.activeId);
+    const tools = { ...defaults, ...(next?.tools ?? {}) };
+    return { ...patch, projects, ...tools };
+  }
+  const touched = PROJECT_TOOL_KEYS.some((k) => k in patch);
+  if (touched && merged.activeId) {
+    projects = projects.map((p) => (p.id === merged.activeId ? { ...p, tools: toolsOf(merged) } : p));
+    return { ...patch, projects };
+  }
+  return patch;
 }

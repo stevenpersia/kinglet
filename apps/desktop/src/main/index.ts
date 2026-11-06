@@ -124,6 +124,18 @@ async function createWindow(license: LicenseService) {
   /** Set once the history is ready: measure the local site after a finished Claude task. */
   let onClaudeDone: (projectId: string, prompt: string | null) => void = () => undefined;
   const devices = new DeviceManager(win, allPresets(PRESETS, settings.value), emit);
+  /** Push the tools' settings that changed between two states to the devices. */
+  const applyTools = (before: Settings, next: Settings) => {
+    if (before.scrollSync !== next.scrollSync) devices.setScrollSync(next.scrollSync);
+    if (before.landscape !== next.landscape) devices.setLandscape(next.landscape);
+    if (before.throttle !== next.throttle) devices.setThrottle(next.throttle);
+    if (before.media !== next.media) devices.setMedia(next.media);
+    if (before.offline !== next.offline) devices.setOffline(next.offline);
+    if (before.mocks !== next.mocks) devices.setMocks(next.mocks);
+    if (before.region !== next.region || before.regionPerDevice !== next.regionPerDevice) devices.setRegion(next.region, next.regionPerDevice);
+    if (before.textSize !== next.textSize) devices.setText(next.textSize);
+    if (before.keyboard !== next.keyboard) devices.setKeyboard(next.keyboard);
+  };
   /** Devices shown: the global list or the active project's, built-in and custom. */
   const applyDevices = () => {
     devices.setPresets(allPresets(PRESETS, settings.value));
@@ -238,7 +250,9 @@ async function createWindow(license: LicenseService) {
   const openUrlProject = (url: string) => {
     const origin = new URL(url).origin;
     const existing = settings.value.projects.find((p) => p.localOrigin === origin || p.id === `local:${origin}`);
+    const before = settings.value;
     settings.update(openProject(settings.value, existing ?? projectFromUrl(url)));
+    applyTools(before, settings.value);
   };
 
   ipcMain.handle('app:init', async (): Promise<InitState> => {
@@ -289,19 +303,13 @@ async function createWindow(license: LicenseService) {
   ipcMain.handle('preview:navigate', (_e, url: string) => navigate(url));
   ipcMain.handle('preview:reload', () => devices.reload());
   ipcMain.handle('settings:update', (_e, patch: Partial<Settings>) => {
+    const before = settings.value;
     const next = settings.update(patch);
     if (patch.language) applyLanguage();
     // New devices load the current page; existing ones keep theirs.
     if (patch.active || patch.listed || patch.customDevices || patch.deviceOrder || patch.devicesPerProject !== undefined || patch.activeId !== undefined || patch.projects) applyDevices();
-    if (patch.scrollSync !== undefined) devices.setScrollSync(patch.scrollSync);
-    if (patch.landscape !== undefined) devices.setLandscape(patch.landscape);
-    if (patch.throttle) devices.setThrottle(patch.throttle);
-    if (patch.media) devices.setMedia(patch.media);
-    if (patch.offline !== undefined) devices.setOffline(patch.offline);
-    if (patch.mocks) devices.setMocks(patch.mocks);
-    if (patch.region || patch.regionPerDevice) devices.setRegion(next.region, next.regionPerDevice);
-    if (patch.textSize) devices.setText(patch.textSize);
-    if (patch.keyboard !== undefined) devices.setKeyboard(patch.keyboard);
+    // The tools changed: by hand, or because another project (with its own tools) is now active.
+    applyTools(before, next);
     if (patch.reviewPublicUrl !== undefined) emit({ type: 'review', state: review.state() });
     if (patch.openIds || patch.projects) watchOpenProjects();
     emit({ type: 'settings', settings: next });

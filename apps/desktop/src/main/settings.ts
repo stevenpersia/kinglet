@@ -1,7 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { app } from 'electron';
-import { migrateSettings } from '../shared/projects';
+import { migrateSettings, PROJECT_TOOL_KEYS, withProjectTools } from '../shared/projects';
 import type { Settings } from '../shared/types';
 import { DEFAULT_ACTIVE, PRESETS } from './presets';
 
@@ -56,7 +56,9 @@ export class SettingsStore {
   }
 
   update(patch: Partial<Settings>): Settings {
-    this.value = { ...this.value, ...patch };
+    // Tools follow the project: switching projects swaps them, changing one is filed under the project.
+    const defaults = Object.fromEntries(PROJECT_TOOL_KEYS.map((k) => [k, DEFAULTS[k]]));
+    this.value = { ...this.value, ...withProjectTools(this.value, patch, defaults) };
     if (this.timer) clearTimeout(this.timer);
     this.timer = setTimeout(() => this.flush(), 300);
     return this.value;

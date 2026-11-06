@@ -234,11 +234,12 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     await devices.navigate('http://localhost:5173/');
     await settle(2500);
     await shot('09-appareils');
-    // Checks opens as a panel next to the devices, from the left bar.
+    // Checks is a page of its own, from the left bar; then back to the devices.
     await win.webContents.executeJavaScript(`[...document.querySelectorAll('nav button')].find((b) => (b.getAttribute('aria-label') || b.textContent).includes('Checks'))?.click()`);
     await settle(1200);
-    await shot('10-panneau-checks');
-    await win.webContents.executeJavaScript(`[...document.querySelectorAll('nav button')].find((b) => (b.getAttribute('aria-label') || b.textContent).includes('Checks'))?.click()`);
+    await shot('10-page-checks');
+    await win.webContents.executeJavaScript(`[...document.querySelectorAll('nav button')].find((b) => (b.getAttribute('aria-label') || b.textContent) === 'Devices')?.click()`);
+    await settle(600);
 
     // ---- Phase 3 ----
     // 13. Share previews: 7 platforms, each fetched by its own bot, and a fix for the detected framework

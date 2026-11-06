@@ -5,6 +5,7 @@ import { Palette } from './components/Palette';
 import { PhoneDialog } from './components/PhoneDialog';
 import { ChecksPage } from './components/Sections';
 import { SecurityPage } from './components/SecurityPage';
+import { PagePage } from './components/PagePage';
 import { ComparePage, DeploymentsPage } from './components/VercelPages';
 import { SettingsPage } from './components/SettingsPage';
 import { SharePage } from './components/SharePage';
@@ -23,7 +24,7 @@ import { api, claudeShown, useStore } from './store';
 /** Read tags and run the checks after a load: always, or only when something on screen shows them. */
 function wantsAnalysis() {
   const s = useStore.getState();
-  return s.settings.autoAnalyze || (s.section === 'apercu' && !!s.panel) || s.section === 'checks';
+  return s.settings.autoAnalyze || s.section === 'checks' || s.section === 'page';
 }
 
 export function App() {
@@ -171,6 +172,8 @@ export function App() {
           <ChecksPage />
         ) : section === 'securite' ? (
           <SecurityPage />
+        ) : section === 'page' ? (
+          <PagePage />
         ) : section === 'reglages' ? (
           <SettingsPage />
         ) : section === 'deploiements' ? (
