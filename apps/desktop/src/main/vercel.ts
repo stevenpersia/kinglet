@@ -161,6 +161,32 @@ export class VercelService {
     this.timer = null;
   }
 
+  /**
+   * A new Vercel project for a GitHub repository, its first production deployment started, and the
+   * folder linked to it (.vercel/project.json, as `vercel link` writes it).
+   */
+  async createFromGitHub(opts: { teamId: string | null; name: string; framework: string | null; repo: string; repoId: number; ref: string; folder: string | null }): Promise<{ project: VercelTeamProject; deployment: VercelDeployment | null; deployError: string | null }> {
+    const client = this.client(opts.teamId);
+    const created = await client.createProject({ name: opts.name, framework: opts.framework, repo: opts.repo });
+    let deployment: VercelDeployment | null = null;
+    let deployError: string | null = null;
+    try {
+      deployment = await client.deployFromGit({ projectName: created.name, projectId: created.id, repoId: opts.repoId, ref: opts.ref });
+    } catch (e) {
+      // The project exists: the next push deploys it anyway.
+      deployError = (e as Error).message;
+    }
+    if (opts.folder) {
+      const file = join(opts.folder, '.vercel', 'project.json');
+      mkdirSync(dirname(file), { recursive: true });
+      writeFileSync(file, JSON.stringify({ projectId: created.id, orgId: opts.teamId ?? this.state.user?.id ?? null }));
+    }
+    const project: VercelTeamProject = { ...created, teamId: opts.teamId };
+    this.update({ projects: [...this.state.projects.filter((p) => p.id !== created.id), project].sort((a, b) => a.name.localeCompare(b.name)) });
+    if (deployment) this.update({ deployments: { ...this.state.deployments, [created.id]: [deployment] } });
+    return { project, deployment, deployError };
+  }
+
   /** Create a "Protection Bypass for Automation" secret on a project (explicit user action). */
   async generateBypass(projectId: string) {
     const current = this.state.projects.find((p) => p.id === projectId);

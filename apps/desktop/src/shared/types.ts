@@ -50,6 +50,10 @@ export interface Project {
   folder: string | null;
   /** Last page shown, restored when the tab is opened again. */
   lastUrl: string | null;
+  /** GitHub repository ("owner/name") Kinglet created for this project. */
+  githubRepo?: string | null;
+  /** Starter the project was created from in Kinglet (Vercel framework preset). */
+  template?: TemplateId | null;
   /** The site's favicon (data URL), seen the last time the project was shown. */
   favicon?: string | null;
   /** Devices of this project, when the settings keep one list per project. */
@@ -432,7 +436,37 @@ export type PreviewEvent =
   | { type: 'taborder'; devices: Record<string, TabOrderInfo> }
   | { type: 'history'; projectId: string; entries: HistoryEntry[] }
   | { type: 'feedback'; projectId: string; pins: FeedbackPin[] }
-  | { type: 'review'; state: ReviewState };
+  | { type: 'review'; state: ReviewState }
+  | { type: 'dev'; projectId: string; state: DevServerState };
+
+/** Starters for a new project, written by Kinglet. */
+export type TemplateId = 'vite-react' | 'next' | 'static';
+
+/** The dev server Kinglet runs in a project's folder. */
+export interface DevServerState {
+  status: 'installing' | 'starting' | 'running' | 'stopped' | 'error';
+  /** What runs: "npm run dev"… */
+  command: string;
+  /** The address it answers on, once it does. */
+  url: string | null;
+  /** Recent output (install, then the server). */
+  output: string;
+  error: string | null;
+}
+
+/** A project to create from scratch. */
+export interface NewProjectRequest {
+  name: string;
+  template: TemplateId;
+  /** Folder that will hold the project's folder. */
+  parent: string;
+}
+
+/** Publishing a project: its GitHub repository, then its Vercel project. */
+export interface PublishResult {
+  repo: { fullName: string; htmlUrl: string } | null;
+  vercel: { projectId: string; teamId: string | null; url: string | null; deploymentUrl: string | null; inspectorUrl: string | null; deployError: string | null } | null;
+}
 
 /** One line of a diff, with its numbers in the old and new file. */
 export interface DiffLine {
@@ -478,6 +512,9 @@ export interface GitHubState {
   user: { login: string; name: string | null } | null;
   error: string | null;
 }
+
+/** Accounts a new repository can go in: the user, then their organizations. */
+export type GitHubOwners = string[];
 
 /** A local dev server found on a usual port, and its folder when the process can be read. */
 export interface LocalServer {
@@ -612,6 +649,23 @@ export interface KingletApi {
     clone(gitUrl: string): Promise<{ folder: string } | null>;
     /** Uncommitted changes in the project's folder (null without a folder). */
     changes(projectId: string): Promise<WorkingChanges | null>;
+    /** Where new projects go by default (~/dev, ~/code… when one exists). */
+    defaultParent(): Promise<string>;
+    /** Folder picker for the place of a new project; null when cancelled. */
+    pickParent(current: string | null): Promise<string | null>;
+    /** Create the project's folder from a template, with a first commit; opens it in a tab. */
+    create(req: NewProjectRequest): Promise<Project>;
+    /** Create the project's GitHub repository and push its folder there. */
+    publishGitHub(projectId: string, opts: { name: string; owner: string | null; private: boolean }): Promise<{ fullName: string; htmlUrl: string }>;
+    /** Create the project's Vercel project from its GitHub repository and start the first deployment. */
+    publishVercel(projectId: string, opts: { name: string; teamId: string | null }): Promise<NonNullable<PublishResult['vercel']>>;
+  };
+  dev: {
+    /** The dev servers Kinglet runs, per project id. */
+    all(): Promise<Record<string, DevServerState>>;
+    /** Install the dependencies if needed, then run the project's dev script. */
+    start(projectId: string): Promise<DevServerState>;
+    stop(projectId: string): Promise<void>;
   };
   openExternal(url: string): void;
   update: {
@@ -648,6 +702,8 @@ export interface KingletApi {
     /** Pull request of each branch of a repository ("owner/name"), by branch. */
     pullRequests(repo: string, branches: string[]): Promise<Record<string, PullRequest>>;
     connect(token: string): Promise<GitHubState>;
+    /** Accounts a new repository can go in: the user, then their organizations. */
+    owners(): Promise<GitHubOwners>;
     disconnect(): Promise<GitHubState>;
   };
   chat: {

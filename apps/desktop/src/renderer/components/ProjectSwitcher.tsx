@@ -10,7 +10,8 @@ import { ProjectBadge, StatusDot } from './TitleBar';
 type Row =
   | { kind: 'open'; key: string; project: Project; index: number }
   | { kind: 'vercel'; key: string; vp: VercelTeamProject; known: Project | null }
-  | { kind: 'address'; key: string; url: string };
+  | { kind: 'address'; key: string; url: string }
+  | { kind: 'new'; key: string };
 
 const looksLikeAddress = (q: string) => /^(https?:\/\/|localhost|127\.|\d{2,5}$|[\w-]+\.[a-z]{2,}(\/|$))/i.test(q.trim());
 const toUrl = (q: string) => {
@@ -65,7 +66,8 @@ export function ProjectSwitcher() {
       .filter((p) => !p.vercelProjectId && !settings.openIds.includes(p.id) && match(p.name, p.localOrigin, p.folder))
       .map((project): Row => ({ kind: 'open', key: `c-${project.id}`, project, index: -1 }));
     const address: Row[] = q && looksLikeAddress(q) ? [{ kind: 'address', key: 'addr', url: toUrl(query) }] : [];
-    return [...address, ...open, ...others, ...closedLocal];
+    const create: Row[] = !q || match(t('New project', 'Nouveau projet'), 'new', 'nouveau', 'create', 'créer') ? [{ kind: 'new', key: 'new' }] : [];
+    return [...address, ...open, ...others, ...closedLocal, ...create];
   }, [query, team, settings, vercel]);
 
   const selected = Math.min(index, Math.max(0, rows.length - 1));
@@ -80,6 +82,7 @@ export function ProjectSwitcher() {
     close();
     if (row.kind === 'open') void s.selectProject(row.project.id);
     else if (row.kind === 'vercel') void s.openVercelProject(row.vp);
+    else if (row.kind === 'new') useStore.setState({ newProject: 'create' });
     else void s.openAddress(row.url);
   };
 
@@ -87,10 +90,10 @@ export function ProjectSwitcher() {
   const sectionStart = (i: number) => {
     const r = rows[i]!;
     const prev = rows[i - 1];
-    const label = (x: Row) => (x.kind === 'address' ? 'Adresse' : x.kind === 'vercel' ? 'vercel' : x.key.startsWith('o-') ? 'open' : 'closed');
+    const label = (x: Row) => (x.kind === 'address' ? 'Adresse' : x.kind === 'new' ? 'new' : x.kind === 'vercel' ? 'vercel' : x.key.startsWith('o-') ? 'open' : 'closed');
     if (prev && label(prev) === label(r)) return null;
     const teamName = team === 'all' ? null : teams.find((t) => t.id === team)?.name;
-    return { Adresse: t('Open an address', 'Ouvrir une adresse'), open: t('Open', 'Ouverts'), vercel: t('Other Vercel projects', 'Autres projets Vercel') + (teamName ? ` · ${teamName}` : ''), closed: t('Local sites', 'Sites locaux') }[label(r)];
+    return { Adresse: t('Open an address', 'Ouvrir une adresse'), open: t('Open', 'Ouverts'), vercel: t('Other Vercel projects', 'Autres projets Vercel') + (teamName ? ` · ${teamName}` : ''), closed: t('Local sites', 'Sites locaux'), new: t('From scratch', 'De zéro') }[label(r)];
   };
 
   const row = (r: Row, i: number) => {
@@ -102,6 +105,16 @@ export function ProjectSwitcher() {
           <span className="flex size-[22px] shrink-0 items-center justify-center rounded-md bg-raised text-faint shadow-[inset_0_0_0_1px_#2a2a2f]">↗</span>
           <span className="min-w-0 flex-1 truncate font-mono text-xs">{r.url}</span>
           <span className="text-[11.5px] text-faint">{t('new tab', 'nouvel onglet')}</span>
+        </div>
+      );
+    if (r.kind === 'new')
+      return (
+        <div className={base}>
+          <span className="flex size-[22px] shrink-0 items-center justify-center rounded-md bg-raised text-faint shadow-[inset_0_0_0_1px_#2a2a2f]">+</span>
+          <span className="flex min-w-0 flex-1 flex-col">
+            <span className="font-medium text-fg">{t('New project…', 'Nouveau projet…')}</span>
+            <span className="truncate text-[11.5px] text-faint">{t('A starter, its dev server and Claude, then GitHub and Vercel', 'Un projet de départ, son serveur de dev et Claude, puis GitHub et Vercel')}</span>
+          </span>
         </div>
       );
     if (r.kind === 'open') {

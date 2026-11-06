@@ -6,6 +6,7 @@ Voir son site sur tous les écrans (iPhone, Android, iPad, desktop), en local, e
 
 ## Ce que fait Kinglet
 
+- **Nouveau projet** : un site de zéro (React + Vite, Next.js ou statique), son serveur de dev et Claude dans l'app, puis son dépôt GitHub et son projet Vercel en un clic. Voir [Nouveau projet de zéro](#nouveau-projet-de-zéro).
 - **Aperçu** : ton site sur 10 appareils émulés (largeur, densité, tactile, user agent), en portrait ou paysage. Le scroll et la navigation sont synchronisés entre appareils, et chacun a ses DevTools.
 - **Partage** : l'aperçu de ton lien sur WhatsApp, iMessage, Slack, Discord, Telegram, LinkedIn, X, Facebook, Bluesky et Google.
   - Une plateforme à la fois, en taille réelle et en situation (conversation WhatsApp, iMessage ou Telegram, message Slack ou Discord, post LinkedIn, X, Facebook ou Bluesky, résultats Google), avec ses problèmes à côté. Flèches haut et bas pour passer d'une plateforme à l'autre.
@@ -101,6 +102,17 @@ Les raccourcis marchent aussi quand le focus est dans un appareil. Le bouton `�
 3. Kinglet cherche le dossier du projet sur ton disque (dans `~/dev`, `~/code`, `~/projects`…, grâce au `.vercel/project.json` écrit par `vercel link`). Sinon, choisis-le dans **Projet actif** : il sert au suivi de Claude Code.
 
 **Previews protégées.** Si le projet a un secret « Protection Bypass for Automation », Kinglet l'utilise pour ouvrir et lire les previews. Sinon, un bouton propose d'en créer un : c'est une modification du projet Vercel, faite uniquement sur ta demande. La variable `KINGLET_VERCEL_BYPASS=<secret>` reste prioritaire si tu préfères ne pas connecter ton compte. Le secret est envoyé dans l'en-tête `x-vercel-protection-bypass` aux domaines `*.vercel.app`.
+
+### Nouveau projet de zéro
+
+« Créer un projet » (écran d'accueil, `Ctrl P`, page Tous les projets ou palette `Ctrl K`) démarre un site depuis rien, sans quitter Kinglet :
+
+1. **Projet de départ** : React + Vite (TypeScript), Next.js (App Router) ou site statique (HTML, CSS, JS servis par Vite). Kinglet écrit les fichiers lui-même (aucun générateur à télécharger, aucune question dans un terminal), avec un `CLAUDE.md` qui dit à Claude comment lancer, construire et déployer le projet, puis fait `git init` et un premier commit sur `main`. Sans identité git sur l'ordinateur, ce commit est signé avec l'adresse `noreply` du compte GitHub connecté. Le dossier va dans `~/dev`, `~/code`… (le premier qui existe), ou où tu veux.
+2. **Développement** : le projet s'ouvre dans un onglet, Claude démarre dans son dossier (colonne de gauche), et Kinglet lance son serveur de dev : `npm install` si `node_modules` manque, puis `npm run dev` (pnpm, yarn ou bun selon le fichier de verrouillage), dans ton shell de connexion pour trouver le `node` de nvm, fnm, asdf… Le port est choisi libre au départ. La sortie s'affiche pendant l'installation, le site apparaît sur les appareils dès qu'il répond, et une erreur propose « Demander à Claude ». La barre d'état lance ou arrête le serveur de dev de n'importe quel projet qui a un dossier ; il s'arrête avec Kinglet.
+3. **GitHub** : crée le dépôt (privé par défaut, dans ton compte ou une de tes organisations) et y pousse le projet. Le jeton GitHub de Kinglet sert pour ce push seulement, il n'est jamais écrit dans `.git/config` : pour les push suivants, il faut ton propre accès git (`gh auth login`, clé SSH). Le jeton doit avoir **Administration** et **Contents** en lecture et écriture (jeton fin, sur tous les dépôts) ou le scope `repo` (jeton classique).
+4. **Vercel** : crée le projet Vercel relié au dépôt (dans l'équipe choisie), lance le premier déploiement de production, et relie le dossier (`.vercel/project.json`, comme `vercel link`). Ensuite, chaque push sur `main` part en production et chaque branche a sa preview, suivies par Kinglet. Il faut l'app GitHub de Vercel installée sur le compte du dépôt.
+
+Un projet qui n'existe encore que sur ton ordinateur se publie de la même façon : « Publier (GitHub, Vercel) » sur sa carte dans Tous les projets, ou « Publier ce projet sur GitHub et Vercel… » dans la palette.
 
 ## Sur mon téléphone
 

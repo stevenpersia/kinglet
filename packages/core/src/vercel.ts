@@ -122,7 +122,7 @@ export class VercelClient {
     this.fetchImpl = opts.fetchImpl ?? fetch;
   }
 
-  private async req<T>(method: 'GET' | 'PATCH', path: string, query: Record<string, string | number | undefined> = {}, body?: unknown): Promise<T> {
+  private async req<T>(method: 'GET' | 'PATCH' | 'POST', path: string, query: Record<string, string | number | undefined> = {}, body?: unknown): Promise<T> {
     const url = new URL(this.base + path);
     for (const [k, v] of Object.entries({ ...query, teamId: this.teamId ?? undefined })) if (v !== undefined) url.searchParams.set(k, String(v));
     const res = await this.fetchImpl(url, {
@@ -162,6 +162,34 @@ export class VercelClient {
   async deployments(projectId: string, limit = 30): Promise<VercelDeployment[]> {
     const { deployments } = await this.req<{ deployments: Json[] }>('GET', '/v6/deployments', { projectId, limit });
     return (deployments ?? []).map(parseDeployment).sort((a, b) => b.createdAt - a.createdAt);
+  }
+
+  /**
+   * Create a project linked to a GitHub repository (owner/name): Vercel then deploys every push.
+   * Needs Vercel's GitHub app to have access to the repository.
+   */
+  async createProject(opts: { name: string; framework?: string | null; repo: string }): Promise<VercelProject> {
+    try {
+      const p = await this.req<Json>('POST', '/v11/projects', {}, { name: opts.name, framework: opts.framework ?? null, gitRepository: { type: 'github', repo: opts.repo } });
+      return parseProject(p);
+    } catch (e) {
+      if (e instanceof VercelError && e.status === 400 && /install|integration|git ?hub|repository/i.test(e.message))
+        throw new VercelError(
+          e.status,
+          t(
+            `Vercel can’t see ${opts.repo}. Install Vercel’s GitHub app on this account (vercel.com → Settings → Git, or github.com/apps/vercel), give it access to the repository, then try again. (${e.message})`,
+            `Vercel ne voit pas ${opts.repo}. Installe l’app GitHub de Vercel sur ce compte (vercel.com → Settings → Git, ou github.com/apps/vercel), donne-lui accès au dépôt, puis réessaie. (${e.message})`,
+          ),
+        );
+      if (e instanceof VercelError && e.status === 409) throw new VercelError(e.status, t(`A Vercel project named “${opts.name}” already exists.`, `Un projet Vercel « ${opts.name} » existe déjà.`));
+      throw e;
+    }
+  }
+
+  /** Deploy a branch of the project's GitHub repository now (the pushes after it deploy by themselves). */
+  async deployFromGit(opts: { projectName: string; projectId: string; repoId: number | string; ref: string; production?: boolean }): Promise<VercelDeployment> {
+    const d = await this.req<Json>('POST', '/v13/deployments', {}, { name: opts.projectName, project: opts.projectId, ...(opts.production === false ? {} : { target: 'production' }), gitSource: { type: 'github', repoId: String(opts.repoId), ref: opts.ref } });
+    return parseDeployment(d);
   }
 
   /**

@@ -10,6 +10,7 @@ import { ConsoleTab } from './Console';
 import { OldProdBanner } from './EnvSwitch';
 import { Icon } from './Icons';
 import { Welcome } from './Welcome';
+import { DevServerScreen } from './DevServer';
 import { InspectBar } from './InspectBar';
 import { MocksDialog } from './MocksDialog';
 import type { Viewport } from '../lib/layout';
@@ -713,6 +714,8 @@ function PointingBar() {
 
 export function Stage() {
   const state = useStore();
+  const dev = state.settings.activeId ? state.dev[state.settings.activeId] : undefined;
+  if (dev && (dev.status === 'installing' || dev.status === 'starting' || dev.status === 'error')) return <DevServerScreen />;
   if (!state.url && state.status === 'idle') return <Welcome />;
   return <Devices />;
 }

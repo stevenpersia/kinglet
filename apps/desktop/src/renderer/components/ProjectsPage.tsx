@@ -120,9 +120,22 @@ function Card({ project, index, st }: { project: Project; index: number; st: Pro
               </button>
             </>
           ) : (
-            <button className={btn(true)} onClick={open}>
-              {active ? t('Go back', 'Revenir') : t('Open', 'Ouvrir')}
-            </button>
+            <>
+              <button className={btn(true)} onClick={open}>
+                {active ? t('Go back', 'Revenir') : t('Open', 'Ouvrir')}
+              </button>
+              {project.folder && !vp && (
+                <button
+                  className={btn()}
+                  onClick={async () => {
+                    await s.selectProject(project.id);
+                    useStore.setState({ newProject: 'publish' });
+                  }}
+                >
+                  {project.githubRepo ? t('Deploy on Vercel', 'Déployer sur Vercel') : t('Publish (GitHub, Vercel)', 'Publier (GitHub, Vercel)')}
+                </button>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -208,6 +221,9 @@ export function ProjectsPage() {
         )}
         <button onClick={() => useStore.setState({ switcherOpen: true })} className="flex h-11 items-center justify-center gap-2 rounded-xl border border-dashed border-[#2a2a2f] text-muted hover:border-line-strong hover:text-fg">
           + {t('Open a project', 'Ouvrir un projet')} <span className="font-mono text-[11px] text-ghost">Ctrl P</span>
+        </button>
+        <button onClick={() => useStore.setState({ newProject: 'create' })} className="-mt-1.5 flex h-11 items-center justify-center gap-2 rounded-xl border border-dashed border-[#2a2a2f] text-muted hover:border-line-strong hover:text-fg">
+          + {t('New project from scratch', 'Nouveau projet de zéro')}
         </button>
       </main>
       <aside aria-label={t('Claude activity', 'Activité de Claude')} className="flex w-[340px] shrink-0 flex-col gap-3.5 overflow-y-auto border-l border-line-soft bg-chrome px-[18px] py-[22px]">
