@@ -93,6 +93,7 @@ function License() {
             {busy ? t('Checking…', 'Vérification…') : t('Activate', 'Activer')}
           </button>
           <p className="m-0 text-center text-xs text-faint">{t('Activating needs the internet once. Kinglet then works offline for up to 14 days at a time.', 'L’activation demande internet une fois. Kinglet marche ensuite hors ligne jusqu’à 14 jours d’affilée.')}</p>
+          <p className="m-0 text-center text-xs text-ghost">{t('Activating means you accept the license terms.', 'Activer, c’est accepter les conditions de licence.')}</p>
         </form>
       )}
 
@@ -109,7 +110,15 @@ function License() {
           </button>
         </div>
       )}
-      <span className="absolute bottom-3 font-mono text-[10px] text-ghost">Kinglet {version}</span>
+      <span className="absolute bottom-3 flex items-center gap-3 font-mono text-[10px] text-ghost">
+        Kinglet {version}
+        <button onClick={() => api().open('terms')} className="underline-offset-2 hover:text-muted hover:underline">
+          {t('Terms', 'Conditions')}
+        </button>
+        <button onClick={() => api().open('privacy')} className="underline-offset-2 hover:text-muted hover:underline">
+          {t('Privacy', 'Confidentialité')}
+        </button>
+      </span>
     </main>
   );
 }

@@ -1,4 +1,5 @@
-import { Icon, Mark } from '../../desktop/src/renderer/components/Icons';
+import { Icon } from '../../desktop/src/renderer/components/Icons';
+import { PageShell } from './components/Shell';
 import { DOWNLOAD_URL, PORTAL_URL } from './config';
 
 /**
@@ -25,21 +26,13 @@ const button = 'inline-flex h-10 w-fit items-center gap-2 rounded-[10px] px-4 te
 
 export function Thanks() {
   return (
-    <div className="flex min-h-screen flex-col">
-      <header className="border-b border-[#141418]">
-        <div className="mx-auto flex max-w-[1240px] items-center px-4 py-3 sm:px-7">
-          <a href="/" className="flex items-center gap-2.5 text-fg no-underline" aria-label="Kinglet, home">
-            <Mark size={24} />
-            <img src="/wordmark.svg" alt="" width="68" height="21" className="h-[21px] w-auto" />
-          </a>
-        </div>
-      </header>
+    <PageShell>
       <main id="main" className="mx-auto w-full max-w-[680px] flex-1 px-4 pt-20 pb-24 sm:px-6">
         <span className="flex size-11 items-center justify-center rounded-full bg-[rgba(125,211,168,0.12)] text-ok">
           <Icon name="check" size={20} />
         </span>
         <h1 className="m-0 mt-6 text-[clamp(32px,5vw,48px)] leading-[1.02] font-semibold tracking-[-0.045em]">Thanks, Kinglet is yours.</h1>
-        <p className="m-0 mt-4 text-base leading-relaxed text-muted">Three steps and you’re running. Your license works on up to 3 computers, and every update is included.</p>
+        <p className="m-0 mt-4 text-base leading-relaxed text-muted">Three steps and you’re running. Your license works on up to 3 computers, and every update is included (see the <a href="/terms/" className="text-fg underline underline-offset-2">Terms</a>).</p>
 
         <ol className="m-0 mt-10 list-none rounded-[18px] border border-line-soft bg-[linear-gradient(180deg,#111114,#0b0b0e)] px-6 py-2 sm:px-8">
           <Step n={1} title="Get your license key">
@@ -78,6 +71,6 @@ export function Thanks() {
           </a>
         </p>
       </main>
-    </div>
+    </PageShell>
   );
 }

@@ -56,3 +56,25 @@ it('has a thanks page for after paying, out of search results and without JavaSc
   expect(html).not.toMatch(/<script/);
   expect(html).toMatch(/<link rel="stylesheet"/);
 });
+
+it('has the legal pages, linked from every page, without JavaScript', async () => {
+  for (const [path, title] of [['legal', 'Legal notice'], ['terms', 'Terms of sale and license'], ['privacy', 'Privacy policy']]) {
+    const res = await fetch(`${site}/${path}/`);
+    expect(res.status).toBe(200);
+    const html = await res.text();
+    expect(html).toContain(`<title>${title} — Kinglet</title>`);
+    expect(html).toContain(`<link rel="canonical" href="${site}/${path}/">`);
+    expect(html).not.toMatch(/<script/);
+  }
+  const terms = (await (await fetch(`${site}/terms/`)).text()).replaceAll('<!-- -->', '');
+  expect(terms).toContain('$49, paid once');
+  expect(terms).toContain('up to 3 computers');
+  expect(terms).toContain('14 days');
+  for (const page of ['/', '/thanks/', '/privacy/']) {
+    const html = await (await fetch(`${site}${page}`)).text();
+    for (const link of ['/terms/', '/privacy/', '/legal/']) expect(html, `${page} links to ${link}`).toContain(`href="${link}"`);
+  }
+  const sitemap = await (await fetch(`${site}/sitemap.xml`)).text();
+  expect(sitemap).toContain(`${site}/terms/`);
+  expect(sitemap).not.toContain('/thanks');
+});

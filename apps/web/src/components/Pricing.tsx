@@ -1,5 +1,6 @@
 import { Icon } from '../../../desktop/src/renderer/components/Icons';
 import { DOWNLOAD_URL, LAUNCH_OFFER, LAUNCHED, PRICE } from '../config';
+import { REFUND_DAYS } from '../publisher';
 import { Reveal } from './ui';
 import { GetKinglet } from './Get';
 
@@ -63,7 +64,22 @@ export function Pricing() {
                 )}
               </p>
               <GetKinglet align="stretch" />
-              <p className="m-0 text-xs text-ghost">{LAUNCHED ? 'Secure checkout by Polar. VAT included where it applies.' : 'One email at launch. No spam, unsubscribe in one click.'}</p>
+              <p className="m-0 text-xs text-ghost">{LAUNCHED ? (
+                  <>
+                    Secure checkout by Polar, VAT included where it applies. By buying you accept the{' '}
+                    <a href="/terms/" className="text-faint underline underline-offset-2 hover:text-fg">
+                      Terms
+                    </a>{' '}
+                    and ask for immediate delivery, which ends the EU withdrawal right; the {REFUND_DAYS}-day refund still applies.
+                  </>
+                ) : (
+                  <>
+                    One email at launch. No spam, unsubscribe in one click.{' '}
+                    <a href="/privacy/" className="text-ghost underline underline-offset-2 hover:text-fg">
+                      Privacy
+                    </a>
+                  </>
+                )}</p>
             </div>
             <ul className="m-0 flex min-w-0 flex-[1_1_300px] list-none flex-col gap-3 p-0">
               {INCLUDED.map((f) => (
@@ -88,6 +104,7 @@ const FAQ: [string, string][] = [
     : ['When can I get it?', `Soon. Leave your email in Pricing: you’ll get one email at launch, with ${LAUNCH_OFFER} for people on the list.`],
   ...(LAUNCHED ? ([['Does it work offline?', 'Yes. Activating needs the internet once; after that Kinglet checks the license now and then and keeps working offline for up to 14 days at a time.']] as [string, string][]) : []),
   ['Is it a subscription?', `No. You pay ${PRICE.label} once and keep Kinglet. Updates install themselves.`],
+  ['Can I get a refund?', `Yes, within ${REFUND_DAYS} days of buying, no questions asked: from Polar’s customer portal or by email. See the Terms.`],
   ['Which systems does it run on?', 'Linux today: AppImage for any distribution, and a pacman package for Arch and CachyOS.'],
   ['Do I need Claude Code?', 'No. Devices, checks, Open Graph previews and Vercel work on their own. With Claude Code installed, Kinglet opens it in your project with the MCP server already plugged in.'],
   ['Do I need Vercel or GitHub?', 'No. Any local address works (localhost:3000, 5173…). Connect Vercel and GitHub for previews, production, pull requests and publishing.'],

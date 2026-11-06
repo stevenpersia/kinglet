@@ -5,6 +5,7 @@ import { Faq, Pricing } from './components/Pricing';
 import { AiWorkflow, Checks, DeviceLab, Mcp, Ship } from './components/Sections';
 import { Reveal } from './components/ui';
 import { GetKinglet } from './components/Get';
+import { SiteFooter } from './components/Shell';
 import { LAUNCHED } from './config';
 
 function Nav() {
@@ -95,20 +96,7 @@ export function App() {
         <Faq />
         <FinalCta />
       </main>
-      <footer className="mx-auto mt-32 flex max-w-[1200px] flex-wrap justify-between gap-6 border-t border-[#141418] px-4 pt-7 pb-10 text-[13px] text-ghost sm:px-6">
-        <span className="flex items-center gap-2">
-          <Mark size={16} />
-          Kinglet · made for sites built with Claude
-        </span>
-        <span className="flex gap-5">
-          <a href="#faq" className="text-ghost no-underline hover:text-fg">
-            FAQ
-          </a>
-          <a href="#waitlist" className="text-ghost no-underline hover:text-fg">
-            {LAUNCHED ? 'Buy Kinglet' : 'Join the list'}
-          </a>
-        </span>
-      </footer>
+      <SiteFooter links={[['#faq', 'FAQ'], ['#waitlist', LAUNCHED ? 'Buy Kinglet' : 'Join the list']]} />
     </MotionConfig>
   );
 }

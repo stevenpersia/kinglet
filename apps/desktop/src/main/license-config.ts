@@ -14,3 +14,4 @@ export const POLAR: { organizationId: string | null; benefitId: string | null } 
 export const BUY_URL = 'https://getkinglet.com/#pricing';
 /** Polar's customer portal, where buyers find their key again from their email (polar.sh/<organization slug>/portal). */
 export const ORDERS_URL = 'https://polar.sh/kinglet/portal';
+export { PRIVACY_URL, TERMS_URL } from '../shared/legal';
