@@ -113,7 +113,7 @@ export function ProjectSwitcher() {
           <span className="flex size-[22px] shrink-0 items-center justify-center rounded-md bg-raised text-faint shadow-[inset_0_0_0_1px_#2a2a2f]">+</span>
           <span className="flex min-w-0 flex-1 flex-col">
             <span className="font-medium text-fg">{t('New project…', 'Nouveau projet…')}</span>
-            <span className="truncate text-[11.5px] text-faint">{t('A starter, its dev server and Claude, then GitHub and Vercel', 'Un projet de départ, son serveur de dev et Claude, puis GitHub et Vercel')}</span>
+            <span className="truncate text-[11.5px] text-faint">{t('An empty folder and Claude to choose the stack, then GitHub and Vercel', 'Un dossier vide et Claude pour choisir la stack, puis GitHub et Vercel')}</span>
           </span>
         </div>
       );

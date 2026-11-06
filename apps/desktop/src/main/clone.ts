@@ -61,8 +61,10 @@ export async function cloneRepo(url: string, parent: string, githubToken: string
  * first; then the token connected in Kinglet, for this command only (never written in .git/config).
  */
 export async function pushToGitHub(folder: string, cloneUrl: string, githubToken: string | null): Promise<string> {
-  const branch = (await git(['rev-parse', '--abbrev-ref', 'HEAD'], folder).catch(() => null))?.stdout.trim() || 'main';
-  if (branch === 'HEAD') throw new Error(t('This folder has no commit yet.', 'Ce dossier n’a encore aucun commit.'));
+  const hasCommit = await git(['rev-parse', '--verify', '-q', 'HEAD'], folder).then(() => true, () => false);
+  if (!hasCommit) throw new Error(t('This folder has no commit yet: ask Claude to commit the project, then publish it.', 'Ce dossier n’a encore aucun commit : demande à Claude de committer le projet, puis publie-le.'));
+  const branch = (await git(['rev-parse', '--abbrev-ref', 'HEAD'], folder)).stdout.trim();
+  if (branch === 'HEAD') throw new Error(t('This folder is on no branch (detached HEAD).', 'Ce dossier n’est sur aucune branche (HEAD détachée).'));
   const origin = await git(['remote', 'get-url', 'origin'], folder).then((r) => r.stdout.trim(), () => '');
   if (!origin) await git(['remote', 'add', 'origin', cloneUrl], folder);
   else if (!sameRepo(origin, cloneUrl)) throw new Error(t(`This folder already pushes to ${origin}.`, `Ce dossier pousse déjà vers ${origin}.`));

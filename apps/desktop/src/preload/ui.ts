@@ -44,6 +44,7 @@ const api: KingletApi = {
   },
   dev: {
     all: () => ipcRenderer.invoke('dev:all'),
+    canStart: (projectId) => ipcRenderer.invoke('dev:can-start', projectId),
     start: (projectId) => ipcRenderer.invoke('dev:start', projectId),
     stop: (projectId) => ipcRenderer.invoke('dev:stop', projectId),
   },

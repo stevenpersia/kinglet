@@ -52,8 +52,6 @@ export interface Project {
   lastUrl: string | null;
   /** GitHub repository ("owner/name") Kinglet created for this project. */
   githubRepo?: string | null;
-  /** Starter the project was created from in Kinglet (Vercel framework preset). */
-  template?: TemplateId | null;
   /** The site's favicon (data URL), seen the last time the project was shown. */
   favicon?: string | null;
   /** Devices of this project, when the settings keep one list per project. */
@@ -439,9 +437,6 @@ export type PreviewEvent =
   | { type: 'review'; state: ReviewState }
   | { type: 'dev'; projectId: string; state: DevServerState };
 
-/** Starters for a new project, written by Kinglet. */
-export type TemplateId = 'vite-react' | 'next' | 'static';
-
 /** The dev server Kinglet runs in a project's folder. */
 export interface DevServerState {
   status: 'installing' | 'starting' | 'running' | 'stopped' | 'error';
@@ -454,10 +449,9 @@ export interface DevServerState {
   error: string | null;
 }
 
-/** A project to create from scratch. */
+/** A project to create from scratch: an empty folder with git, the stack is chosen with Claude. */
 export interface NewProjectRequest {
   name: string;
-  template: TemplateId;
   /** Folder that will hold the project's folder. */
   parent: string;
 }
@@ -653,7 +647,7 @@ export interface KingletApi {
     defaultParent(): Promise<string>;
     /** Folder picker for the place of a new project; null when cancelled. */
     pickParent(current: string | null): Promise<string | null>;
-    /** Create the project's folder from a template, with a first commit; opens it in a tab. */
+    /** Create the project's empty folder (with git) and add the project; the renderer opens it. */
     create(req: NewProjectRequest): Promise<Project>;
     /** Create the project's GitHub repository and push its folder there. */
     publishGitHub(projectId: string, opts: { name: string; owner: string | null; private: boolean }): Promise<{ fullName: string; htmlUrl: string }>;
@@ -663,6 +657,8 @@ export interface KingletApi {
   dev: {
     /** The dev servers Kinglet runs, per project id. */
     all(): Promise<Record<string, DevServerState>>;
+    /** Whether the project's folder has a dev script to run (package.json "dev"). */
+    canStart(projectId: string): Promise<boolean>;
     /** Install the dependencies if needed, then run the project's dev script. */
     start(projectId: string): Promise<DevServerState>;
     stop(projectId: string): Promise<void>;

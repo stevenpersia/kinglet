@@ -9,11 +9,11 @@ import { HistoryStore } from './history';
 import { ReviewServer } from './review';
 import { startControlServer } from './control';
 import { mcpLaunch } from './mcp-launch';
-import { activeProject, isLocalUrl, localProjectId, openProject, patchProject, projectForFolder, projectFromUrl, visit } from '../shared/projects';
+import { activeProject, isLocalUrl, openProject, patchProject, projectForFolder, projectFromUrl, visit } from '../shared/projects';
 import { VercelService } from './vercel';
 import { defaultRoots, findVercelFolder, vercelLinkOf } from './folders';
 import { cloneRepo, pushToGitHub } from './clone';
-import { createProject, frameworkOf, githubRepoOf, pickPort, slugify, TEMPLATES } from './scaffold';
+import { createProject, frameworkOf, githubRepoOf, slugify } from './scaffold';
 import { DevServers } from './devserver';
 import { ClaudeTracker, type HookPayload } from './claude';
 import { ClaudeHooks } from './claude-hooks';
@@ -737,7 +737,7 @@ ${shots.map((sh) => `<section><header><h1>${esc(title)}</h1><span>${esc(sh.label
   ipcMain.handle('github:issue', (_e, repo: string, title: string, body: string) => github.createIssue(repo, title, body));
   ipcMain.handle('github:owners', () => github.owners());
 
-  // A new project from scratch: template, dev server, then GitHub and Vercel.
+  // A new project from scratch: an empty folder for Claude, the dev server, then GitHub and Vercel.
   const projectOf = (id: string) => {
     const p = settings.value.projects.find((x) => x.id === id);
     if (!p) throw new Error(t('Unknown project.', 'Projet inconnu.'));
@@ -765,14 +765,10 @@ ${shots.map((sh) => `<section><header><h1>${esc(title)}</h1><span>${esc(sh.label
   ipcMain.handle('projects:create', async (_e, req: NewProjectRequest): Promise<Project> => {
     const name = req.name.trim();
     if (!name) throw new Error(t('Give the project a name.', 'Donne un nom au projet.'));
-    const template = TEMPLATES[req.template];
-    if (!template) throw new Error(t('Unknown template.', 'Modèle inconnu.'));
     mkdirSync(req.parent, { recursive: true });
-    const taken = new Set(settings.value.projects.map((p) => (p.localOrigin ? Number(new URL(p.localOrigin).port) : 0)));
-    const port = await pickPort(template.defaultPort, taken);
-    const folder = await createProject({ name, parent: req.parent, template: req.template, port, identity: github.identity() });
-    const origin = `http://localhost:${port}`;
-    const project: Project = { id: localProjectId(origin), name, vercelProjectId: null, teamId: null, localOrigin: origin, folder, lastUrl: null, template: req.template, githubRepo: null };
+    const folder = await createProject({ name, parent: req.parent });
+    // No address yet: the dev server Claude sets up gives it (localOrigin follows its first answer).
+    const project: Project = { id: `new:${folder}`, name, vercelProjectId: null, teamId: null, localOrigin: null, folder, lastUrl: null, githubRepo: null };
     settings.update({ projects: [...settings.value.projects.filter((p) => p.id !== project.id), project] });
     emit({ type: 'settings', settings: settings.value });
     return project;
@@ -793,7 +789,7 @@ ${shots.map((sh) => `<section><header><h1>${esc(title)}</h1><span>${esc(sh.label
     if (!github.state.connected) throw new Error(t('Connect GitHub in Kinglet (Settings → GitHub).', 'Connecte GitHub dans Kinglet (Réglages → GitHub).'));
     const repoId = await github.repoId(repo);
     const ref = (project.folder ? await git(project.folder, ['rev-parse', '--abbrev-ref', 'HEAD']) : null) || 'main';
-    const framework = (project.template ? TEMPLATES[project.template]?.framework : null) ?? (project.folder ? frameworkOf(project.folder) : null);
+    const framework = project.folder ? frameworkOf(project.folder) : null;
     const { project: vp, deployment, deployError } = await vercel.createFromGitHub({ teamId: opts.teamId, name: slugify(opts.name), framework, repo, repoId, ref, folder: project.folder });
     settings.update(patchProject(settings.value, projectId, { vercelProjectId: vp.id, teamId: opts.teamId, githubRepo: repo }));
     emit({ type: 'settings', settings: settings.value });
@@ -801,6 +797,15 @@ ${shots.map((sh) => `<section><header><h1>${esc(title)}</h1><span>${esc(sh.label
     return { projectId: vp.id, teamId: opts.teamId, url: vp.productionUrl, deploymentUrl: deployment?.url ?? null, inspectorUrl: deployment?.inspectorUrl ?? null, deployError };
   });
   ipcMain.handle('dev:all', () => devServers.all());
+  ipcMain.handle('dev:can-start', (_e, projectId: string) => {
+    const folder = settings.value.projects.find((p) => p.id === projectId)?.folder;
+    if (!folder) return false;
+    try {
+      return typeof JSON.parse(readFileSync(join(folder, 'package.json'), 'utf8')).scripts?.dev === 'string';
+    } catch {
+      return false;
+    }
+  });
   ipcMain.handle('dev:start', (_e, projectId: string) => {
     const project = projectOf(projectId);
     if (!project.folder) throw new Error(t('Choose the project folder first.', 'Choisis d’abord le dossier du projet.'));

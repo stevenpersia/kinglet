@@ -1,7 +1,7 @@
 import { t } from '@kinglet/core';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { activeProject } from '../../shared/projects';
-import { api, useStore } from '../store';
+import { api, claudeOpen, useStore } from '../store';
 
 /** The dev server Kinglet runs for the project shown: installing, starting, or stopped on an error. */
 export function DevServerScreen() {
@@ -85,5 +85,67 @@ export function DevServerStatus() {
       <span aria-hidden="true" className={`size-1.5 rounded-full ${dot}`} />
       {on ? `${dev.command} · ${t('stop', 'arrêter')}` : t('▶ dev server', '▶ serveur de dev')}
     </button>
+  );
+}
+
+/**
+ * A new project with nothing to show yet: Claude sets it up. Once its package.json has a dev
+ * script (and Claude isn't in the middle of a task), Kinglet starts the dev server by itself.
+ */
+export function NewProjectScreen() {
+  const s = useStore();
+  const project = activeProject(s.settings);
+  const id = project?.id ?? null;
+  const claude = id ? s.claude[id]?.status : undefined;
+  const [ready, setReady] = useState(false);
+  const started = useRef<string | null>(null);
+
+  useEffect(() => {
+    api().setPreviewsVisible(false);
+    return () => api().setPreviewsVisible(useStore.getState().section === 'apercu');
+  }, []);
+  useEffect(() => {
+    if (!id) return;
+    let live = true;
+    const look = async () => {
+      const ok = await api().dev.canStart(id).catch(() => false);
+      if (live) setReady(ok);
+    };
+    void look();
+    const timer = setInterval(look, 3000);
+    return () => {
+      live = false;
+      clearInterval(timer);
+    };
+  }, [id]);
+  useEffect(() => {
+    if (!id || !ready || claude === 'working' || started.current === id || s.dev[id]) return;
+    started.current = id;
+    void api().dev.start(id).catch(() => undefined);
+  }, [id, ready, claude, s.dev]);
+  if (!project) return null;
+
+  return (
+    <main className="stage-bg flex min-w-0 flex-1 items-center justify-center overflow-y-auto p-8">
+      <div className="flex w-full max-w-[560px] flex-col items-center gap-3 text-center">
+        <h1 className="m-0 text-[20px] font-semibold tracking-[-0.02em]">{project.name}</h1>
+        <p className="m-0 text-[13px] leading-[1.55] text-muted">
+          {ready
+            ? t('The project has a dev script: Kinglet starts it as soon as Claude has finished its task.', 'Le projet a un script dev : Kinglet le lance dès que Claude a fini sa tâche.')
+            : t('Choose the stack with Claude, in the column on the left. As soon as the project has a dev script in package.json, Kinglet starts it and shows the site on every device.', 'Choisis la stack avec Claude, dans la colonne de gauche. Dès que le projet a un script dev dans package.json, Kinglet le lance et affiche le site sur tous les appareils.')}
+        </p>
+        <span className="font-mono text-[11.5px] text-faint">{project.folder?.replace(/^\/home\/[^/]+|^\/Users\/[^/]+/, '~')}</span>
+        <div className="flex gap-2 pt-1">
+          <button disabled={!ready} onClick={() => void api().dev.start(project.id)} className="h-8 rounded-ui bg-fg px-3 text-xs font-semibold text-bg disabled:opacity-40">
+            {t('Start the dev server', 'Lancer le serveur de dev')}
+          </button>
+          {!claudeOpen(s) && (
+            <button onClick={() => s.toggleClaude(true)} className="h-8 rounded-ui border border-[#2a2a2f] bg-active px-3 text-xs font-medium hover:border-line-strong">
+              {t('Show Claude', 'Afficher Claude')}
+            </button>
+          )}
+        </div>
+      </div>
+    </main>
   );
 }

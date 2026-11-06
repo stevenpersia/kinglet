@@ -1,26 +1,20 @@
 import { t } from '@kinglet/core';
 import { useEffect, useState } from 'react';
-import type { Project, TemplateId } from '../../shared/types';
+import type { Project } from '../../shared/types';
 import { activeProject } from '../../shared/projects';
 import { api, cleanError, useStore } from '../store';
-
-const TEMPLATES: { id: TemplateId; name: string; detail: () => string }[] = [
-  { id: 'vite-react', name: 'React + Vite', detail: () => t('TypeScript, one page to start. Fast to reload.', 'TypeScript, une page pour commencer. Rechargement instantané.') },
-  { id: 'next', name: 'Next.js', detail: () => t('App Router: pages, server rendering, API routes.', 'App Router : pages, rendu serveur, routes API.') },
-  { id: 'static', name: t('Static site', 'Site statique'), detail: () => t('HTML, CSS and JavaScript, served by Vite.', 'HTML, CSS et JavaScript, servis par Vite.') },
-];
 
 /** Same rule as the main process (folder, npm, GitHub and Vercel names). */
 const slugify = (name: string) =>
   name
     .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
+    .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .slice(0, 80);
 
-type StepId = 'files' | 'dev' | 'github' | 'vercel';
+type StepId = 'github' | 'vercel';
 type StepState = { status: 'pending' | 'running' | 'done' | 'error' | 'skipped'; detail?: string | null; link?: { label: string; url: string } | null };
 
 const btn = (primary = false) =>
@@ -28,10 +22,16 @@ const btn = (primary = false) =>
 const field = 'h-8 min-w-0 rounded-ui border border-line bg-bg px-2.5 text-[13px] text-fg outline-none focus:border-line-strong';
 const tilde = (p: string) => p.replace(/^\/home\/[^/]+|^\/Users\/[^/]+/, '~');
 
+/** What Claude gets in its input for a new project (the user reads it, completes it and sends it). */
+export const newProjectPrompt = (name: string, idea: string) =>
+  t(
+    `New project “${name}”, in this empty folder (git is initialized, branch main).${idea ? `\n\nWhat I want: ${idea}` : ''}\n\nHelp me choose the technical stack: ask what you need to know, suggest one (and why), and wait until I agree. Then set the project up here, with a "dev" script in package.json, and commit. Don't start the dev server yourself: Kinglet runs it (npm run dev) and shows the site on every device. Once it works, I'll publish it on GitHub and Vercel from Kinglet.`,
+    `Nouveau projet « ${name} », dans ce dossier vide (git est initialisé, branche main).${idea ? `\n\nCe que je veux : ${idea}` : ''}\n\nAide-moi à choisir la stack technique : pose-moi les questions utiles, propose-m’en une (et pourquoi), et attends mon accord. Ensuite, mets le projet en place ici, avec un script "dev" dans package.json, et fais un commit. Ne lance pas le serveur de dev toi-même : Kinglet le lance (npm run dev) et affiche le site sur tous les appareils. Une fois que ça marche, je le publierai sur GitHub et Vercel depuis Kinglet.`,
+  );
+
 /**
- * A project from scratch, in one go: the starter's files and a first commit, its dev server
- * started in Kinglet (Claude opens in its folder), then its GitHub repository and its Vercel
- * project. Also publishes a project that is only on this computer (mode "publish").
+ * "New project": an empty folder with git, opened in a tab with Claude, who chooses the stack with
+ * the user and sets it up. Mode "publish": GitHub repository and Vercel project of the active project.
  */
 export function NewProjectDialog() {
   const s = useStore();
@@ -39,7 +39,7 @@ export function NewProjectDialog() {
   const { openOverlay, closeOverlay } = s;
   const target = mode === 'publish' ? activeProject(s.settings) : null;
   const [name, setName] = useState('');
-  const [template, setTemplate] = useState<TemplateId>('vite-react');
+  const [idea, setIdea] = useState('');
   const [parent, setParent] = useState<string | null>(null);
   const [toGitHub, setToGitHub] = useState(true);
   const [owner, setOwner] = useState<string | null>(null);
@@ -65,6 +65,7 @@ export function NewProjectDialog() {
     setBusy(false);
     const current = mode === 'publish' ? activeProject(useStore.getState().settings) : null;
     setName(current ? current.name : '');
+    setIdea('');
     setToGitHub(!current?.githubRepo);
     setToVercel(!current?.vercelProjectId);
     if (mode === 'create') void api().projects.defaultParent().then(setParent);
@@ -125,27 +126,13 @@ export function NewProjectDialog() {
     try {
       if (mode === 'create') {
         if (!slug || !parent) return;
-        setSteps({ files: { status: 'running' }, dev: { status: 'pending' }, ...(toGitHub && github ? { github: { status: 'pending' } } : {}), ...(toGitHub && toVercel && github && vercel ? { vercel: { status: 'pending' } } : {}) });
-        let p: Project;
-        try {
-          p = await api().projects.create({ name: name.trim(), template, parent });
-        } catch (e) {
-          set('files', { status: 'error', detail: cleanError(e) });
-          return;
-        }
-        setProject(p);
-        set('files', { status: 'done', detail: tilde(p.folder ?? '') });
-        await useStore.getState().selectProject(p.id);
-        useStore.getState().setSection('apercu');
-        useStore.getState().toggleClaude(true);
-        set('dev', { status: 'running' });
-        try {
-          await api().dev.start(p.id);
-          set('dev', { status: 'done' });
-        } catch (e) {
-          set('dev', { status: 'error', detail: cleanError(e) });
-        }
-        if (toGitHub && github && (await publishGitHub(p)) && toVercel && vercel) await publishVercel(p);
+        const p = await api().projects.create({ name: name.trim(), parent });
+        close();
+        const st = useStore.getState();
+        await st.selectProject(p.id);
+        st.setSection('apercu');
+        st.toggleClaude(true);
+        useStore.getState().askClaude(newProjectPrompt(name.trim(), idea.trim()));
       } else if (target) {
         setProject(target);
         setSteps({ ...(toGitHub && !target.githubRepo ? { github: { status: 'pending' } } : {}), ...(toVercel && !target.vercelProjectId ? { vercel: { status: 'pending' } } : {}) });
@@ -166,37 +153,17 @@ export function NewProjectDialog() {
     try {
       if (id === 'github' && (await publishGitHub(p)) && steps?.vercel) await publishVercel(useStore.getState().settings.projects.find((x) => x.id === p.id) ?? p);
       if (id === 'vercel') await publishVercel(p);
-      if (id === 'dev') {
-        set('dev', { status: 'running' });
-        await api()
-          .dev.start(p.id)
-          .then(() => set('dev', { status: 'done' }))
-          .catch((e) => set('dev', { status: 'error', detail: cleanError(e) }));
-      }
     } finally {
       setBusy(false);
     }
   };
 
-  const dev = project ? s.dev[project.id] : undefined;
-  const devDetail = (): string | null => {
-    if (!dev) return null;
-    if (dev.status === 'installing') return t('Installing the dependencies…', 'Installation des dépendances…');
-    if (dev.status === 'starting') return t(`Starting ${dev.command}…`, `Démarrage de ${dev.command}…`);
-    if (dev.status === 'running') return t(`${dev.command} · ${dev.url ?? ''} · shown on the devices`, `${dev.command} · ${dev.url ?? ''} · affiché sur les appareils`);
-    if (dev.status === 'error') return dev.error;
-    return null;
-  };
   const LABEL: Record<StepId, string> = {
-    files: t('Project files and first commit', 'Fichiers du projet et premier commit'),
-    dev: t('Dev server, in Kinglet', 'Serveur de dev, dans Kinglet'),
     github: t('GitHub repository and push', 'Dépôt GitHub et push'),
     vercel: t('Vercel project and first deployment', 'Projet Vercel et premier déploiement'),
   };
   const stepRow = (id: StepId, st: StepState) => {
-    const live = id === 'dev' && st.status === 'done' && dev ? dev : null;
-    const status = live ? (live.status === 'running' ? 'done' : live.status === 'error' ? 'error' : 'running') : st.status;
-    const detail = live ? devDetail() : st.detail;
+    const { status, detail } = st;
     const mark = { pending: '○', running: '◌', done: '✓', error: '!', skipped: '–' }[status];
     const color = { pending: 'text-ghost', running: 'text-warn', done: 'text-ok', error: 'text-err', skipped: 'text-ghost' }[status];
     return (
@@ -213,7 +180,7 @@ export function NewProjectDialog() {
             </button>
           )}
         </span>
-        {status === 'error' && id !== 'files' && (
+        {status === 'error' && (
           <button disabled={busy} onClick={() => void retry(id)} className={btn()}>
             {t('Retry', 'Réessayer')}
           </button>
@@ -223,7 +190,6 @@ export function NewProjectDialog() {
   };
 
   const canCreate = mode === 'create' ? !!slug && !!parent : !!target?.folder && ((toGitHub && !target.githubRepo && !!github) || (toVercel && !target.vercelProjectId && !!vercel));
-  const finished = !!steps && !busy;
 
   return (
     <div className="fixed inset-0 z-50 flex justify-center bg-black/55 pt-[52px]" onMouseDown={() => !busy && close()}>
@@ -232,7 +198,7 @@ export function NewProjectDialog() {
           <h2 className="m-0 text-[15px] font-semibold">{mode === 'create' ? t('New project', 'Nouveau projet') : t(`Publish ${target?.name ?? ''}`, `Publier ${target?.name ?? ''}`)}</h2>
           <p className="m-0 text-xs leading-[1.5] text-muted">
             {mode === 'create'
-              ? t('Kinglet writes a starter, runs its dev server, opens Claude in its folder, and can put it on GitHub and Vercel right away.', 'Kinglet écrit un projet de départ, lance son serveur de dev, ouvre Claude dans son dossier, et peut le mettre sur GitHub et Vercel tout de suite.')
+              ? t('Kinglet creates the folder and opens Claude in it: you choose the stack together. Kinglet then runs the dev server and shows the site; publish it on GitHub and Vercel when it’s ready.', 'Kinglet crée le dossier et y ouvre Claude : vous choisissez la stack ensemble. Kinglet lance ensuite le serveur de dev et affiche le site ; publie-le sur GitHub et Vercel quand il est prêt.')
               : t('Create its GitHub repository, then a Vercel project that deploys every push.', 'Crée son dépôt GitHub, puis un projet Vercel qui déploie chaque push.')}
           </p>
         </header>
@@ -254,23 +220,17 @@ export function NewProjectDialog() {
                     />
                     {name && <span className="font-mono text-[11px] text-faint">{slug ? `${tilde(parent ?? '')}/${slug}` : t('Use at least one letter or digit.', 'Mets au moins une lettre ou un chiffre.')}</span>}
                   </label>
-                  <fieldset className="m-0 flex flex-col gap-1.5 border-0 p-0">
-                    <legend className="label mb-1.5">{t('Starter', 'Départ')}</legend>
-                    <div className="grid grid-cols-3 gap-2">
-                      {TEMPLATES.map((tp) => (
-                        <button
-                          key={tp.id}
-                          type="button"
-                          aria-pressed={template === tp.id}
-                          onClick={() => setTemplate(tp.id)}
-                          className={`flex flex-col gap-1 rounded-lg border px-3 py-2.5 text-left ${template === tp.id ? 'border-line-strong bg-raised shadow-[inset_0_0_0_1px_#3a3a40]' : 'border-line bg-bg hover:border-line-strong'}`}
-                        >
-                          <span className="text-[13px] font-medium">{tp.name}</span>
-                          <span className="text-[11.5px] leading-[1.4] text-muted">{tp.detail()}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </fieldset>
+                  <label className="flex flex-col gap-1.5">
+                    <span className="label">{t('The idea (optional)', 'L’idée (facultatif)')}</span>
+                    <textarea
+                      value={idea}
+                      onChange={(e) => setIdea(e.target.value)}
+                      rows={3}
+                      placeholder={t('A site for my pottery workshop: classes, booking, a gallery…', 'Un site pour mon atelier de poterie : cours, réservation, galerie…')}
+                      className="min-w-0 resize-y rounded-ui border border-line bg-bg px-2.5 py-2 text-[13px] leading-[1.45] text-fg outline-none focus:border-line-strong"
+                    />
+                    <span className="text-[11.5px] text-faint">{t('Given to Claude, who suggests a stack with you before writing anything.', 'Donnée à Claude, qui te propose une stack avant d’écrire quoi que ce soit.')}</span>
+                  </label>
                   <div className="flex flex-col gap-1.5">
                     <span className="label">{t('Location', 'Emplacement')}</span>
                     <div className="flex items-center gap-2">
@@ -285,7 +245,7 @@ export function NewProjectDialog() {
 
               {mode === 'publish' && !target?.folder && <p className="m-0 text-xs text-err">{t('This project has no folder on this computer: choose it first (Settings → Project).', 'Ce projet n’a pas de dossier sur cet ordinateur : choisis-le d’abord (Réglages → Projet).')}</p>}
 
-              {!(mode === 'publish' && target?.githubRepo) && (
+              {mode === 'publish' && !target?.githubRepo && (
                 <div className="flex flex-col gap-2 rounded-lg border border-line-soft bg-bg p-3">
                   <label className="flex items-center gap-2.5">
                     <input type="checkbox" checked={toGitHub && !!github} disabled={!github} onChange={(e) => setToGitHub(e.target.checked)} />
@@ -322,7 +282,7 @@ export function NewProjectDialog() {
                 </div>
               )}
 
-              {!(mode === 'publish' && target?.vercelProjectId) && (
+              {mode === 'publish' && !target?.vercelProjectId && (
                 <div className="flex flex-col gap-2 rounded-lg border border-line-soft bg-bg p-3">
                   <label className="flex items-center gap-2.5">
                     <input type="checkbox" checked={toVercel && !!vercel && (toGitHub || !!target?.githubRepo)} disabled={!vercel || !(toGitHub || target?.githubRepo)} onChange={(e) => setToVercel(e.target.checked)} />
@@ -357,11 +317,6 @@ export function NewProjectDialog() {
             <ol className="m-0 flex list-none flex-col gap-2 p-0">{(Object.entries(steps) as [StepId, StepState][]).map(([id, st]) => stepRow(id, st))}</ol>
           )}
           {error && <p className="m-0 text-xs text-err">{error}</p>}
-          {finished && mode === 'create' && project && (
-            <p className="m-0 text-xs leading-[1.5] text-muted">
-              {t('Claude Code runs in the project folder, in the column on the left: tell it what to build. Later pushes need your own git access to the repository (gh auth login, or an SSH key).', 'Claude Code tourne dans le dossier du projet, dans la colonne de gauche : dis-lui quoi construire. Pour les push suivants, il faut ton propre accès git au dépôt (gh auth login, ou une clé SSH).')}
-            </p>
-          )}
         </div>
 
         <footer className="flex items-center justify-end gap-2 border-t border-line-soft bg-[#0e0e10] px-5 py-3">
@@ -371,7 +326,7 @@ export function NewProjectDialog() {
                 {t('Cancel', 'Annuler')}
               </button>
               <button className={btn(true)} disabled={!canCreate || busy} onClick={() => void run()}>
-                {mode === 'create' ? t('Create the project', 'Créer le projet') : t('Publish', 'Publier')}
+                {mode === 'create' ? t('Create and open with Claude', 'Créer et ouvrir avec Claude') : t('Publish', 'Publier')}
               </button>
             </>
           ) : (
