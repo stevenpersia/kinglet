@@ -5,7 +5,7 @@ import { MCP_COMMAND } from '../config';
 import { AppWindow } from '../demo/AppWindow';
 import { Cursor, type CursorCmd } from '../demo/Cursor';
 import { type DemoState, duration, finalState, initial, SCRIPTS, type SceneId } from '../demo/scenes';
-import { WaitlistForm } from './Waitlist';
+import { GetKinglet } from './Get';
 
 const SCENES: { id: SceneId; label: string; color: string; caption: string }[] = [
   { id: 'inspect', label: 'Inspect', color: '#8ab4f8', caption: 'Turn on the inspector, hover an element: it lights up on every device. Keep it, “Ask Claude”, press Enter.' },
@@ -114,7 +114,7 @@ export function Hero() {
           Build with Claude, watch it land on 10 devices at once, point at what’s wrong and let Claude fix it. Then ship through GitHub and Vercel with 37 checks watching your back.
         </motion.p>
         <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.15 }} className="flex w-full flex-col items-center gap-3">
-          <WaitlistForm />
+          <GetKinglet />
           <button
             type="button"
             onClick={copy}

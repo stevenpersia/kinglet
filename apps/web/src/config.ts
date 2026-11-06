@@ -13,3 +13,14 @@ export const PRICE = { amount: 49, currency: '$', label: '$49' };
  */
 export const WAITLIST_API = '/api/waitlist';
 export const LAUNCH_OFFER = 'a launch discount';
+
+/**
+ * Lemon Squeezy checkout of the Kinglet product (Lemon Squeezy dashboard: Products → Kinglet → Share,
+ * e.g. https://kinglet.lemonsqueezy.com/buy/…). While it is null the site keeps the launch list;
+ * once set, every "Join the list" becomes "Buy Kinglet". Lemon Squeezy emails the license key, which
+ * the app asks for on first launch.
+ */
+export const CHECKOUT_URL: string | null = null;
+export const LAUNCHED = CHECKOUT_URL !== null;
+/** Where buyers download the app (public releases). */
+export const DOWNLOAD_URL = 'https://github.com/stevenpersia/kinglet-releases/releases/latest';

@@ -51,6 +51,10 @@ const api: KingletApi = {
   compare: (targets) => ipcRenderer.invoke('compare:run', targets),
   compareVisual: (targets, deviceId) => ipcRenderer.invoke('compare:visual', targets, deviceId),
   openExternal: (url) => ipcRenderer.send('shell:open', url),
+  license: {
+    state: () => ipcRenderer.invoke('license:state'),
+    deactivate: () => ipcRenderer.invoke('license:deactivate'),
+  },
   update: {
     state: () => ipcRenderer.invoke('update:state'),
     check: () => ipcRenderer.invoke('update:check'),
