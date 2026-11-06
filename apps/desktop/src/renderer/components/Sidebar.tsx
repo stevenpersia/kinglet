@@ -20,6 +20,7 @@ export function Rail() {
     ...(s.settings.claudePanel && s.settings.activeId ? [{ id: 'claude', label: 'Claude', icon: 'spark' as IconName, on: claudeOpen(s), run: () => s.toggleClaude(), hint: 'Ctrl J', claude: true }] : []),
     { id: 'apercu', label: t('Devices', 'Appareils'), icon: 'eye', on: onDevices, run: go('apercu') },
     { id: 'deploiements', label: t('Deployments', 'Déploiements'), icon: 'tri', on: section === 'deploiements', run: go('deploiements') },
+    { id: 'changes', label: t('Changes (git diff)', 'Modifications (git diff)'), icon: 'git', on: section === 'changes', run: go('changes') },
   ];
   const secondary: Item[] = [
     { id: 'page', label: 'Page', icon: 'page', on: onDevices && panel === 'page', run: open('page') },

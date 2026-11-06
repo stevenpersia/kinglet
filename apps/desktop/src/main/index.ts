@@ -22,6 +22,7 @@ import { claudeCli, findClaude } from './claude-cli';
 import { Terminals } from './terminal';
 import { GitHubService } from './github';
 import { execFile } from 'node:child_process';
+import { readChanges } from './changes';
 import { DeviceManager, shortcutFor } from './devices';
 import { PRESETS } from './presets';
 import { activeIds, allPresets, setActiveIds } from '../shared/devices';
@@ -295,6 +296,10 @@ async function createWindow() {
     if (patch.openIds || patch.projects) watchOpenProjects();
     emit({ type: 'settings', settings: next });
     return next;
+  });
+  ipcMain.handle('projects:changes', (_e, projectId: string) => {
+    const folder = settings.value.projects.find((p) => p.id === projectId)?.folder;
+    return folder ? readChanges(folder) : null;
   });
   ipcMain.handle('projects:pick-folder', async () => {
     const r = await dialog.showOpenDialog(win, { title: t('Project folder', 'Dossier du projet'), properties: ['openDirectory'], defaultPath: activeProject(settings.value)?.folder ?? app.getPath('home') });

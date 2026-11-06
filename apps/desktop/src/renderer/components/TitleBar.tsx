@@ -54,7 +54,7 @@ function Tab({ project, index }: { project: Project; index: number }) {
           void s.closeProject(project.id);
         }
       }}
-      className={`group no-drag relative -mb-px flex max-w-[236px] min-w-[120px] flex-1 items-center gap-2 border-r border-line-soft pr-1.5 pl-3 text-[12.5px] ${on ? 'bg-card font-medium text-fg shadow-[inset_0_1px_0_#ededef]' : 'border-b text-faint hover:bg-active/60 hover:text-muted'}`}
+      className={`group no-drag relative flex max-w-[236px] min-w-[120px] flex-1 items-center gap-2 border-r border-line-soft pr-1.5 pl-3 text-[12.5px] ${on ? 'bg-raised text-fg' : 'text-faint hover:bg-active hover:text-muted'}`}
     >
       <button onClick={() => void s.selectProject(project.id)} className="absolute inset-0" aria-label={`${project.name}, ${st.label}`} />
       <ProjectBadge name={project.name} favicon={project.favicon} />

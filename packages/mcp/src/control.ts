@@ -123,8 +123,8 @@ export class AppControl {
   analyze<T>(url: string | null) {
     return this.call<T>('POST', '/analyze', { url }, 60_000);
   }
-  screenshot(device: string | null) {
-    return this.call<{ shots: AppShot[] }>('POST', '/screenshot', { device });
+  screenshot(device: string | null, to: { selector?: string; scrollY?: number } = {}) {
+    return this.call<{ shots: AppShot[]; missing?: string[] }>('POST', '/screenshot', { device, ...to });
   }
   logs() {
     return this.call<{ url: string | null; throttle: { network: string; cpu: number }; logs: ConsoleEntry[] }>('GET', '/logs');

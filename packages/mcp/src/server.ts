@@ -186,25 +186,28 @@ export function createKingletServer(opts: Options = {}) {
     {
       title: t('Device screenshots', 'Capture des appareils'),
       description: t(
-        'Captures what each emulated device (or a single one) shows: use it to check a fix visually on phone and tablet.',
-        'Capture ce qu’affiche chaque appareil émulé (ou un seul) : à utiliser pour vérifier visuellement une correction sur mobile et tablette.',
+        'Captures what each emulated device (or a single one) shows: use it to check a fix visually on phone and tablet. To see something below the fold, pass `selector` (the devices scroll to that element) or `scroll_y`: no need for Playwright or another browser.',
+        'Capture ce qu’affiche chaque appareil émulé (ou un seul) : à utiliser pour vérifier visuellement une correction sur mobile et tablette. Pour voir ce qui est sous la ligne de flottaison, passe `selector` (les appareils défilent jusqu’à cet élément) ou `scroll_y` : inutile de lancer Playwright ou un autre navigateur.',
       ),
       inputSchema: {
         device: z.string().optional().describe(t('Device id (e.g. iphone-16). Default: all.', 'Id d’un appareil (ex. iphone-16). Par défaut : tous.')),
         url: z.string().url().optional().describe(t('Opens this URL before the screenshot.', 'Ouvre cette URL avant la capture.')),
+        selector: z.string().optional().describe(t('CSS selector: each device scrolls to this element (centred) before the capture.', 'Sélecteur CSS : chaque appareil défile jusqu’à cet élément (centré) avant la capture.')),
+        scroll_y: z.number().min(0).optional().describe(t('Vertical scroll position in CSS pixels, when there is no selector.', 'Position de défilement vertical en pixels CSS, sans sélecteur.')),
       },
     },
-    async ({ device, url }) => {
+    async ({ device, url, selector, scroll_y }) => {
       const control = await app();
       if (!control) return fail(appClosed());
       if (url) await control.navigate(url);
-      const { shots } = await control.screenshot(device ?? null);
+      const { shots, missing } = await control.screenshot(device ?? null, { selector, scrollY: selector ? undefined : scroll_y });
       if (!shots.length) return fail(device ? t(`No device “${device}” in Kinglet.`, `Aucun appareil « ${device} » dans Kinglet.`) : t('No device to capture.', 'Aucun appareil à capturer.'));
+      const note = missing?.length ? [{ type: 'text' as const, text: t(`“${selector}” not found on: ${missing.join(', ')} (captured as is).`, `« ${selector} » introuvable sur : ${missing.join(', ')} (capturé tel quel).`) }] : [];
       return {
-        content: shots.flatMap((s) => [
+        content: [...note, ...shots.flatMap((s) => [
           { type: 'text' as const, text: `${s.label} (${s.width}×${s.height})` },
           { type: 'image' as const, data: s.data, mimeType: s.mime },
-        ]),
+        ])],
       };
     },
   );

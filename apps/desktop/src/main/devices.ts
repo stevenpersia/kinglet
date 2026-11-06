@@ -1133,6 +1133,35 @@ export class DeviceManager {
   }
 
   /**
+   * Scroll a device to an element (CSS selector, centred) or to a vertical position, so a
+   * capture shows what is below the fold. Returns false when the selector matches nothing.
+   */
+  async scrollTo(id: string, to: { selector?: string; y?: number }): Promise<boolean> {
+    const d = this.devices.get(id);
+    if (!d) return false;
+    const code = `(() => {
+      const sel = ${JSON.stringify(to.selector ?? null)};
+      if (sel) {
+        let el = null;
+        try { el = document.querySelector(sel); } catch { return false; }
+        if (!el) return false;
+        el.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' });
+        return true;
+      }
+      window.scrollTo({ top: ${Number(to.y) || 0}, behavior: 'instant' });
+      return true;
+    })()`;
+    try {
+      const ok = (await within(d.view.webContents.executeJavaScript(code), 3000)) as boolean;
+      // Let lazy images and sticky headers settle before the capture.
+      await new Promise((r) => setTimeout(r, 350));
+      return ok;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
    * JPEG of what a device shows (base64). capturePage() ignores the emulated viewport;
    * the DevTools capture matches the device. `scale` 1 = device pixels (dpr × CSS px).
    */
@@ -1178,12 +1207,28 @@ export class DeviceManager {
       // With the emulation scale, the page is sometimes painted in the top-left `scale` part of a
       // larger surface, sometimes right at the view's size (after a resize): crop only in the first case.
       const { width, height } = full.getSize();
-      const sf = screen.getDisplayMatching(this.window.getBounds()).scaleFactor;
-      const larger = width > d.view.getBounds().width * sf * 1.2;
-      const img = d.scale < 0.999 && larger ? full.crop({ x: 0, y: 0, width: Math.max(1, Math.round(width * d.scale)), height: Math.max(1, Math.round(height * d.scale)) }) : full;
+      // The surface is either the view's size or the unscaled viewport (view ÷ scale): pick the
+      // closer one. A fixed threshold missed scales near 1 and left an empty band in the snapshot,
+      // which then showed stretched and shifted under menus.
+      const sf = (await this.uiScale()) || screen.getDisplayMatching(this.window.getBounds()).scaleFactor;
+      const viewW = d.view.getBounds().width * sf;
+      const larger = d.scale < 0.999 && Math.abs(width - viewW / d.scale) < Math.abs(width - viewW);
+      const img = larger ? full.crop({ x: 0, y: 0, width: Math.max(1, Math.round(width * d.scale)), height: Math.max(1, Math.round(height * d.scale)) }) : full;
       return img.isEmpty() ? null : `data:image/jpeg;base64,${img.toJPEG(quality).toString('base64')}`;
     } catch {
       return null; // not painted yet
+    }
+  }
+
+  /** Real pixel ratio of the window (exact with fractional scaling, e.g. on Wayland). */
+  private async uiScale(): Promise<number> {
+    const wc = (this.window as BaseWindow & { webContents?: Electron.WebContents }).webContents;
+    if (!wc) return 0;
+    try {
+      const r = (await within(wc.executeJavaScript('window.devicePixelRatio'), 1000)) as number;
+      return r > 0 ? r / (wc.getZoomFactor() || 1) : 0;
+    } catch {
+      return 0;
     }
   }
 

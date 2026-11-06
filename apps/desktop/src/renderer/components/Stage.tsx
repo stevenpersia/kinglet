@@ -754,7 +754,7 @@ function Devices() {
                   style={{ width: w, height: h, borderRadius: radius }}
                   onClick={state.pointing ? (e) => void pointAt(preset, viewport, e.currentTarget, e) : undefined}
                 >
-                  {frozen?.[preset.id] && <img src={frozen[preset.id]} alt="" className="block size-full object-cover object-top" />}
+                  {frozen?.[preset.id] && <img src={frozen[preset.id]} alt="" className="block size-full object-cover object-left-top" />}
                 </div>
               </div>
               <div style={{ maxWidth: w + pad * 2 + 80 }} className="flex flex-wrap items-center justify-center gap-x-2 gap-y-0.5 font-mono text-[11px] text-faint [&>*]:whitespace-nowrap">

@@ -434,6 +434,34 @@ export type PreviewEvent =
   | { type: 'feedback'; projectId: string; pins: FeedbackPin[] }
   | { type: 'review'; state: ReviewState };
 
+/** One line of a diff, with its numbers in the old and new file. */
+export interface DiffLine {
+  kind: 'hunk' | 'add' | 'del' | 'ctx';
+  text: string;
+  old: number | null;
+  new: number | null;
+}
+
+/** A file changed since the last commit. Status: M modified, A added, D deleted, R renamed, ? untracked. */
+export interface ChangedFile {
+  path: string;
+  oldPath: string | null;
+  status: 'M' | 'A' | 'D' | 'R' | '?';
+  added: number;
+  removed: number;
+  binary: boolean;
+  truncated: boolean;
+  lines: DiffLine[];
+}
+
+/** The project folder's uncommitted changes (`error: 'git'` when git isn't installed). */
+export interface WorkingChanges {
+  repo: boolean;
+  branch: string | null;
+  files: ChangedFile[];
+  error: 'git' | null;
+}
+
 /** The pull request opened from a branch, and the state of its CI. */
 export interface PullRequest {
   branch: string;
@@ -582,6 +610,8 @@ export interface KingletApi {
     pickFolder(): Promise<{ folder: string; vercelProjectId: string | null } | null>;
     /** Asks where, then clones the repository there; null when cancelled. */
     clone(gitUrl: string): Promise<{ folder: string } | null>;
+    /** Uncommitted changes in the project's folder (null without a folder). */
+    changes(projectId: string): Promise<WorkingChanges | null>;
   };
   openExternal(url: string): void;
   update: {
