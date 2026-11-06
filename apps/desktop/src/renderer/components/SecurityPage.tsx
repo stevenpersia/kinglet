@@ -9,6 +9,15 @@ const DOT: Record<SecurityStatus, string> = { ok: 'bg-ok', info: 'bg-local', war
 const RANK: Record<SecurityStatus, number> = { error: 0, warning: 1, info: 2, ok: 3, skip: 4 };
 const HEADER_CHECKS = new Set(['hsts', 'csp', 'nosniff', 'framing', 'referrer', 'permissions']);
 const mono = 'font-mono text-[11.5px]';
+/** Family names short enough for the summary band. */
+const SHORT: Record<SecurityGroup, () => string> = {
+  secrets: () => t('Secrets', 'Secrets'),
+  files: () => t('Files', 'Fichiers'),
+  headers: () => t('Headers', 'En-têtes'),
+  cookies: () => 'Cookies',
+  transport: () => 'HTTPS',
+  thirdparty: () => t('Third parties', 'Tiers'),
+};
 const isProblem = (c: SecurityCheck) => c.status === 'error' || c.status === 'warning';
 
 /** One cell of the summary band: the family, its worst status, and what it comes to in a few words. */
@@ -262,14 +271,19 @@ export function SecurityPage() {
       </header>
 
       {problems.length ? (
-        <section aria-label={t('Summary', 'Résumé')} className="grid overflow-hidden rounded-xl border border-line bg-card [grid-template-columns:repeat(auto-fit,minmax(130px,1fr))]">
-          <div className="flex flex-col gap-1 border-r border-line px-5 py-4">
-            <span className="font-mono text-[28px] leading-none font-medium tracking-[-0.02em]">
-              <span className={errors ? 'text-err' : 'text-warn'}>{r.score.passed}</span>
-              <span className="text-ghost">/{r.score.total}</span>
+        <section aria-label={t('Summary', 'Résumé')} className="grid overflow-hidden rounded-xl border border-line bg-card [grid-template-columns:repeat(auto-fit,minmax(120px,1fr))]">
+          <div className="flex flex-col gap-2 border-r border-line px-4 py-4">
+            <span className="flex items-center gap-2 text-muted">
+              <span className={`size-[7px] shrink-0 rounded-full ${errors ? 'bg-err' : 'bg-warn'}`} />
+              {t('Score', 'Score')}
             </span>
-            <span className={`mt-1 font-medium ${errors ? 'text-err' : 'text-warn'}`}>{t(`${errors} problem${errors > 1 ? 's' : ''}`, `${errors} problème${errors > 1 ? 's' : ''}`)}</span>
-            <span className="text-xs text-muted">{t(`${problems.length - errors} to improve`, `${problems.length - errors} à améliorer`)}</span>
+            <span className="truncate text-[14.5px] font-semibold">
+              <span className={`font-mono ${errors ? 'text-err' : 'text-warn'}`}>{r.score.passed}</span>
+              <span className="font-mono text-ghost">/{r.score.total}</span>
+              <span className={`ml-2 font-medium ${errors ? 'text-err' : 'text-warn'}`}>
+                {errors ? t(`${errors} problem${errors > 1 ? 's' : ''}`, `${errors} problème${errors > 1 ? 's' : ''}`) : t(`${problems.length} to improve`, `${problems.length} à améliorer`)}
+              </span>
+            </span>
           </div>
           {SECURITY_GROUPS.map((g) => {
             const f = familySummary(r, g.id);
@@ -277,7 +291,7 @@ export function SecurityPage() {
               <div key={g.id} className="flex flex-col gap-2 border-r border-line-soft px-4 py-4 last:border-r-0">
                 <span className="flex items-center gap-2 text-muted">
                   <span className={`size-[7px] shrink-0 rounded-full ${DOT[f.status]}`} />
-                  <span className="truncate">{g.label()}</span>
+                  <span className="truncate">{SHORT[g.id]()}</span>
                 </span>
                 <span className="truncate text-[14.5px] font-semibold">{f.text}</span>
               </div>
