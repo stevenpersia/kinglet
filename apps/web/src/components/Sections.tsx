@@ -2,6 +2,7 @@ import { motion } from 'motion/react';
 import type { ReactNode } from 'react';
 import { Dot, Icon, type IconName } from '../../../desktop/src/renderer/components/Icons';
 import { MCP_COMMAND } from '../config';
+import { LAB, LabTile } from './LabTiles';
 import { Card, Reveal, SectionHead, Tag } from './ui';
 
 const CLAY = '#d97757';
@@ -20,8 +21,8 @@ export function AiWorkflow() {
             <Tag color="#8ab4f8">Inspect → Ask Claude</Tag>
             <h3 className="m-0 text-[22px] font-semibold tracking-[-0.03em]">Hover once. Every device lights up.</h3>
             <p className="m-0 text-[14.5px] leading-relaxed text-faint">Size, margins, font and color on each screen, or where it’s hidden. One click sends the table and a capture to Claude.</p>
-            <div className="relative mt-auto flex h-[150px] items-center justify-center overflow-hidden rounded-xl bg-[#f6f6f1]">
-              <span className="rounded-full bg-[#0e0f0c] px-[18px] py-2.5 text-[13px] font-semibold text-[#f6f6f1] shadow-[0_0_0_2px_#f6f6f1,0_0_0_4px_#5b8def]">Get started — free</span>
+            <div className="relative mt-auto flex h-[150px] items-center justify-center overflow-hidden rounded-xl bg-[#f6f5f0]">
+              <span className="rounded-full bg-[#11241c] px-[18px] py-2.5 text-[13px] font-semibold text-[#f6f5f0] shadow-[0_0_0_2px_#f6f5f0,0_0_0_4px_#5b8def]">Get started — free</span>
               <span className="absolute top-3.5 left-3.5 rounded bg-[#5b8def] px-1.5 font-mono text-[10px] leading-5 text-white">button.cta · 343 × 48</span>
               <span className="absolute right-3.5 bottom-3.5 h-7 rounded-ui border border-[rgba(217,119,87,0.35)] bg-[#1c1513] px-2.5 text-xs leading-7 font-semibold text-clay">Ask Claude</span>
             </div>
@@ -47,7 +48,7 @@ export function AiWorkflow() {
             <p className="m-0 text-[14.5px] leading-relaxed text-faint">Each project tab says working, waiting for you or done. A notification when a task ends, and your site is measured again right after.</p>
             <div className="mt-auto flex flex-col gap-2">
               {[
-                ['tidal', '#c6f432', 'working', CLAY, true],
+                ['saltmint', '#a6f0c6', 'working', CLAY, true],
                 ['docs', '#8ab4f8', 'waiting for you', '#e6c07b', false],
                 ['portfolio', '#a78bfa', 'to review', '#7dd3a8', false],
               ].map(([name, color, label, tone, pulse]) => (
@@ -101,21 +102,6 @@ export function AiWorkflow() {
 
 /* ───────────── 02 · Device lab ───────────── */
 
-const TOOLS: [IconName, string, string][] = [
-  ['laptop', '10 devices, side by side', 'iPhone, Pixel, Galaxy, iPads, laptop, desktop or your own. Portrait or landscape, true sizes.'],
-  ['link', 'Synced scroll and navigation', 'Scroll or click on one, every other device follows. DevTools on each.'],
-  ['phone', 'On your real phone', 'A QR code opens localhost over Wi-Fi, hot reload included. Paired, never public.'],
-  ['gauge', 'Network and CPU throttling', '4G or slow 3G, mid-range ×4 or low-end ×6 CPU. Load time and weight under each device.'],
-  ['eye', 'Appearance', 'Dark mode, reduced motion, high contrast, text at 130–200 %, page zoom 200 %. No reload.'],
-  ['globe', 'Region per device', 'Language, timezone and location. The iPhone in Tokyo and the iPad in Berlin, at once.'],
-  ['keyboard', 'Virtual keyboards', 'iOS or Android keyboard drawn on the page. visualViewport shrinks like on a phone.'],
-  ['form', 'Form filler', 'Valid or junk data in every field of every device. Lists the fields with no validation.'],
-  ['sliders', 'Offline and API mocks', 'Cut the network or fake any endpoint: status, delay, body. See error, empty and slow states.'],
-  ['target', 'Inspector', 'Size, margins, font and color of one element on every device, or where it’s hidden.'],
-  ['film', 'Export', 'A PNG board of every device, a PDF, full pages up to 10,000 px, a WebM or GIF scrolling.'],
-  ['pin', 'Feedback and review links', 'Pin comments on devices. Send a link to a client: no app, no account. Replies come back.'],
-];
-
 export function DeviceLab() {
   return (
     <section className="mx-auto max-w-[1200px] px-4 pt-36 sm:px-6">
@@ -123,21 +109,8 @@ export function DeviceLab() {
         Real emulation through Chromium’s DevTools protocol: width, density, touch and user agent. Every tool applies to every device at once, so a test takes seconds, not a session.
       </SectionHead>
       <div className="mt-12 grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(min(100%,250px),1fr))]">
-        {TOOLS.map(([icon, title, text], i) => (
-          <motion.div
-            key={title}
-            initial={{ opacity: 0, y: 14 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: '-40px' }}
-            transition={{ duration: 0.45, delay: (i % 4) * 0.05 }}
-            className="group flex min-w-0 flex-col gap-2.5 rounded-[14px] border border-line-soft bg-[#0e0e11] p-[18px] transition-colors hover:border-[#30303a] hover:bg-[#121216]"
-          >
-            <span className="flex size-[34px] items-center justify-center rounded-[9px] border border-[#24242a] bg-[#16161b] text-[#c4c4cc] transition-colors group-hover:text-fg">
-              <Icon name={icon} size={16} />
-            </span>
-            <h3 className="m-0 text-[15px] font-semibold tracking-[-0.01em]">{title}</h3>
-            <p className="m-0 text-[13px] leading-normal text-faint">{text}</p>
-          </motion.div>
+        {LAB.map((t, i) => (
+          <LabTile key={t.title} {...t} index={i} />
         ))}
       </div>
     </section>
@@ -183,7 +156,7 @@ export function Ship() {
                   <span>CHECKS</span>
                   <span>LCP</span>
                 </div>
-                <DeployRow dot="#7dd3a8" branch={<>main <span className="text-ghost">→ tidal.money</span></>} pr={<span className="text-ghost">—</span>} status={<span className="text-ok">Live</span>} checks="37/37" lcp="1.1 s" />
+                <DeployRow dot="#7dd3a8" branch={<>main <span className="text-ghost">→ saltmint.app</span></>} pr={<span className="text-ghost">—</span>} status={<span className="text-ok">Live</span>} checks="37/37" lcp="1.1 s" />
                 <DeployRow dot="#e6c07b" branch="feat/budgets" pr={<>#128 <span className="text-ok">✓ CI</span></>} status={<span className="text-ok">Ready</span>} checks="37/37" lcp="1.2 s" />
                 <DeployRow dot="#e6c07b" pulse branch="fix/nav-contrast" pr={<>#131 <span className="text-warn">● CI</span></>} status={<span className="text-warn">Building</span>} checks="—" lcp="—" />
                 <DeployRow dot="#f28b82" branch="exp/onboarding" pr={<>#126 <span className="text-err">✕ CI</span></>} status={<span className="text-err">Error</span>} checks="—" lcp={<span className="text-clay">Ask Claude</span>} />
@@ -197,9 +170,9 @@ export function Ship() {
             <p className="m-0 text-sm leading-relaxed text-faint">Tags and check scores side by side. The visual tab shows changed pixels in red, with LCP, CLS and TTFB for each.</p>
             <div className="mt-auto flex gap-2">
               {(['Local', 'Prod'] as const).map((env) => (
-                <div key={env} className="flex h-[110px] flex-1 flex-col gap-1.5 rounded-lg bg-[#f6f6f1] p-2.5 text-[#0e0f0c]">
+                <div key={env} className="flex h-[110px] flex-1 flex-col gap-1.5 rounded-lg bg-[#f6f5f0] p-2.5 text-[#11241c]">
                   <span className="text-[13px] font-semibold tracking-[-0.03em]">Money, finally calm.</span>
-                  <span className={`h-3.5 w-[60px] rounded-full bg-[#0e0f0c] ${env === 'Prod' ? 'outline-2 outline-offset-2 outline-[#ef4444]' : ''}`} />
+                  <span className={`h-3.5 w-[60px] rounded-full bg-[#11241c] ${env === 'Prod' ? 'outline-2 outline-offset-2 outline-[#ef4444]' : ''}`} />
                   <span className={`mt-auto font-mono text-[9px] ${env === 'Local' ? 'text-[#2563eb]' : 'text-[#16a34a]'}`}>● {env}</span>
                 </div>
               ))}
@@ -241,7 +214,7 @@ export function Ship() {
             <p className="m-0 text-sm leading-relaxed text-faint">The live prod first, then earlier productions. Open an old one on its Vercel address to see what changed, one click back to the live one.</p>
             <div className="mt-auto flex flex-col gap-1.5 font-mono text-[11.5px]">
               <span className="flex items-center gap-2 rounded-lg bg-[rgba(125,211,168,0.07)] px-2.5 py-2 text-fg shadow-[inset_0_0_0_1px_rgba(125,211,168,0.3)]">
-                tidal.money <span className="rounded-full bg-[rgba(125,211,168,0.16)] px-1.5 text-[10px] text-prod">LIVE</span>
+                saltmint.app <span className="rounded-full bg-[rgba(125,211,168,0.16)] px-1.5 text-[10px] text-prod">LIVE</span>
               </span>
               <span className="px-2.5 py-1 text-faint">a3f9c12 · yesterday</span>
               <span className="px-2.5 py-1 text-faint">7be04d1 · 3 days ago</span>
@@ -319,14 +292,14 @@ export function Checks() {
         </Reveal>
         <Reveal delay={0.1}>
           <Card className="flex h-full flex-col gap-3.5 p-7">
-            <h3 className="m-0 text-xl font-semibold tracking-[-0.03em]">Link previews on 10 platforms</h3>
+            <h3 className="m-0 text-xl font-semibold tracking-[-0.03em]">Open Graph previews on 10 platforms</h3>
             <p className="m-0 text-sm leading-relaxed text-faint">WhatsApp, iMessage, Slack, Discord, Telegram, LinkedIn, X, Facebook, Bluesky and Google, each read by its own bot, without JavaScript.</p>
             <div className="mt-auto flex justify-end rounded-xl bg-[#0b141a] p-3.5">
               <div className="w-[230px] overflow-hidden rounded-[10px] bg-[#005c4b] text-[#e9edef]">
-                <div className="flex h-[90px] items-center bg-[#f6f6f1] px-3 text-[17px] font-semibold tracking-[-0.04em] text-[#0e0f0c]">Money, finally calm.</div>
+                <div className="flex h-[90px] items-center bg-[#f6f5f0] px-3 text-[17px] font-semibold tracking-[-0.04em] text-[#11241c]">Money, finally calm.</div>
                 <div className="flex flex-col gap-0.5 px-2.5 py-2 text-[11px]">
-                  <strong>Tidal — Budgeting that stays calm</strong>
-                  <span className="opacity-65">tidal.money</span>
+                  <strong>Saltmint — Money, finally calm</strong>
+                  <span className="opacity-65">saltmint.app</span>
                 </div>
               </div>
             </div>
@@ -373,7 +346,7 @@ export function Mcp() {
               <span className="size-[9px] rounded-full bg-[#26262c]" />
               <span className="size-[9px] rounded-full bg-[#26262c]" />
               <span className="size-[9px] rounded-full bg-[#26262c]" />
-              <span className="ml-2">claude — ~/dev/tidal</span>
+              <span className="ml-2">claude — ~/dev/saltmint</span>
             </div>
             <motion.div
               className="p-4 text-muted"

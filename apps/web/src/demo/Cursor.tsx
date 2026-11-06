@@ -33,7 +33,7 @@ export function Cursor({ root, cmd, width = 1200 }: { root: RefObject<HTMLDivEle
         {cmd.click > 0 && (
           <motion.span
             key={cmd.click}
-            className="absolute -top-4 -left-4 size-8 rounded-full border-2 border-white/80"
+            className="absolute -top-4 -left-4 size-8 rounded-full border-2 border-[#d97757]"
             initial={{ scale: 0.3, opacity: 0.9 }}
             animate={{ scale: 1.4, opacity: 0 }}
             exit={{ opacity: 0 }}
@@ -41,23 +41,32 @@ export function Cursor({ root, cmd, width = 1200 }: { root: RefObject<HTMLDivEle
           />
         )}
       </AnimatePresence>
-      <motion.svg
+      <motion.div
         key={`p${cmd.click}`}
-        width="22"
-        height="22"
-        viewBox="0 0 24 24"
-        className="-mt-px -ml-px drop-shadow-[0_2px_6px_rgba(0,0,0,0.6)]"
-        initial={{ scale: cmd.click ? 0.82 : 1 }}
+        className="relative"
+        initial={{ scale: cmd.click ? 0.8 : 1 }}
         animate={{ scale: 1 }}
-        transition={{ duration: 0.25 }}
+        transition={{ type: 'spring', stiffness: 500, damping: 18 }}
+        style={{ originX: 0.15, originY: 0.1 }}
       >
-        <path d="M3 2.5 L3 19 L7.6 14.8 L10.6 21.3 L13.4 20 L10.5 13.7 L16.8 13.7 Z" fill="#fff" stroke="#000" strokeWidth="1.3" strokeLinejoin="round" />
-      </motion.svg>
+        <svg width="26" height="26" viewBox="0 0 24 24" className="-mt-0.5 -ml-0.5 drop-shadow-[0_4px_10px_rgba(0,0,0,0.55)]">
+          <path
+            d="M4.2 2.9c-.5-.2-1 .3-.8.8l6.3 16.6c.2.5.9.5 1.1 0l2.3-6.3c.1-.3.3-.5.6-.6l6.3-2.3c.5-.2.5-.9 0-1.1L4.2 2.9Z"
+            fill="#ededef"
+            stroke="#0a0a0b"
+            strokeWidth="1.4"
+            strokeLinejoin="round"
+          />
+        </svg>
+        <span className="absolute top-[19px] left-[17px] rounded-full rounded-tl-[3px] bg-[#d97757] px-2 py-[3px] text-[11px] leading-none font-semibold whitespace-nowrap text-[#1a0e09] shadow-[0_4px_12px_rgba(0,0,0,0.4)]">
+          You
+        </span>
+      </motion.div>
       <AnimatePresence>
         {cmd.key && (
           <motion.span
             key={cmd.key.id}
-            className="absolute top-6 left-4 rounded-md border border-[#3a3a42] border-b-[3px] bg-[#1c1c21] px-2 py-0.5 font-mono text-[11px] whitespace-nowrap text-fg shadow-lg"
+            className="absolute top-11 left-4 rounded-md border border-[#3a3a42] border-b-[3px] bg-[#1c1c21] px-2 py-0.5 font-mono text-[11px] whitespace-nowrap text-fg shadow-lg"
             initial={{ opacity: 0, y: -4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}

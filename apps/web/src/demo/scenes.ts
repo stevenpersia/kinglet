@@ -4,7 +4,6 @@
  */
 export type SceneId = 'inspect' | 'console' | 'devices' | 'phone' | 'share' | 'checks' | 'deploy';
 export type Env = 'local' | 'preview' | 'prod';
-export type Platform = 'whatsapp' | 'imessage' | 'slack' | 'linkedin' | 'x' | 'google';
 
 export type DemoState = {
   scene: SceneId;
@@ -12,7 +11,7 @@ export type DemoState = {
   inspecting: boolean;
   hover: boolean;
   picked: boolean;
-  ctaLime: boolean;
+  accent: boolean;
   // Console
   consoleOpen: boolean;
   consoleRow: boolean;
@@ -30,7 +29,7 @@ export type DemoState = {
   // Panels and sections
   checksOpen: boolean;
   section: 'devices' | 'share';
-  platform: Platform;
+  ogCard: boolean;
   phoneDialog: boolean;
   wifi: boolean;
   phoneLive: boolean;
@@ -45,7 +44,7 @@ export const initial = (scene: SceneId): DemoState => ({
   inspecting: false,
   hover: false,
   picked: false,
-  ctaLime: false,
+  accent: false,
   consoleOpen: false,
   consoleRow: false,
   fixed: false,
@@ -59,7 +58,7 @@ export const initial = (scene: SceneId): DemoState => ({
   env: 'local',
   checksOpen: false,
   section: 'devices',
-  platform: 'whatsapp',
+  ogCard: false,
   phoneDialog: false,
   wifi: false,
   phoneLive: false,
@@ -74,13 +73,13 @@ export type Conversation = { prompt: string; note?: string; lines: Line[] };
 /** What Kinglet pastes into Claude's input for each scene, and what Claude then does. */
 export const CLAUDE: Partial<Record<SceneId, Conversation>> = {
   inspect: {
-    prompt: 'Use our lime for this button',
+    prompt: 'Use our mint for this button',
     note: '[Image #1] button.cta · iPhone 16, Laptop',
     lines: [
       { k: 'tool', text: 'kinglet - screenshot', note: 'iphone-16, laptop' },
       { k: 'edit', text: 'Update(components/Hero.tsx)', note: '+2 −2', ok: true },
       { k: 'tool', text: 'kinglet - run_checks', note: 'contrast ✓ 37/37', ok: true },
-      { k: 'say', text: 'Done: lime with dark text, checked on both devices.' },
+      { k: 'say', text: 'Done: mint with dark text, checked on both devices.' },
     ],
   },
   console: {
@@ -104,10 +103,10 @@ export const CLAUDE: Partial<Record<SceneId, Conversation>> = {
     ],
   },
   share: {
-    prompt: 'Fix the share previews of the home page',
-    note: 'WhatsApp, LinkedIn · og:image, og:site_name',
+    prompt: 'Fix the Open Graph tags of the home page',
+    note: '2 tags to add · Next.js · app/layout.tsx',
     lines: [
-      { k: 'tool', text: 'kinglet - get_share_preview', note: '2 platforms need a fix' },
+      { k: 'tool', text: 'kinglet - get_share_preview', note: '3 platforms need a look' },
       { k: 'edit', text: 'Update(app/layout.tsx)', note: '+6', ok: true },
       { k: 'edit', text: 'Write(app/opengraph-image.tsx)', note: '1200×630', ok: true },
       { k: 'tool', text: 'kinglet - get_share_preview', note: '10/10 platforms', ok: true },
@@ -162,7 +161,7 @@ export const SCRIPTS: Record<SceneId, Step[]> = {
     { at: 1700, to: 'cta-phone', set: { hover: true } },
     { at: 2700, to: 'cta-laptop' },
     { at: 3500, click: true, set: { picked: true } },
-    ...ask('inspect', 'ask-inspect', 4300, { ctaLime: true }),
+    ...ask('inspect', 'ask-inspect', 4300, { accent: true }),
   ],
   console: [
     { at: 300, to: 'btn-console' },
@@ -192,16 +191,14 @@ export const SCRIPTS: Record<SceneId, Step[]> = {
     { at: 4500, to: 'stage' },
     { at: 5100, click: true, set: { phoneDialog: false } },
     // A saved file: hot reload reaches the real phone too.
-    { at: 6300, set: { ctaLime: true } },
+    { at: 6300, set: { accent: true } },
   ],
   share: [
-    { at: 300, to: 'rail-share' },
+    { at: 300, to: 'rail-og' },
     { at: 1000, click: true, set: { section: 'share' } },
-    { at: 1800, to: 'share-linkedin' },
-    { at: 2400, click: true, set: { platform: 'linkedin' } },
-    { at: 3300, to: 'share-whatsapp' },
-    { at: 3900, click: true, set: { platform: 'whatsapp' } },
-    ...ask('share', 'ask-share', 4700, { fixed: true }),
+    { at: 1900, to: 'og-whatsapp', set: { ogCard: true } },
+    { at: 2900, to: 'og-linkedin' },
+    ...ask('share', 'ask-og', 3900, { fixed: true }),
   ],
   checks: [
     { at: 300, to: 'rail-checks' },
