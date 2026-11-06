@@ -9,10 +9,10 @@ export const GITHUB_TOKEN_URL =
 /** What to tick when creating the GitHub token. */
 export const githubScopes = () => [
   t('Repository access: the repositories of your projects (or all)', 'Accès aux dépôts : ceux de tes projets (ou tous)'),
-  t('Contents: Read and write (clone a project, push a new one)', 'Contents : lecture et écriture (cloner un projet, pousser un nouveau)'),
+  t('Contents: Read and write (clone a project, push a new one, captures of a feedback issue)', 'Contents : lecture et écriture (cloner un projet, pousser un nouveau, captures d’une issue de retours)'),
   t('Administration: Read and write, on all repositories (create the repository of a new project)', 'Administration : lecture et écriture, sur tous les dépôts (créer le dépôt d’un nouveau projet)'),
   t('Pull requests: Read', 'Pull requests : lecture'),
-  t('Issues: Read and write (report a bug from a preview)', 'Issues : lecture et écriture (signaler un bug depuis une preview)'),
+  t('Issues: Read and write (report a bug from a preview, send feedback)', 'Issues : lecture et écriture (signaler un bug depuis une preview, envoyer des retours)'),
 ];
 
 /** “No token yet? Create one” link, with the permissions to give it. */
