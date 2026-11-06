@@ -1,4 +1,5 @@
 import { EmulationPanel, ExportPanel, FormsPanel } from './Stage';
+import { JourneysPanel } from './JourneysPanel';
 import { t, type Issue } from '@kinglet/core';
 import { useStore } from '../store';
 import { Dot } from './Icons';
@@ -52,5 +53,6 @@ export function SidePanel() {
   if (panel === 'emulation') return <EmulationPanel />;
   if (panel === 'forms') return <FormsPanel />;
   if (panel === 'export') return <ExportPanel />;
+  if (panel === 'journeys') return <JourneysPanel />;
   return null;
 }

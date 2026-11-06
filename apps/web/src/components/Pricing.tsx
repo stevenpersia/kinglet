@@ -14,6 +14,7 @@ const INCLUDED = [
   'Security: leaked keys, open files, headers',
   'Open Graph on 10 platforms, share image maker',
   'Feedback to GitHub, Linear and Slack',
+  'Recorded journeys, replayed and exported to Playwright',
   'Region, keyboards, forms, mocks, export',
   'Automatic updates',
 ];

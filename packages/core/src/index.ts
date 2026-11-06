@@ -107,3 +107,19 @@ export {
   type CookieInfo,
   type ThirdParty,
 } from './security.ts';
+export {
+  appendStep,
+  describeStep,
+  journeyPrompt,
+  journeyToPlaywright,
+  journeyFileName,
+  pathOf,
+  type Journey,
+  type JourneyStep,
+  type JourneyRun,
+  type JourneyDeviceRun,
+  type JourneyStepResult,
+  type JourneyTrigger,
+  type StepTarget,
+  type PlaywrightDevice,
+} from './journey.ts';

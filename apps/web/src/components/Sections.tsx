@@ -96,7 +96,92 @@ export function AiWorkflow() {
           </ol>
         </Card>
       </Reveal>
+      <Reveal className="mt-4">
+        <Journeys />
+      </Reveal>
     </section>
+  );
+}
+
+const JOURNEY: [string, string][] = [
+  ['Open', '/pricing'],
+  ['Click', '“Start free trial”'],
+  ['Type', 'jessica@studio.co'],
+  ['Check', '“I agree to the terms”'],
+  ['Press', 'Enter'],
+  ['Arrive on', '/welcome'],
+];
+const JOURNEY_DEVICES: [string, number | null][] = [
+  ['iPhone 16', null],
+  ['Pixel 9', 3],
+  ['Laptop', null],
+];
+
+/** A recorded journey played on three devices: one breaks at the checkbox, hidden under a banner. */
+function Journeys() {
+  const tick = 0.32;
+  return (
+    <Card className="flex flex-wrap items-center gap-7 p-7">
+      <div className="flex min-w-0 flex-[1_1_340px] flex-col gap-2.5">
+        <Tag color="#c6f432">Recorded journeys</Tag>
+        <h3 className="m-0 text-2xl font-semibold tracking-[-0.03em]">Do it once. Replay it everywhere.</h3>
+        <p className="m-0 text-[14.5px] leading-relaxed text-faint">
+          Record a sign-up or a checkout on one device: clicks, typing, the pages it leads to. Kinglet replays it on every device at once, then after each Claude task, commit and deploy, and tells you the step that broke, with a capture.
+        </p>
+        <div className="mt-1 flex flex-wrap items-center gap-2 font-mono text-[11.5px] text-muted">
+          <span className="rounded-md border border-line-soft bg-[#0f0f12] px-2 py-1">→ signup.spec.ts</span>
+          <span className="text-ghost">exported as a Playwright test</span>
+        </div>
+      </div>
+      <div className="grid min-w-0 flex-[2_1_520px] gap-2 [grid-template-columns:repeat(auto-fit,minmax(150px,1fr))]">
+        {JOURNEY_DEVICES.map(([device, breaksAt], col) => (
+          <div key={device} className="flex flex-col gap-1.5 rounded-xl border border-line-soft bg-[#0f0f12] p-3">
+            <span className="flex items-center justify-between font-mono text-[11px] text-ghost">
+              {device}
+              <motion.span
+                initial={{ opacity: 0 }}
+                whileInView={{ opacity: 1 }}
+                viewport={{ once: true }}
+                transition={{ delay: 0.3 + (breaksAt ?? JOURNEY.length) * tick + col * 0.05 }}
+                className={breaksAt == null ? 'text-ok' : 'text-err'}
+              >
+                {breaksAt == null ? '✓ passed' : `✕ step ${breaksAt + 1}`}
+              </motion.span>
+            </span>
+            {JOURNEY.map(([verb, what], i) => {
+              const bad = breaksAt === i;
+              const skipped = breaksAt != null && i > breaksAt;
+              return (
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0.25 }}
+                  whileInView={{ opacity: skipped ? 0.25 : 1 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: 0.3 + i * tick + col * 0.05, duration: 0.2 }}
+                  className="flex min-w-0 items-baseline gap-1.5 text-[12px]"
+                >
+                  <span className={`w-3 shrink-0 font-mono text-[10.5px] ${bad ? 'text-err' : skipped ? 'text-ghost' : 'text-ok'}`}>{bad ? '✕' : skipped ? '·' : '✓'}</span>
+                  <span className={`truncate ${bad ? 'text-err' : 'text-muted'}`}>
+                    <span className="text-fg">{verb}</span> {what}
+                  </span>
+                </motion.div>
+              );
+            })}
+            {breaksAt != null && (
+              <motion.span
+                initial={{ opacity: 0 }}
+                whileInView={{ opacity: 1 }}
+                viewport={{ once: true }}
+                transition={{ delay: 0.4 + breaksAt * tick + col * 0.05 }}
+                className="mt-1 truncate rounded-md bg-err/10 px-2 py-1 font-mono text-[10.5px] text-err"
+              >
+                under the cookie banner
+              </motion.span>
+            )}
+          </div>
+        ))}
+      </div>
+    </Card>
   );
 }
 

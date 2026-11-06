@@ -115,6 +115,16 @@ export function App() {
         case 'audit':
           useStore.setState({ auditProgress: { done: e.done, queued: e.queued, external: !!e.external } });
           break;
+        case 'journey-recording':
+          useStore.setState({ journeyRec: e.startPath === null ? null : { startPath: e.startPath, steps: e.steps } });
+          break;
+        case 'journey-progress':
+          useStore.setState({ journeyProgress: { journeyId: e.journeyId, steps: e.steps } });
+          break;
+        case 'journey-runs':
+          // A run just ended: nothing is playing any more.
+          useStore.setState((st) => ({ journeyRuns: { ...st.journeyRuns, [e.projectId]: e.runs }, journeyProgress: null }));
+          break;
         case 'taborder':
           useStore.setState({ tabInfo: e.devices });
           break;

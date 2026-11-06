@@ -1,4 +1,4 @@
-import type { Framework, OgImageInput, OgImageTags, SecurityReport, PrivacyReport, AxeViolation, Budget, BudgetResult, HreflangReport, SiteAudit, StructuredData, Vitals, CheckResult, CrawledPage, ImageProbe, Issue, PageMeta, ShareFix, SharePreviews, SiteFiles, VercelDeployment, VercelProject, VercelTeam, VercelUser } from '@kinglet/core';
+import type { Journey, JourneyRun, JourneyStep, Framework, OgImageInput, OgImageTags, SecurityReport, PrivacyReport, AxeViolation, Budget, BudgetResult, HreflangReport, SiteAudit, StructuredData, Vitals, CheckResult, CrawledPage, ImageProbe, Issue, PageMeta, ShareFix, SharePreviews, SiteFiles, VercelDeployment, VercelProject, VercelTeam, VercelUser } from '@kinglet/core';
 
 export interface DevicePreset {
   id: string;
@@ -70,6 +70,8 @@ export interface Project {
   historyAuto?: boolean;
   /** Linear team the feedback of this project goes to (its id). */
   linearTeamId?: string | null;
+  /** Recorded journeys (clicks, typing, navigation), played again on every device. */
+  journeys?: Journey[];
 }
 
 export interface Settings {
@@ -501,6 +503,12 @@ export type PreviewEvent =
   | { type: 'term'; projectId: string; data?: string; exit?: number | null }
   | { type: 'inspect'; state: InspectState }
   | { type: 'audit'; done: number; queued: number; external?: boolean }
+  /** Steps recorded so far (startPath null: recording stopped). */
+  | { type: 'journey-recording'; startPath: string | null; steps: JourneyStep[] }
+  /** A journey being played: the step each device is on. */
+  | { type: 'journey-progress'; journeyId: string; steps: Record<string, number> }
+  /** Last run of each journey of a project. */
+  | { type: 'journey-runs'; projectId: string; runs: Record<string, JourneyRun> }
   | { type: 'taborder'; devices: Record<string, TabOrderInfo> }
   | { type: 'history'; projectId: string; entries: HistoryEntry[] }
   | { type: 'feedback'; projectId: string; pins: FeedbackPin[] }
@@ -705,6 +713,17 @@ export interface KingletApi {
   crawl(url: string, opts?: { force?: boolean }): Promise<CrawledPage[]>;
   /** The 10 platform previews (one fetch per bot) and the suggested fix. */
   sharePreviews(url: string): Promise<ShareStudio>;
+  journeys: {
+    record(): Promise<{ startPath: string }>;
+    dropStep(index: number): void;
+    /** Stops recording; with a name, saves the journey in the active project. */
+    stop(name: string | null): Promise<Journey | null>;
+    /** On the devices shown, on the current origin. */
+    play(journeyId: string): Promise<JourneyRun>;
+    runs(projectId: string): Promise<Record<string, JourneyRun>>;
+    /** Writes the Playwright test (tests/ of the project, or where the user chooses); returns the path. */
+    exportPlaywright(journeyId: string): Promise<string | null>;
+  };
   ogImage: {
     /** Defaults from the page (title, description, theme-color, icon) and where it would be saved. */
     draft(url: string): Promise<OgImageDraft>;

@@ -17,6 +17,14 @@ const api: KingletApi = {
   analyze: (url, opts) => ipcRenderer.invoke('page:analyze', url, opts ?? {}),
   crawl: (url, opts) => ipcRenderer.invoke('site:crawl', url, opts ?? {}),
   sharePreviews: (url) => ipcRenderer.invoke('share:previews', url),
+  journeys: {
+    record: () => ipcRenderer.invoke('journeys:record'),
+    dropStep: (index) => ipcRenderer.send('journeys:drop-step', index),
+    stop: (name) => ipcRenderer.invoke('journeys:stop', name),
+    play: (journeyId) => ipcRenderer.invoke('journeys:play', journeyId),
+    runs: (projectId) => ipcRenderer.invoke('journeys:runs', projectId),
+    exportPlaywright: (journeyId) => ipcRenderer.invoke('journeys:export', journeyId),
+  },
   ogImage: {
     draft: (url) => ipcRenderer.invoke('ogimage:draft', url),
     render: (input) => ipcRenderer.invoke('ogimage:render', input),

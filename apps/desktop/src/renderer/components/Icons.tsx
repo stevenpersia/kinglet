@@ -1,6 +1,9 @@
 import type { SVGProps } from 'react';
 
 const paths = {
+  route: 'M6 21a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zM18 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zM6 16v-5a4 4 0 0 1 4-4h5.5M18 8v5a4 4 0 0 1-4 4H8.5',
+  play: 'M7 4.5v15l12.5-7.5z',
+  rec: 'M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10z',
   eye: 'M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z',
   share: 'M4 12v7h16v-7M12 3v12M7 8l5-5 5 5',
   cols: 'M4 5h6v14H4zM14 5h6v14h-6z',
