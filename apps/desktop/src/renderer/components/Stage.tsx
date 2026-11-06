@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { locale, t } from '@kinglet/core';
 import type { DevicePreset, RegionPrefs, Throttle } from '../../shared/types';
 import { composeSheet, recordScroll } from '../lib/export';
@@ -8,7 +8,7 @@ import { activePresets, api, cleanError, listedPresets, useStore } from '../stor
 import { setActiveIds } from '../../shared/devices';
 import { ConsoleTab } from './Console';
 import { OldProdBanner } from './EnvSwitch';
-import { Icon } from './Icons';
+import { Icon, type IconName } from './Icons';
 import { Welcome } from './Welcome';
 import { DevServerScreen, NewProjectScreen } from './DevServer';
 import { InspectBar } from './InspectBar';
@@ -62,8 +62,6 @@ const regionLabel = (r: Partial<RegionPrefs>) => [r.locale, r.timezone?.split('/
 
 const KIND_ICON = { phone: 'phone', tablet: 'tablet', desktop: 'laptop' } as const;
 
-/** Trigger of a toolbar menu: plain text button, tinted when its setting is on. */
-const menuButton = 'inline-flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-[7px] px-2.5 text-xs text-muted hover:bg-active hover:text-fg disabled:opacity-50 aria-expanded:bg-active aria-expanded:text-fg';
 
 /** One row: the devices, the view toggles, the emulation, then forms, export and zoom. */
 function DeviceToolbar({ scale }: { scale: number }) {
@@ -146,11 +144,8 @@ function DeviceToolbar({ scale }: { scale: number }) {
 
       <span aria-hidden="true" className="h-5 w-px bg-line" />
 
-      <EmulationButton />
 
       <div className="ml-auto flex items-center gap-1">
-        <FormsMenu />
-        <ExportMenu />
         <span title={t('Zoom to fit the window', 'Zoom pour tenir dans la fenêtre')} className="ml-1 inline-flex h-7 items-center rounded-md border border-line px-2 font-mono text-[11px] text-muted">
           {Math.round(scale * 100)}
           {t('%', ' %')}
@@ -236,42 +231,85 @@ function useEmulation() {
   return { state, settings, updateSettings, target, setTarget, mocksOpen, setMocksOpen, m, text, th, all, per, own, current, devices, hasTouch, mocksOn, setMedia, setText, setThrottle, setRegion, network, setNetwork, resetAll, summary, shown, field };
 }
 
+export type Tool = 'emulation' | 'forms' | 'export';
+
+/** Each tool panel has its colour: on its tab, its icon and the line along its top. */
+const TOOLS = (): { id: Tool; label: string; icon: IconName; accent: string; tint: string }[] => [
+  { id: 'emulation', label: t('Emulation', 'Émulation'), icon: 'sliders', accent: '#8ab4f8', tint: 'rgba(138,180,248,' },
+  { id: 'forms', label: t('Forms', 'Formulaires'), icon: 'form', accent: '#7dd3a8', tint: 'rgba(125,211,168,' },
+  { id: 'export', label: t('Export', 'Export'), icon: 'download', accent: '#e6c07b', tint: 'rgba(230,192,123,' },
+];
+
 /**
- * The Emulation button of the toolbar: opens the Emulation panel next to the devices (not a popover:
- * the devices stay live while you change things). It sums up what isn't at its default.
+ * The tools' tabs, on the edge of the devices (right of the open panel): Emulation, Forms, Export.
+ * Each opens its panel next to the devices, which stay live. A dot when the tool is doing something.
  */
-function EmulationButton() {
-  const { summary, shown } = useEmulation();
-  const { panel, togglePanel } = useStore();
-  const open = panel === 'emulation';
+function ToolTabs() {
+  const state = useStore();
+  const { summary } = useEmulation();
+  const active: Record<Tool, string | null> = {
+    emulation: summary.length ? summary.map((x) => x.text).join(' · ') : null,
+    forms: state.forms ? (state.forms.mode === 'valid' ? t('Filled with valid data', 'Rempli avec des données valides') : t('Filled with wrong data', 'Rempli avec des données fausses')) : null,
+    export: state.exporting ? t('Exporting…', 'Export…') : null,
+  };
   return (
-    <div className="relative min-w-0">
-      <button
-        aria-expanded={open}
-        aria-controls="emulation-panel"
-        onClick={() => togglePanel('emulation')}
-        title={t('Appearance, region, network and keyboard of the devices', 'Apparence, région, réseau et clavier des appareils')}
-        className={`inline-flex h-8 max-w-full items-center gap-2 rounded-lg border bg-card pr-2.5 pl-2 text-xs text-fg ${open ? 'border-local' : 'border-line-strong hover:border-[#4a4a52]'}`}
-      >
-        <Icon name="sliders" size={14} />
-        {t('Emulation', 'Émulation')}
-        {shown.length > 0 && (
-          <span className="flex min-w-0 gap-1 overflow-hidden">
-            {shown.map((x) => (
-              <span key={x.text} className={`shrink-0 rounded-[5px] px-1.5 py-0.5 text-[11px] leading-none whitespace-nowrap ${x.tone === 'err' ? 'bg-[rgba(242,139,130,0.14)] text-err' : x.tone === 'warn' ? 'bg-[rgba(230,192,123,0.14)] text-warn' : 'bg-raised text-muted'}`}>
-                {x.text}
-              </span>
-            ))}
-            {summary.length > shown.length && <span className="shrink-0 text-[11px] text-faint">+{summary.length - shown.length}</span>}
-          </span>
-        )}
-        <svg width="10" height="10" viewBox="0 0 24 24" aria-hidden="true" className="text-faint">
-          <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2.4" fill="none" />
-        </svg>
-      </button>
-    </div>
+    <nav aria-label={t('Tools', 'Outils')} className="flex w-10 shrink-0 flex-col items-center gap-1.5 border-r border-line-soft bg-[#0b0b0e] pt-3">
+      {TOOLS().map((tool) => {
+        const on = state.panel === tool.id;
+        return (
+          <button
+            key={tool.id}
+            aria-pressed={on}
+            aria-controls={`${tool.id}-panel`}
+            onClick={() => state.togglePanel(tool.id)}
+            disabled={tool.id !== 'emulation' && !state.url}
+            title={active[tool.id] ? `${tool.label} · ${active[tool.id]}` : tool.label}
+            className={`relative flex w-8 flex-col items-center gap-2 rounded-[7px] px-1 py-3 text-[12px] transition-colors disabled:opacity-40 ${on ? 'text-fg' : 'text-muted hover:bg-active/60 hover:text-fg'}`}
+            style={on ? { background: `${tool.tint}0.12)`, boxShadow: `inset 0 0 0 1px ${tool.tint}0.35)` } : undefined}
+          >
+            <span style={{ color: on || active[tool.id] ? tool.accent : undefined }}>
+              <Icon name={tool.icon} size={14} />
+            </span>
+            <span className="[writing-mode:vertical-rl] rotate-180 whitespace-nowrap">{tool.label}</span>
+            {active[tool.id] && <span aria-hidden="true" className="absolute top-1 right-1 size-1.5 rounded-full" style={{ background: tool.accent }} />}
+          </button>
+        );
+      })}
+    </nav>
   );
 }
+
+/** The frame shared by the tool panels: accent line, icon, title and subtitle, then the content. */
+function ToolPanel({ tool, subtitle, actions, children }: { tool: Tool; subtitle: ReactNode; actions?: ReactNode; children: ReactNode }) {
+  const state = useStore();
+  const def = TOOLS().find((x) => x.id === tool)!;
+  return (
+    <aside id={`${tool}-panel`} aria-label={def.label} className="relative flex w-[350px] shrink-0 flex-col border-r border-line-soft bg-[#0d0e11]">
+      <span aria-hidden="true" className="absolute inset-x-0 top-0 h-px opacity-70" style={{ background: `linear-gradient(90deg, transparent, ${def.accent} 30%, ${def.accent} 70%, transparent)` }} />
+      <div className="flex shrink-0 items-center gap-3 border-b border-line-soft px-4 py-3">
+        <span className="flex size-8 shrink-0 items-center justify-center rounded-lg" style={{ color: def.accent, background: `${def.tint}0.12)`, boxShadow: `inset 0 0 0 1px ${def.tint}0.25)` }}>
+          <Icon name={def.icon} size={15} />
+        </span>
+        <span className="flex min-w-0 flex-1 flex-col">
+          <span className="text-[13.5px] font-semibold">{def.label}</span>
+          <span className="flex items-center gap-1.5 truncate text-[11.5px] text-faint">{subtitle}</span>
+        </span>
+        {actions}
+        <button onClick={() => state.togglePanel(tool)} aria-label={t('Close', 'Fermer')} title={t('Close', 'Fermer')} className="flex size-7 items-center justify-center rounded-md text-faint hover:bg-active hover:text-fg">
+          <Icon name="close" size={12} />
+        </button>
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
+    </aside>
+  );
+}
+
+const live = (n: number) => (
+  <>
+    <span className="size-1.5 shrink-0 rounded-full bg-ok" />
+    {t(`Live on ${n} device${n > 1 ? 's' : ''}`, `En direct sur ${n} appareil${n > 1 ? 's' : ''}`)}
+  </>
+);
 
 /**
  * Emulation, docked next to the devices like Page and Checks: the devices stay live, so every change
@@ -282,29 +320,17 @@ export function EmulationPanel() {
   const { state, settings, updateSettings, target, setTarget, mocksOpen, setMocksOpen, m, text, th, all, per, current, devices, hasTouch, mocksOn, setMedia, setText, setThrottle, setRegion, network, setNetwork, resetAll, summary, field } = useEmulation();
   void all;
   return (
-    <aside id="emulation-panel" aria-label={t('Emulation', 'Émulation')} className="relative flex w-[350px] shrink-0 flex-col border-r border-line-soft bg-[#0d0e11]">
-      <span aria-hidden="true" className="absolute inset-x-0 top-0 h-px bg-[linear-gradient(90deg,transparent,#8ab4f8_30%,#8ab4f8_70%,transparent)] opacity-70" />
-      <div className="flex shrink-0 items-center gap-3 border-b border-line-soft px-4 py-3">
-        <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-local/12 text-local shadow-[inset_0_0_0_1px_rgba(138,180,248,0.25)]">
-          <Icon name="sliders" size={15} />
-        </span>
-        <span className="flex min-w-0 flex-1 flex-col">
-          <span className="text-[13.5px] font-semibold">{t('Emulation', 'Émulation')}</span>
-          <span className="flex items-center gap-1.5 text-[11.5px] text-faint">
-            <span className="size-1.5 rounded-full bg-ok" />
-            {t(`Live on ${devices.length} device${devices.length > 1 ? 's' : ''}`, `En direct sur ${devices.length} appareil${devices.length > 1 ? 's' : ''}`)}
-          </span>
-        </span>
-        {summary.length > 0 && (
+    <ToolPanel
+      tool="emulation"
+      subtitle={live(devices.length)}
+      actions={
+        summary.length > 0 && (
           <button onClick={resetAll} className="rounded px-1.5 py-1 text-[11.5px] text-local hover:bg-active">
             {t('Reset all', 'Tout réinitialiser')}
           </button>
-        )}
-        <button onClick={() => state.togglePanel('emulation')} aria-label={t('Close', 'Fermer')} title={t('Close', 'Fermer')} className="flex size-7 items-center justify-center rounded-md text-faint hover:bg-active hover:text-fg">
-          <Icon name="close" size={12} />
-        </button>
-      </div>
-      <div className="min-h-0 flex-1 overflow-y-auto">
+        )
+      }
+    >
             <div className="emulation-body flex flex-col gap-3 p-3">
               <div className="flex flex-col gap-2">
                 <span className={section}>{t('Appearance', 'Apparence')}</span>
@@ -458,7 +484,6 @@ export function EmulationPanel() {
                 </div>
               )}
             </div>
-      </div>
       {mocksOpen && (
         <MocksDialog
           onClose={() => {
@@ -467,80 +492,67 @@ export function EmulationPanel() {
           }}
         />
       )}
-    </aside>
+    </ToolPanel>
   );
 }
 
+const bigRow = 'flex w-full items-center gap-3 rounded-[10px] border border-line-soft bg-card px-3.5 py-3 text-left hover:border-line-strong disabled:opacity-50';
+
 /** Fill the forms of every device at once: good data, wrong data, or empty. Nothing is submitted. */
-function FormsMenu() {
-  const { openOverlay, closeOverlay, fillForms, url } = useStore();
-  const [open, setOpen] = useState(false);
-  const toggle = async () => {
-    if (open) {
-      setOpen(false);
-      closeOverlay();
-    } else {
-      await openOverlay();
-      setOpen(true);
-    }
-  };
-  const run = (mode: 'valid' | 'invalid' | 'clear') => {
-    setOpen(false);
-    closeOverlay();
-    void fillForms(mode);
-  };
-  const row = 'flex w-full items-center justify-between gap-3 rounded-md px-2.5 py-1.5 text-left text-xs text-muted hover:bg-active/60 hover:text-fg';
+export function FormsPanel() {
+  const state = useStore();
+  const { fillForms, forms, url } = state;
+  const n = activePresets(state).length;
+  const invalid = forms?.mode === 'invalid' ? Object.values(forms.result) : [];
+  const accepting = [...new Set(invalid.flatMap((r) => r.accepted ?? []))];
+  const options: { mode: 'valid' | 'invalid' | 'clear'; title: string; text: string; mark: string }[] = [
+    { mode: 'valid', title: t('Valid data', 'Données valides'), text: t('A real-looking person in the devices’ language.', 'Une personne crédible, dans la langue des appareils.'), mark: '✓' },
+    { mode: 'invalid', title: t('Wrong data', 'Données fausses'), text: t('Then Kinglet lists the fields that accept anything.', 'Puis Kinglet liste les champs qui acceptent n’importe quoi.'), mark: '✗' },
+    { mode: 'clear', title: t('Empty the fields', 'Vider les champs'), text: t('Back to the page as it loaded.', 'Retour à la page telle qu’elle s’est chargée.'), mark: '∅' },
+  ];
   return (
-    <div className="relative">
-      <button aria-expanded={open} disabled={!url} onClick={toggle} title={t('Fill the forms of every device', 'Remplir les formulaires de tous les appareils')} className={menuButton}>
-        <Icon name="form" size={14} />
-        {t('Forms', 'Formulaires')}
-      </button>
-      {open && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={toggle} />
-          <div role="menu" className="absolute top-10 right-0 z-50 w-80 rounded-[10px] border border-line bg-card p-1 shadow-2xl shadow-black/60">
-            <button role="menuitem" onClick={() => run('valid')} className={row}>
-              {t('Fill with valid data', 'Remplir avec des données valides')}
-              <span className="font-mono text-[10.5px] text-ghost">✓</span>
-            </button>
-            <button role="menuitem" onClick={() => run('invalid')} className={row}>
-              {t('Fill with wrong data', 'Remplir avec des données fausses')}
-              <span className="font-mono text-[10.5px] text-ghost">✗</span>
-            </button>
-            <button role="menuitem" onClick={() => run('clear')} className={row}>
-              {t('Empty the fields', 'Vider les champs')}
-            </button>
-            <p className="m-0 px-2.5 pt-2 pb-2 text-[11.5px] leading-normal text-faint">
-              {t(
-                'Every field of every device, in the devices’ language. Nothing is submitted: submit yourself to see the error messages. With wrong data, Kinglet lists the fields that accept anything.',
-                'Tous les champs de tous les appareils, dans la langue des appareils. Rien n’est envoyé : soumets toi-même pour voir les messages d’erreur. Avec des données fausses, Kinglet liste les champs qui acceptent n’importe quoi.',
-              )}
-            </p>
+    <ToolPanel tool="forms" subtitle={live(n)}>
+      <div className="flex flex-col gap-2.5 p-3">
+        {options.map((o) => (
+          <button key={o.mode} disabled={!url} onClick={() => void fillForms(o.mode)} className={`${bigRow} ${forms?.mode === o.mode ? 'border-ok/40 bg-ok/[0.06]' : ''}`}>
+            <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-active font-mono text-[12px] text-ok">{o.mark}</span>
+            <span className="flex min-w-0 flex-col gap-0.5">
+              <span className="text-[13px] font-medium">{o.title}</span>
+              <span className="text-[11.5px] text-faint">{o.text}</span>
+            </span>
+          </button>
+        ))}
+        {forms?.mode === 'invalid' && (
+          <div className="rounded-[10px] border border-line-soft bg-card p-3 text-xs">
+            {accepting.length ? (
+              <>
+                <span className="font-medium text-warn">{t(`${accepting.length} field${accepting.length > 1 ? 's' : ''} accept${accepting.length > 1 ? '' : 's'} anything`, `${accepting.length} champ${accepting.length > 1 ? 's' : ''} accepte${accepting.length > 1 ? 'nt' : ''} n’importe quoi`)}</span>
+                <span className="mt-1 block text-muted">{accepting.join(', ')}</span>
+              </>
+            ) : (
+              <span className="text-ok">{t('Every field refuses wrong data.', 'Chaque champ refuse les données fausses.')}</span>
+            )}
           </div>
-        </>
-      )}
-    </div>
+        )}
+        <p className="m-0 px-1 pt-1 text-[11.5px] leading-normal text-faint">
+          {t(
+            'Every field of every device. Nothing is submitted: submit yourself to see the error messages.',
+            'Tous les champs de tous les appareils. Rien n’est envoyé : soumets toi-même pour voir les messages d’erreur.',
+          )}
+        </p>
+      </div>
+    </ToolPanel>
   );
 }
 
 type ExportKind = 'sheet' | 'sheet-full' | 'pdf' | 'folder' | 'webm' | 'gif';
 
 /** Captures of every device: a sheet, a PDF, separate images, or a video of the synced scroll. */
-function ExportMenu() {
-  const { openOverlay, closeOverlay, url, settings } = useStore();
-  const [open, setOpen] = useState(false);
+export function ExportPanel() {
+  const state = useStore();
+  const { url, settings } = state;
   const [busy, setBusy] = useState<{ kind: ExportKind; progress: number | null } | null>(null);
   const [done, setDone] = useState<{ ok: boolean; text: string } | null>(null);
-  const toggle = async () => {
-    if (open) {
-      setOpen(false);
-      closeOverlay();
-    } else {
-      await openOverlay();
-      setOpen(true);
-    }
-  };
   const name = () => {
     const project = activeProject(settings)?.name ?? 'kinglet';
     let path = '';
@@ -552,11 +564,9 @@ function ExportMenu() {
     return `${project}${path ? `-${path}` : ''}-${new Date().toISOString().slice(0, 10)}`.replace(/[^\w.-]+/g, '-');
   };
   const run = async (kind: ExportKind) => {
-    setOpen(false);
-    closeOverlay();
     setDone(null);
     setBusy({ kind, progress: null });
-    await new Promise((r) => setTimeout(r, 350)); // the views come back on screen
+    useStore.setState({ exporting: true });
     try {
       const title = url ?? '';
       let saved: string | null = null;
@@ -575,49 +585,52 @@ function ExportMenu() {
       setDone({ ok: false, text: cleanError(e) });
     } finally {
       setBusy(null);
-      setTimeout(() => setDone(null), 6000);
+      useStore.setState({ exporting: false });
     }
   };
-  const row = 'flex w-full items-center justify-between gap-3 rounded-md px-2.5 py-1.5 text-left text-xs text-muted hover:bg-active/60 hover:text-fg';
-  const items: [ExportKind, string, string][] = [
-    ['sheet', t('Sheet · screens', 'Planche · écrans'), 'PNG'],
-    ['sheet-full', t('Sheet · whole pages', 'Planche · pages entières'), 'PNG'],
-    ['pdf', t('PDF · one device per page', 'PDF · un appareil par page'), 'PDF'],
-    ['folder', t('Separate images (folder)', 'Images séparées (dossier)'), 'PNG'],
-    ['webm', t('Video of the scroll', 'Vidéo du scroll'), 'WebM'],
-    ['gif', t('GIF of the scroll', 'GIF du scroll'), 'GIF'],
+  const groups: { title: string; items: [ExportKind, string, string][] }[] = [
+    {
+      title: t('Images', 'Images'),
+      items: [
+        ['sheet', t('Sheet of the screens', 'Planche des écrans'), 'PNG'],
+        ['sheet-full', t('Sheet of whole pages', 'Planche des pages entières'), 'PNG'],
+        ['folder', t('One image per device', 'Une image par appareil'), t('folder', 'dossier')],
+      ],
+    },
+    { title: 'PDF', items: [['pdf', t('One device per page', 'Un appareil par page'), 'PDF']] },
+    {
+      title: t('Scrolling', 'Défilement'),
+      items: [
+        ['webm', t('Video of every device scrolling', 'Vidéo de tous les appareils qui défilent'), 'WebM'],
+        ['gif', t('GIF of every device scrolling', 'GIF de tous les appareils qui défilent'), 'GIF'],
+      ],
+    },
   ];
+  const n = activePresets(state).length;
   return (
-    <div className="relative">
-      <button aria-expanded={open} disabled={!!busy || !url} onClick={toggle} title={t('Export the devices: images, PDF, video', 'Exporter les appareils : images, PDF, vidéo')} className={menuButton}>
-        <Icon name="download" size={14} />
-        {busy ? (busy.progress != null ? `${t('Recording', 'Enregistrement')} ${Math.round(busy.progress * 100)}${t('%', ' %')}` : t('Exporting…', 'Export…')) : t('Export', 'Exporter')}
-      </button>
-      {open && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={toggle} />
-          <div role="menu" className="absolute top-10 right-0 z-50 w-72 rounded-[10px] border border-line bg-card p-1 shadow-2xl shadow-black/60">
-            {items.map(([id, label, hint], i) => (
-              <div key={id}>
-                {i === 4 && <div className="mx-1.5 my-1 h-px bg-line-soft" />}
-                <button role="menuitem" onClick={() => void run(id)} className={row}>
-                  {label}
-                  <span className="font-mono text-[10.5px] text-ghost">{hint}</span>
-                </button>
-              </div>
+    <ToolPanel tool="export" subtitle={t(`${n} device${n > 1 ? 's' : ''}, as they are now`, `${n} appareil${n > 1 ? 's' : ''}, tels qu’ils sont`)}>
+      <div className="flex flex-col gap-3 p-3">
+        {groups.map((g) => (
+          <div key={g.title} className="flex flex-col gap-1.5">
+            <span className={`${section} px-1`}>{g.title}</span>
+            {g.items.map(([id, label, hint]) => (
+              <button key={id} disabled={!!busy || !url} onClick={() => void run(id)} className={bigRow}>
+                <span className="min-w-0 flex-1 text-[13px]">{busy?.kind === id ? (busy.progress != null ? `${t('Recording', 'Enregistrement')} ${Math.round(busy.progress * 100)}${t('%', ' %')}` : t('Exporting…', 'Export…')) : label}</span>
+                <span className="rounded bg-active px-1.5 py-0.5 font-mono text-[10.5px] text-warn">{hint}</span>
+              </button>
             ))}
-            <p className="m-0 px-2.5 pt-2 pb-2 text-[11.5px] leading-normal text-faint">
-              {t('Whole pages stop at 10,000 px. The video scrolls every device from top to bottom in 6 s.', 'Les pages entières s’arrêtent à 10 000 px. La vidéo fait défiler tous les appareils de haut en bas en 6 s.')}
-            </p>
           </div>
-        </>
-      )}
-      {done && (
-        <div role="status" className={`absolute top-10 right-0 z-30 w-80 rounded-lg border bg-card px-3 py-2 text-xs break-all shadow-xl shadow-black/50 ${done.ok ? 'border-line text-muted' : 'border-[#5c3330] text-err'}`}>
-          {done.text}
-        </div>
-      )}
-    </div>
+        ))}
+        {done && (
+          <p role="status" className={`m-0 rounded-[10px] border px-3 py-2.5 text-xs break-all ${done.ok ? 'border-line-soft bg-card text-muted' : 'border-[#5c3330] text-err'}`}>
+            {done.text}
+          </p>
+        )}
+        <p className="m-0 px-1 text-[11.5px] leading-normal text-faint">
+          {t('Whole pages stop at 10,000 px. The video scrolls every device from top to bottom in 6 s.', 'Les pages entières s’arrêtent à 10 000 px. La vidéo fait défiler tous les appareils de haut en bas en 6 s.')}
+        </p>
+      </div>
+    </ToolPanel>
   );
 }
 
@@ -772,7 +785,9 @@ function Devices() {
 
   return (
     <>
-      <main className="stage-bg relative flex min-w-0 flex-1 flex-col">
+      <main className="stage-bg relative flex min-w-0 flex-1">
+      <ToolTabs />
+      <div className="relative flex min-w-0 flex-1 flex-col">
       <OldProdBanner />
       {state.pointing && <PointingBar />}
       <DeviceToolbar scale={scale} />
@@ -851,6 +866,7 @@ function Devices() {
       {state.inspecting && <InspectBar />}
       {state.tabOrder && <TabOrderBar />}
       {state.forms && <FormsBar />}
+      </div>
       </main>
       {state.consoleOpen && <ConsoleDock />}
     </>
