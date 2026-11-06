@@ -61,7 +61,7 @@ function WorksWith() {
 
 function FinalCta() {
   return (
-    <section className="mx-auto flex max-w-[1200px] flex-col items-center gap-6 px-4 pt-40 text-center sm:px-6">
+    <section className="mx-auto flex max-w-[1200px] flex-col items-center gap-6 px-4 pt-40 pb-32 text-center sm:px-6">
       <Reveal className="flex flex-col items-center gap-6">
         <KingletBird width={120} />
         <h2 className="m-0 max-w-[820px] text-[clamp(38px,6vw,76px)] leading-[0.98] font-semibold tracking-[-0.055em]">
