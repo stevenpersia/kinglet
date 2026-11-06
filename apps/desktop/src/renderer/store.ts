@@ -119,6 +119,8 @@ interface State {
   /** Freeze native views as images while a menu or dialog covers the stage. */
   openOverlay(): Promise<void>;
   closeOverlay(): void;
+  /** While a menu keeps the devices frozen as images: capture them again, so a change shows at once. */
+  refreshFrozen(): void;
   /** Site-wide audit of the current origin. */
   audit: SiteAudit | null;
   /** Security section: the last run (for the page shown), and whether one is running. */
@@ -147,6 +149,7 @@ interface State {
 
 let shareSeq = 0;
 let securitySeq = 0;
+let refreezeTimers: ReturnType<typeof setTimeout>[] = [];
 let initStarted = false;
 let overlays = 0;
 
@@ -245,6 +248,7 @@ export const useStore = create<State>((set, get) => ({
   async fillForms(mode) {
     const result = await api().fillForms(mode);
     set({ forms: mode === 'clear' ? null : { mode, result } });
+    get().refreshFrozen();
   },
   checksScope: 'page',
   tabOrder: false,
@@ -253,6 +257,7 @@ export const useStore = create<State>((set, get) => ({
     const next = on ?? !get().tabOrder;
     set({ tabOrder: next, tabInfo: {} });
     api().setTabOrder(next);
+    get().refreshFrozen();
   },
   histories: {},
   async loadHistory(projectId) {
@@ -287,6 +292,7 @@ export const useStore = create<State>((set, get) => ({
     set({ settings: { ...get().settings, ...patch } });
     const settings = await api().updateSettings(patch);
     set({ settings });
+    get().refreshFrozen();
   },
 
   async analyze(url, opts) {
@@ -456,8 +462,22 @@ export const useStore = create<State>((set, get) => ({
     if (overlays === 1) set({ frozen: await api().freeze() });
   },
 
+  refreshFrozen() {
+    // The page needs a moment to apply the change (styles, fonts, layout): capture twice.
+    if (!overlays) return;
+    for (const t of refreezeTimers) clearTimeout(t);
+    refreezeTimers = [250, 900].map((ms) =>
+      setTimeout(async () => {
+        if (!overlays) return;
+        const shots = await api().refreeze();
+        if (overlays && get().frozen && Object.keys(shots).length) set({ frozen: { ...get().frozen, ...shots } });
+      }, ms),
+    );
+  },
+
   closeOverlay() {
     overlays = Math.max(0, overlays - 1);
+    if (overlays === 0) for (const t of refreezeTimers) clearTimeout(t);
     if (overlays === 0) {
       api().unfreeze();
       set({ frozen: null });
