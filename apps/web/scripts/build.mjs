@@ -94,8 +94,11 @@ export async function build(out, site) {
   return out;
 }
 
+/** Edge functions in functions/, each served at /api/<name>: the launch list, and the launch-price counter. */
+export const FUNCTIONS = ['waitlist', 'launch-offer'];
+
 /**
- * Vercel Build Output API (.vercel/output): the static site plus the launch-list function at /api/waitlist.
+ * Vercel Build Output API (.vercel/output): the static site plus the Edge functions in FUNCTIONS, at /api/<name>.
  * Packaging the function here (rather than an api/ folder) keeps Vercel from re-installing the whole
  * monorepo, Electron included, just to build it.
  */
@@ -103,15 +106,17 @@ export async function vercelOutput(dist, out = join(ROOT, '.vercel/output')) {
   const { build: vite } = await import('vite');
   rmSync(out, { recursive: true, force: true });
   cpSync(dist, join(out, 'static'), { recursive: true });
-  const fn = join(out, 'functions/api/waitlist.func');
-  await vite({
-    root: ROOT,
-    logLevel: 'warn',
-    publicDir: false,
-    ssr: { noExternal: true },
-    build: { ssr: 'functions/waitlist.ts', outDir: fn, emptyOutDir: true, rollupOptions: { output: { entryFileNames: 'index.js', format: 'es' } } },
-  });
-  writeFileSync(join(fn, '.vc-config.json'), JSON.stringify({ runtime: 'edge', entrypoint: 'index.js' }, null, 2));
+  for (const name of FUNCTIONS) {
+    const fn = join(out, `functions/api/${name}.func`);
+    await vite({
+      root: ROOT,
+      logLevel: 'warn',
+      publicDir: false,
+      ssr: { noExternal: true },
+      build: { ssr: `functions/${name}.ts`, outDir: fn, emptyOutDir: true, rollupOptions: { output: { entryFileNames: 'index.js', format: 'es' } } },
+    });
+    writeFileSync(join(fn, '.vc-config.json'), JSON.stringify({ runtime: 'edge', entrypoint: 'index.js' }, null, 2));
+  }
   mkdirSync(out, { recursive: true });
   writeFileSync(join(out, 'config.json'), JSON.stringify({ version: 3, routes: [{ handle: 'filesystem' }, ...STATIC_PAGES.map((p) => ({ src: `^/${p}/?$`, dest: `/${p}/index.html` }))] }, null, 2));
   return out;
@@ -123,6 +128,6 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   console.log(`dist/ built for ${site}`);
   if (process.env.VERCEL) {
     await vercelOutput(dist);
-    console.log('.vercel/output/ written (static site + /api/waitlist)');
+    console.log(`.vercel/output/ written (static site + ${FUNCTIONS.map((f) => `/api/${f}`).join(', ')})`);
   }
 }

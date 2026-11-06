@@ -5,7 +5,7 @@ import { LAUNCH_OFFER, WAITLIST_API } from '../config';
 type State = 'idle' | 'sending' | 'ok' | 'invalid' | 'error';
 
 const MESSAGES: Record<Exclude<State, 'idle' | 'sending'>, string> = {
-  ok: `You’re on the list. We’ll email you at launch, with ${LAUNCH_OFFER}.`,
+  ok: `You’re on the list. We’ll email you at launch: ${LAUNCH_OFFER}.`,
   invalid: 'That email doesn’t look right.',
   error: 'Something went wrong. Try again in a minute.',
 };
