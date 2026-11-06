@@ -1,7 +1,8 @@
 import { motion, useInView } from 'motion/react';
 import { useEffect, useRef, useState } from 'react';
 import { Icon } from '../../../desktop/src/renderer/components/Icons';
-import { MCP_COMMAND } from '../config';
+import { LAUNCH_OFFER, LAUNCH_PRICE, LAUNCHED, MCP_COMMAND } from '../config';
+import { useLaunchOffer } from '../launchOffer';
 import { AppWindow } from '../demo/AppWindow';
 import { Cursor, type CursorCmd } from '../demo/Cursor';
 import { type DemoState, duration, finalState, initial, SCRIPTS, type SceneId } from '../demo/scenes';
@@ -32,6 +33,13 @@ function useFit() {
     return () => ro.disconnect();
   }, []);
   return { ref, scale };
+}
+
+/** Under the hero's buttons: what's coming before launch, then the launch price while it lasts. */
+function HeroNote() {
+  const offer = useLaunchOffer();
+  const text = !LAUNCHED ? `Coming soon to Linux · ${LAUNCH_OFFER}` : offer ? `Linux · ${LAUNCH_PRICE.label} for the first ${offer.total} buyers · ${offer.left} left` : 'Linux · pay once, keep it';
+  return <p className="m-0 font-mono text-xs text-ghost">{text}</p>;
 }
 
 export function Hero() {
@@ -132,7 +140,7 @@ export function Hero() {
           New: catches leaked API keys and open .env files before anyone else
           <span className="transition-transform group-hover:translate-x-0.5">→</span>
         </a>
-        <p className="m-0 font-mono text-xs text-ghost">Coming soon to Linux · join the list for a launch discount</p>
+        <HeroNote />
       </div>
 
       <div className="relative mx-auto mt-14 flex max-w-[1200px] flex-col items-center gap-3.5">

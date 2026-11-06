@@ -1,5 +1,5 @@
 import { PageShell } from './components/Shell';
-import { PORTAL_URL, PRICE } from './config';
+import { LAUNCH_PRICE, LAUNCH_SEATS, PORTAL_URL, PRICE } from './config';
 import { LEGAL_UPDATED, MEDIATOR, PUBLISHER, REFUND_DAYS } from './publisher';
 
 /**
@@ -123,7 +123,8 @@ export function Terms() {
 
       <H2 id="price">3. Price and payment</H2>
       <p>
-        A license costs <strong>{PRICE.label}, paid once</strong>. It is not a subscription: nothing is charged again. Taxes such as VAT are added where they apply and shown by Polar before you pay. The license key is delivered right
+        A license costs <strong>{PRICE.label}, paid once</strong>. It is not a subscription: nothing is charged again. Taxes such as VAT are added where they apply and shown by Polar before you pay. At launch, the first {LAUNCH_SEATS} licenses cost {LAUNCH_PRICE.label}: the website shows how many are left, and the price
+        Polar shows before you pay is the one you pay. The license key is delivered right
         after payment, in Polar’s receipt email and in its <a href={PORTAL_URL}>customer portal</a>.
       </p>
 

@@ -7,7 +7,7 @@ import { AiWorkflow, Checks, DeviceLab, Mcp, Security, Ship } from './components
 import { Reveal } from './components/ui';
 import { GetKinglet } from './components/Get';
 import { SiteFooter } from './components/Shell';
-import { LAUNCHED } from './config';
+import { LAUNCH_OFFER, LAUNCHED } from './config';
 
 function Nav() {
   const links: [string, string][] = [
@@ -72,7 +72,7 @@ function FinalCta() {
           you can see everything.
         </h2>
         <p className="m-0 max-w-[520px] text-base leading-relaxed text-muted">
-          {LAUNCHED ? 'Pay once, keep it. Your license key is ready right after paying, updates install themselves.' : 'Kinglet launches soon. Leave your email: one message at launch, with a discount for the list.'}
+          {LAUNCHED ? 'Pay once, keep it. Your license key is ready right after paying, updates install themselves.' : `Kinglet launches soon, at ${LAUNCH_OFFER}. Leave your email: one message at launch.`}
         </p>
         <GetKinglet />
       </Reveal>

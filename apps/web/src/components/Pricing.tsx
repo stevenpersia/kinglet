@@ -1,5 +1,6 @@
 import { Icon } from '../../../desktop/src/renderer/components/Icons';
-import { DOWNLOAD_URL, LAUNCH_OFFER, LAUNCHED, PRICE } from '../config';
+import { DOWNLOAD_URL, LAUNCH_OFFER, LAUNCH_PRICE, LAUNCH_SEATS, LAUNCHED, PRICE } from '../config';
+import { type LaunchOffer, useLaunchOffer } from '../launchOffer';
 import { REFUND_DAYS } from '../publisher';
 import { Reveal } from './ui';
 import { GetKinglet } from './Get';
@@ -19,7 +20,23 @@ const INCLUDED = [
   'Automatic updates',
 ];
 
+/** How many launch-price licenses are left: a bar filling up as they sell, and the count. */
+function LaunchMeter({ offer }: { offer: LaunchOffer }) {
+  const sold = offer.total - offer.left;
+  return (
+    <div className="-mt-2 flex flex-col gap-2">
+      <div aria-hidden="true" className="h-1.5 overflow-hidden rounded-full bg-[#1e1e23]">
+        <div className="h-full rounded-full bg-[linear-gradient(90deg,#f0a07f,#e6c07b)] transition-[width] duration-700" style={{ width: `${Math.max(2, (sold / offer.total) * 100)}%` }} />
+      </div>
+      <p className="m-0 font-mono text-xs text-[#e6c07b]">
+        {offer.left} of {offer.total} left at {LAUNCH_PRICE.label}, then {PRICE.label}
+      </p>
+    </div>
+  );
+}
+
 export function Pricing() {
+  const offer = useLaunchOffer();
   return (
     <section className="mx-auto max-w-[1200px] px-4 pt-36 sm:px-6">
       {/* The anchor is on the heading, like the other sections: the menu lands on it, not on the space above. */}
@@ -37,7 +54,7 @@ export function Pricing() {
           </h2>
         </Reveal>
         <Reveal delay={0.06}>
-          <p className="m-0 max-w-[520px] text-base leading-relaxed text-muted">No subscription, no account, no seat to manage. One license, every feature.{LAUNCHED ? '' : ` Launching soon: join the list for ${LAUNCH_OFFER}.`}</p>
+          <p className="m-0 max-w-[520px] text-base leading-relaxed text-muted">No subscription, no account, no seat to manage. One license, every feature.{LAUNCHED ? '' : ` Launching soon: ${LAUNCH_OFFER}.`}</p>
         </Reveal>
       </div>
 
@@ -50,11 +67,14 @@ export function Pricing() {
                 <span className="text-lg font-semibold">Kinglet</span>
                 <span className="rounded-full bg-[rgba(217,119,87,0.14)] px-2 py-0.5 font-mono text-[11px] text-[#f0a07f]">one-time</span>
                 {!LAUNCHED && <span className="rounded-full bg-[rgba(230,192,123,0.12)] px-2 py-0.5 font-mono text-[11px] text-[#e6c07b]">coming soon</span>}
+                {offer && <span className="rounded-full bg-[rgba(230,192,123,0.12)] px-2 py-0.5 font-mono text-[11px] text-[#e6c07b]">launch price</span>}
               </div>
               <div className="flex items-baseline gap-2">
-                <span className="text-[72px] leading-none font-semibold tracking-[-0.05em]">{PRICE.label}</span>
+                <span className="text-[72px] leading-none font-semibold tracking-[-0.05em]">{offer ? LAUNCH_PRICE.label : PRICE.label}</span>
+                {offer && <s className="text-2xl font-medium tracking-[-0.03em] text-faint">{PRICE.label}</s>}
                 <span className="text-sm text-faint">once</span>
               </div>
+              {offer ? <LaunchMeter offer={offer} /> : !LAUNCHED && <p className="m-0 -mt-2 font-mono text-xs text-[#e6c07b]">{LAUNCH_OFFER}</p>}
               <p className="m-0 text-sm leading-relaxed text-faint">
                 {LAUNCHED ? (
                   <>
@@ -65,7 +85,7 @@ export function Pricing() {
                     and enter it on first launch.
                   </>
                 ) : (
-                  <>One license for you, on your computers. Linux (AppImage and pacman). Leave your email: you’ll hear first when Kinglet launches, with {LAUNCH_OFFER} reserved for the list.</>
+                  <>One license for you, on your computers. Linux (AppImage and pacman). Leave your email to hear when Kinglet launches: the first {LAUNCH_SEATS} buyers pay {LAUNCH_PRICE.label}.</>
                 )}
               </p>
               <GetKinglet align="stretch" />
@@ -107,9 +127,9 @@ const FAQ: [string, string][] = [
   ['Does it check security?', 'Yes, in its own section. Kinglet looks for API keys and tokens shipped in your HTML and JavaScript, .env, .git and source maps left reachable (tried on your own sites only), security headers, cookie flags, HTTPS, mixed content and third-party scripts. Each problem comes with the fix, and Claude can apply it.'],
   LAUNCHED
     ? ['How do I get it?', 'Buy it in Pricing: your license key is ready right away, in the receipt email and Polar’s customer portal. Download Kinglet, open it and enter the key. It works on up to 3 computers; moving to a new one is a click in Settings → License.']
-    : ['When can I get it?', `Soon. Leave your email in Pricing: you’ll get one email at launch, with ${LAUNCH_OFFER} for people on the list.`],
+    : ['When can I get it?', `Soon. Leave your email in Pricing: you’ll get one email at launch. The first ${LAUNCH_SEATS} buyers pay ${LAUNCH_PRICE.label} instead of ${PRICE.label}.`],
   ...(LAUNCHED ? ([['Does it work offline?', 'Yes. Activating needs the internet once; after that Kinglet checks the license now and then and keeps working offline for up to 14 days at a time.']] as [string, string][]) : []),
-  ['Is it a subscription?', `No. You pay ${PRICE.label} once and keep Kinglet. Updates install themselves.`],
+  ['Is it a subscription?', 'No. You pay once and keep Kinglet. Updates install themselves.'],
   ['Can I get a refund?', `Yes, within ${REFUND_DAYS} days of buying, no questions asked: from Polar’s customer portal or by email. See the Terms.`],
   ['Which systems does it run on?', 'Linux today: AppImage for any distribution, and a pacman package for Arch and CachyOS.'],
   ['Do I need Claude Code?', 'No. Devices, checks, Open Graph previews and Vercel work on their own. With Claude Code installed, Kinglet opens it in your project with the MCP server already plugged in.'],

@@ -67,7 +67,7 @@ it('has the legal pages, linked from every page, without JavaScript', async () =
     expect(html).not.toMatch(/<script/);
   }
   const terms = (await (await fetch(`${site}/terms/`)).text()).replaceAll('<!-- -->', '');
-  expect(terms).toContain('$49, paid once');
+  expect(terms).toContain('$79, paid once');
   expect(terms).toContain('up to 3 computers');
   expect(terms).toContain('14 days');
   for (const page of ['/', '/thanks/', '/privacy/']) {
