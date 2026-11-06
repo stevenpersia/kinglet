@@ -35,6 +35,7 @@ const api: KingletApi = {
   projects: {
     pickFolder: () => ipcRenderer.invoke('projects:pick-folder'),
     clone: (gitUrl) => ipcRenderer.invoke('projects:clone', gitUrl),
+    changes: (projectId) => ipcRenderer.invoke('projects:changes', projectId),
   },
   compare: (targets) => ipcRenderer.invoke('compare:run', targets),
   compareVisual: (targets, deviceId) => ipcRenderer.invoke('compare:visual', targets, deviceId),

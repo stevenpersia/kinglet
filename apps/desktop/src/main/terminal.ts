@@ -64,7 +64,12 @@ export class Terminals {
     const term: Term = { pty, buffer: '', running: true, cwd: l.cwd, lastOutput: Date.now(), startedAt: Date.now() };
     this.terms.set(projectId, term);
     pty.onData((data) => {
-      term.buffer = (term.buffer + data).slice(-KEEP);
+      term.buffer += data;
+      // Cut at a line start, so the replay doesn't begin inside an escape sequence.
+      if (term.buffer.length > KEEP * 1.25) {
+        const cut = term.buffer.indexOf('\n', term.buffer.length - KEEP);
+        term.buffer = term.buffer.slice(cut < 0 ? -KEEP : cut + 1);
+      }
       term.lastOutput = Date.now();
       this.emit({ projectId, data });
     });

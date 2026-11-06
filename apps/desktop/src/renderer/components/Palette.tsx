@@ -67,6 +67,7 @@ export function Palette() {
       go('projets', t('all projects', 'tous les projets')),
       go('apercu', t('Devices', 'l’aperçu')),
       go('deploiements', t('Deployments', 'Déploiements')),
+      go('changes', t('Changes (git diff)', 'Modifications (git diff)')),
       go('comparer', t('Compare', 'Comparer')),
       go('partage', t('Share', 'Partage')),
       { id: 'console', label: t('Show or hide the console', 'Afficher ou masquer la console'), run: () => useStore.getState().toggleConsole() },

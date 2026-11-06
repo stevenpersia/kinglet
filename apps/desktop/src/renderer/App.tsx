@@ -1,3 +1,4 @@
+import { ChangesPage } from './components/ChangesPage';
 import { useEffect } from 'react';
 import { SidePanel } from './components/Inspector';
 import { Palette } from './components/Palette';
@@ -165,6 +166,8 @@ export function App() {
           <SettingsPage />
         ) : section === 'deploiements' ? (
           <DeploymentsPage />
+        ) : section === 'changes' ? (
+          <ChangesPage />
         ) : (
           <ComparePage />
         )}

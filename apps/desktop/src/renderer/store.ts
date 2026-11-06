@@ -14,7 +14,7 @@ export const api = (): KingletApi => window.kinglet;
 /** "Error invoking remote method 'x': Error: why" → "why". */
 export const cleanError = (e: unknown) => String((e as Error)?.message ?? e).replace(/^Error invoking remote method '[^']+': (?:\w*Error: )?/, '');
 
-export type Section = 'apercu' | 'partage' | 'comparer' | 'deploiements' | 'checks' | 'reglages' | 'projets';
+export type Section = 'apercu' | 'partage' | 'comparer' | 'deploiements' | 'checks' | 'reglages' | 'projets' | 'changes';
 /** Panel opened next to the devices from the left bar. */
 export type Panel = 'page' | 'checks' | 'feedback';
 export type SettingsTab = 'general' | 'devices' | 'project' | 'vercel' | 'github' | 'claude' | 'mcp' | 'updates';

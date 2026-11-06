@@ -72,7 +72,9 @@ function TerminalView({ projectId, restartKey, onExit }: { projectId: string; re
       fontSize: 12,
       lineHeight: 1.25,
       cursorBlink: true,
-      scrollback: 5000,
+      scrollback: 10000,
+      smoothScrollDuration: 0,
+      fastScrollModifier: 'shift',
       macOptionIsMeta: true,
       theme: {
         background: '#0e0e10',
@@ -143,7 +145,13 @@ function TerminalView({ projectId, restartKey, onExit }: { projectId: string; re
     // onExit is a state setter from the parent: stable.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId, restartKey]);
-  return <div ref={host} data-terminal={projectId} className="min-h-0 flex-1 overflow-hidden py-2 pl-3" />;
+  // The padding sits on a wrapper: FitAddon measures the host's border-box, so padding on it
+  // counted as room and declared too many columns and rows to Claude Code (broken wraps and scroll).
+  return (
+    <div className="flex min-h-0 flex-1 flex-col py-2 pl-3">
+      <div ref={host} data-terminal={projectId} className="kinglet-term min-h-0 flex-1 overflow-hidden" />
+    </div>
+  );
 }
 
 /** Claude Code in Kinglet: a terminal running `claude` in the project folder, next to the devices. */

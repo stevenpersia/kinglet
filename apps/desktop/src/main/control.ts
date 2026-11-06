@@ -115,13 +115,17 @@ export function startControlServer(deps: Deps) {
         }
         case 'POST /screenshot': {
           const only = typeof body.device === 'string' ? body.device : null;
+          const selector = typeof body.selector === 'string' && body.selector ? body.selector : undefined;
+          const y = typeof body.scrollY === 'number' ? body.scrollY : undefined;
           const shots: AppShot[] = [];
+          const missing: string[] = [];
           for (const d of deps.devices.entries()) {
             if (only && d.preset.id !== only) continue;
+            if ((selector || y !== undefined) && !(await deps.devices.scrollTo(d.preset.id, { selector, y }))) missing.push(d.preset.label);
             const data = await deps.devices.capture(d.preset.id, SHOT_SCALE);
             if (data) shots.push({ id: d.preset.id, label: d.preset.label, mime: 'image/jpeg', data, ...deps.devices.viewport(d.preset) });
           }
-          return send(res, 200, { shots });
+          return send(res, 200, { shots, missing });
         }
         default:
           return send(res, 404, { error: 'not found' });

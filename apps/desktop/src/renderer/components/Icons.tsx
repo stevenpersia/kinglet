@@ -32,6 +32,10 @@ const paths = {
   form: 'M4 5h16v4H4zM4 13h16v4H4zM7 7h.01M7 15h.01',
   tab: 'M4 7h9M4 7l3-3M4 7l3 3M20 17h-9M20 17l-3-3M20 17l-3 3',
   phone: 'M8 3h8a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zM11 18h2',
+  tablet: 'M6 3h12a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zM11 18h2',
+  laptop: 'M5 5h14a1 1 0 0 1 1 1v9H4V6a1 1 0 0 1 1-1zM2 19h20',
+  sliders: 'M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M16 4v4M10 10v4M18 16v4',
+  gauge: 'M12 20a8 8 0 1 1 8-8M12 12l4-4',
 } as const;
 
 export type IconName = keyof typeof paths;
