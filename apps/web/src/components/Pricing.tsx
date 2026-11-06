@@ -1,6 +1,7 @@
 import { Icon } from '../../../desktop/src/renderer/components/Icons';
-import { CHECKOUT, DOWNLOAD, PRICE, VERSION } from '../config';
+import { LAUNCH_OFFER, PRICE } from '../config';
 import { Reveal } from './ui';
+import { WaitlistForm } from './Waitlist';
 
 const INCLUDED = [
   '10 emulated devices and your real phone',
@@ -30,38 +31,29 @@ export function Pricing() {
           </h2>
         </Reveal>
         <Reveal delay={0.06}>
-          <p className="m-0 max-w-[520px] text-base leading-relaxed text-muted">No subscription, no account, no seat to manage. One license, every feature.</p>
+          <p className="m-0 max-w-[520px] text-base leading-relaxed text-muted">No subscription, no account, no seat to manage. One license, every feature. Launching soon: join the list for {LAUNCH_OFFER}.</p>
         </Reveal>
       </div>
 
-      <Reveal className="mx-auto mt-12 max-w-[880px]">
+      <Reveal className="mx-auto mt-12 max-w-[880px] scroll-mt-24">
+        <span id="waitlist" />
         <div className="relative rounded-[22px] bg-[linear-gradient(140deg,rgba(217,119,87,0.55),rgba(230,192,123,0.25)_35%,#1e1e23_60%)] p-px">
           <div className="flex flex-wrap gap-10 rounded-[21px] bg-[linear-gradient(180deg,#111114,#0b0b0e)] p-[clamp(24px,5vw,48px)]">
             <div className="flex min-w-0 flex-[1_1_300px] flex-col gap-5">
               <div className="flex items-center gap-2.5">
                 <span className="text-lg font-semibold">Kinglet</span>
                 <span className="rounded-full bg-[rgba(217,119,87,0.14)] px-2 py-0.5 font-mono text-[11px] text-[#f0a07f]">one-time</span>
+                <span className="rounded-full bg-[rgba(230,192,123,0.12)] px-2 py-0.5 font-mono text-[11px] text-[#e6c07b]">coming soon</span>
               </div>
               <div className="flex items-baseline gap-2">
                 <span className="text-[72px] leading-none font-semibold tracking-[-0.05em]">{PRICE.label}</span>
                 <span className="text-sm text-faint">once</span>
               </div>
-              <p className="m-0 text-sm leading-relaxed text-faint">One license for you, on your computers. Version {VERSION}, Linux (AppImage and pacman).</p>
-              <div className="flex flex-col gap-2.5">
-                <a
-                  href={CHECKOUT ?? DOWNLOAD}
-                  className="inline-flex h-12 items-center justify-center gap-2 rounded-[10px] bg-fg px-5 font-semibold text-ink no-underline transition-colors hover:bg-white"
-                >
-                  Buy Kinglet · {PRICE.label}
-                </a>
-                <a
-                  href={DOWNLOAD}
-                  className="inline-flex h-12 items-center justify-center gap-2 rounded-[10px] border border-[#26262c] bg-[#0f0f12] px-5 font-medium text-fg no-underline hover:border-line-strong"
-                >
-                  <Icon name="download" size={15} />
-                  Download
-                </a>
-              </div>
+              <p className="m-0 text-sm leading-relaxed text-faint">
+                One license for you, on your computers. Linux (AppImage and pacman). Leave your email: you’ll hear first when Kinglet launches, with {LAUNCH_OFFER} reserved for the list.
+              </p>
+              <WaitlistForm align="stretch" />
+              <p className="m-0 text-xs text-ghost">One email at launch. No spam, unsubscribe in one click.</p>
             </div>
             <ul className="m-0 flex min-w-0 flex-[1_1_300px] list-none flex-col gap-3 p-0">
               {INCLUDED.map((f) => (
@@ -81,6 +73,7 @@ export function Pricing() {
 }
 
 const FAQ: [string, string][] = [
+  ['When can I get it?', `Soon. Leave your email in Pricing: you’ll get one email at launch, with ${LAUNCH_OFFER} for people on the list.`],
   ['Is it a subscription?', `No. You pay ${PRICE.label} once and keep Kinglet. Updates install themselves.`],
   ['Which systems does it run on?', 'Linux today: AppImage for any distribution, and a pacman package for Arch and CachyOS.'],
   ['Do I need Claude Code?', 'No. Devices, checks, Open Graph previews and Vercel work on their own. With Claude Code installed, Kinglet opens it in your project with the MCP server already plugged in.'],

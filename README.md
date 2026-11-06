@@ -184,7 +184,7 @@ Le workflow `release.yml` refait les tests, construit, teste l'app packagée (mi
 
 `apps/web` est le site (en anglais) : React, Motion et Tailwind, pré-rendu en HTML statique au build pour que la page se lise sans JavaScript (robots, aperçus de partage, checks). Il reprend les icônes (`components/Icons.tsx`) et les couleurs Graphite de l'app (`apps/desktop/src/renderer/theme.css`, partagé), et le hero rejoue l'app (inspecteur, console, outils d'appareils, déploiements) avec les mêmes composants visuels. Pour le déployer sur Vercel, importe le dépôt avec `apps/web` comme *Root Directory* ; `vercel.json` s'occupe du reste (il n'installe que le site et ses dépendances). Le build reprend le domaine de production Vercel pour les URL absolues (canonical, og:image, sitemap) et la version de l'app depuis `apps/desktop/package.json`.
 
-Le prix (paiement unique) est dans `apps/web/src/config.ts`. Le lien de paiement vient de la variable `VITE_CHECKOUT_URL` au build ; sans elle, « Buy » mène au téléchargement.
+Le prix (paiement unique) est dans `apps/web/src/config.ts`. Avant la sortie, il n'y a pas de téléchargement sur le site : un champ e-mail (hero, Pricing, bas de page) inscrit à la liste de lancement, et ceux qui y sont recevront une remise à la sortie. Le formulaire envoie à la fonction Vercel `apps/web/api/waitlist.ts`, qui ajoute l'adresse à une *audience* Resend (là d'où partira l'e-mail de lancement). Variables à mettre dans le projet Vercel : `RESEND_API_KEY` et `RESEND_AUDIENCE_ID`. Le formulaire marche aussi sans JavaScript, avec un champ piège contre les robots.
 
 ```bash
 pnpm --filter @kinglet/web dev        # http://localhost:4173, rechargement à chaud

@@ -1,10 +1,10 @@
 import { MotionConfig } from 'motion/react';
-import { Icon, KingletBird, Mark } from '../../desktop/src/renderer/components/Icons';
+import { KingletBird, Mark } from '../../desktop/src/renderer/components/Icons';
 import { Hero } from './components/Hero';
 import { Faq, Pricing } from './components/Pricing';
 import { AiWorkflow, Checks, DeviceLab, Mcp, Ship } from './components/Sections';
-import { ButtonLink, Reveal } from './components/ui';
-import { DOWNLOAD, RELEASES } from './config';
+import { Reveal } from './components/ui';
+import { WaitlistForm } from './components/Waitlist';
 
 function Nav() {
   const links: [string, string][] = [
@@ -31,12 +31,8 @@ function Nav() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <a href={RELEASES} className="hidden h-9 items-center gap-2 rounded-lg border border-line px-3 text-[13px] text-[#c4c4cc] no-underline hover:border-line-strong sm:inline-flex">
-            <Icon name="git" size={14} />
-            Releases
-          </a>
-          <a href="#pricing" className="inline-flex h-9 items-center rounded-lg bg-fg px-3.5 text-[13px] font-semibold text-ink no-underline hover:bg-white">
-            Get Kinglet
+          <a href="#waitlist" className="inline-flex h-9 items-center rounded-lg bg-fg px-3.5 text-[13px] font-semibold text-ink no-underline hover:bg-white">
+            Join the list
           </a>
         </div>
       </nav>
@@ -70,15 +66,8 @@ function FinalCta() {
           <br />
           you can see everything.
         </h2>
-        <div className="flex flex-wrap justify-center gap-2.5">
-          <ButtonLink href="#pricing" primary>
-            Get Kinglet
-          </ButtonLink>
-          <ButtonLink href={DOWNLOAD}>
-            <Icon name="download" size={15} />
-            Download for Linux
-          </ButtonLink>
-        </div>
+        <p className="m-0 max-w-[520px] text-base leading-relaxed text-muted">Kinglet launches soon. Leave your email: one message at launch, with a discount for the list.</p>
+        <WaitlistForm />
       </Reveal>
     </section>
   );
@@ -112,11 +101,8 @@ export function App() {
           <a href="#faq" className="text-ghost no-underline hover:text-fg">
             FAQ
           </a>
-          <a href={`${RELEASES}/releases`} className="text-ghost no-underline hover:text-fg">
-            Changelog
-          </a>
-          <a href={RELEASES} className="text-ghost no-underline hover:text-fg">
-            GitHub
+          <a href="#waitlist" className="text-ghost no-underline hover:text-fg">
+            Join the list
           </a>
         </span>
       </footer>
