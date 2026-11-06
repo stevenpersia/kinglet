@@ -31,10 +31,13 @@ export function createLicense() {
     }
   })();
   return new LicenseService({
-    file: join(app.getPath('userData'), 'license.json'),
+    // `kinglet --mcp` is told where Kinglet's folder is (the app launches it with KINGLET_CONFIG_DIR).
+    file: join(process.env.KINGLET_CONFIG_DIR || app.getPath('userData'), 'license.json'),
     product: test && organizationId && benefitId ? { organizationId, benefitId } : POLAR,
     instanceName: name,
-    enforced: app.isPackaged || test,
+    // The acceptance run (KINGLET_SELFTEST) drives the app through its scenario, then quits: it
+    // doesn't stop on the license window. Its `kinglet --mcp` is licensed by the run (selftest.ts).
+    enforced: (app.isPackaged && !process.env.KINGLET_SELFTEST) || test,
     seal: keyring,
     api: test ? process.env.KINGLET_LICENSE_API : undefined,
   });
