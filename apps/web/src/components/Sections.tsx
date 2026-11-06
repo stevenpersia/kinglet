@@ -238,6 +238,23 @@ const FAMILIES: [string, number, number][] = [
   ['Technical', 13, 14],
 ];
 
+/** Shown, not written: the landing page itself must pass the content checks. */
+const LEFTOVERS: [string, string, string][] = [
+  ['Filler text', 'hero · pricing', 'text-err'],
+  ['Made-up phone number', 'footer', 'text-warn'],
+  ['Link to “#”', '“Learn more” ×3', 'text-warn'],
+  ['Placeholder photos', '/about', 'text-warn'],
+  ['Copyright year', 'stuck on an old year', 'text-warn'],
+];
+
+const SPEED: [string, string, number, string][] = [
+  ['Tap response (INP)', '340 ms', 68, '#e6c07b'],
+  ['Main thread blocked', '720 ms', 90, '#f28b82'],
+  ['JavaScript', '640 KB', 74, '#e6c07b'],
+  ['Unused CSS', '85 %', 85, '#e6c07b'],
+  ['Render-blocking', '1 script', 30, '#7dd3a8'],
+];
+
 export function Checks() {
   return (
     <section className="mx-auto max-w-[1200px] px-4 pt-36 sm:px-6">
@@ -276,15 +293,16 @@ export function Checks() {
         <Reveal delay={0.05}>
           <Card className="flex h-full flex-col gap-3.5 p-7">
             <h3 className="m-0 text-xl font-semibold tracking-[-0.03em]">Whole-site audit</h3>
-            <p className="m-0 text-sm leading-relaxed text-faint">Up to 300 pages from the links, the sitemap and the rendered page, read like Google.</p>
+            <p className="m-0 text-sm leading-relaxed text-faint">Up to 300 pages from the links, the sitemap and the rendered page, read like Google. Links to other sites are checked too.</p>
             <div className="mt-auto flex flex-col font-mono text-xs">
               {[
                 ['Broken internal links', '3', 'text-err'],
+                ['Broken external links', '2', 'text-err'],
                 ['Dead anchors', '1', 'text-warn'],
                 ['Duplicate titles', '2', 'text-warn'],
                 ['hreflang · sitemap', 'ok', 'text-ok'],
               ].map(([a, b, c], i) => (
-                <div key={a} className={`flex justify-between py-2 ${i < 3 ? 'border-b border-line-soft' : ''}`}>
+                <div key={a} className={`flex justify-between py-2 ${i < 4 ? 'border-b border-line-soft' : ''}`}>
                   <span className={c}>{a}</span>
                   <span className="text-muted">{b}</span>
                 </div>
@@ -295,7 +313,7 @@ export function Checks() {
         <Reveal delay={0.1}>
           <Card className="flex h-full flex-col gap-3.5 p-7">
             <h3 className="m-0 text-xl font-semibold tracking-[-0.03em]">Open Graph previews on 10 platforms</h3>
-            <p className="m-0 text-sm leading-relaxed text-faint">WhatsApp, iMessage, Slack, Discord, Telegram, LinkedIn, X, Facebook, Bluesky and Google, each read by its own bot, without JavaScript.</p>
+            <p className="m-0 text-sm leading-relaxed text-faint">WhatsApp, iMessage, Slack, Discord, Telegram, LinkedIn, X, Facebook, Bluesky and Google, each read by its own bot, without JavaScript. No share image? Kinglet makes a 1200×630 one from the page and saves it in your project.</p>
             <div className="mt-auto flex justify-end rounded-xl bg-[#0b141a] p-3.5">
               <div className="w-[230px] overflow-hidden rounded-[10px] bg-[#005c4b] text-[#e9edef]">
                 <div className="flex h-[90px] items-center bg-[#f6f5f0] px-3 text-[17px] font-semibold tracking-[-0.04em] text-[#11241c]">Money, finally calm.</div>
@@ -308,9 +326,64 @@ export function Checks() {
           </Card>
         </Reveal>
       </div>
+      <div className="mt-4 grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr))]">
+        <Reveal>
+          <Card className="flex h-full flex-col gap-3.5 p-7">
+            <Tag color="#c6f432">Content</Tag>
+            <h3 className="m-0 text-xl font-semibold tracking-[-0.03em]">What the AI left behind</h3>
+            <p className="m-0 text-sm leading-relaxed text-faint">Filler text, made-up phone numbers and e-mails, links to nowhere, placeholder photos, last year’s copyright, no legal pages. Found on every page before your visitors do.</p>
+            <div className="mt-auto flex flex-col font-mono text-xs">
+              {LEFTOVERS.map(([what, where, tone], i) => (
+                <div key={what} className={`flex justify-between gap-3 py-2 ${i < LEFTOVERS.length - 1 ? 'border-b border-line-soft' : ''}`}>
+                  <span className={tone}>{what}</span>
+                  <span className="truncate text-muted">{where}</span>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </Reveal>
+        <Reveal delay={0.05}>
+          <Card className="flex h-full flex-col gap-3.5 p-7">
+            <Tag color="#a78bfa">Privacy · GDPR</Tag>
+            <h3 className="m-0 text-xl font-semibold tracking-[-0.03em]">Before anyone clicks “Accept”</h3>
+            <p className="m-0 text-sm leading-relaxed text-faint">A first visit in a clean browser, nothing clicked: the trackers that already load, the cookies already set, a consent banner with a real “Reject” button, and fonts or videos that send the IP elsewhere.</p>
+            <div className="mt-auto flex flex-col gap-1.5 rounded-xl border border-line-soft bg-[#0a0a0c] px-3.5 py-3 font-mono text-[11.5px] leading-[1.7]">
+              <span className="truncate text-err">✕ Meta Pixel, Analytics load first</span>
+              <span className="truncate text-err">✕ _ga, _fbp set without consent</span>
+              <span className="truncate text-warn">! Banner: no “Reject” next to “Accept”</span>
+              <span className="truncate text-warn">! Google Fonts: host them with the site</span>
+            </div>
+          </Card>
+        </Reveal>
+        <Reveal delay={0.1}>
+          <Card className="flex h-full flex-col gap-3.5 p-7">
+            <Tag color="#53bdeb">Speed</Tag>
+            <h3 className="m-0 text-xl font-semibold tracking-[-0.03em]">What slows it down</h3>
+            <p className="m-0 text-sm leading-relaxed text-faint">Beyond LCP and CLS: how fast a tap answers (INP), how long the page freezes, what holds the first paint, JavaScript weight, unused CSS and fonts that hide the text.</p>
+            <div className="mt-auto flex flex-col gap-2.5 text-[12.5px]">
+              {SPEED.map(([label, value, pct, color], i) => (
+                <div key={label} className="flex items-center gap-3">
+                  <span className="w-[118px] shrink-0 text-muted max-[400px]:w-[100px]">{label}</span>
+                  <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-line-soft">
+                    <motion.span
+                      className="block h-full origin-left rounded-full"
+                      style={{ background: color, width: `${pct}%` }}
+                      initial={{ scaleX: 0 }}
+                      whileInView={{ scaleX: 1 }}
+                      viewport={{ once: true }}
+                      transition={{ duration: 0.8, delay: 0.1 + i * 0.08, ease: [0.2, 0.8, 0.2, 1] }}
+                    />
+                  </span>
+                  <span className="w-[60px] shrink-0 text-right font-mono text-[11px] whitespace-nowrap text-ghost">{value}</span>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </Reveal>
+      </div>
       <Reveal className="mt-4">
         <div className="flex flex-wrap gap-2">
-          {['title & description', 'canonical', 'JSON-LD', 'hreflang', 'robots & sitemap', 'og:image 1200×630', 'twitter:card', 'viewport', 'horizontal overflow', 'tap targets', 'text zoom', 'form keyboards', 'axe-core', 'visible focus', 'keyboard path', 'contrast', 'JS errors', 'image weight', 'LCP', 'CLS', 'performance budgets'].map((c) => (
+          {['title & description', 'canonical', 'JSON-LD', 'hreflang', 'robots & sitemap', 'og:image 1200×630', 'twitter:card', 'viewport', 'horizontal overflow', 'tap targets', 'text zoom', 'form keyboards', 'axe-core', 'visible focus', 'keyboard path', 'contrast', 'filler text', 'fake contact details', 'placeholder links', 'legal pages', 'trackers before consent', 'consent banner', 'third-party fonts & videos', 'JS errors', 'image weight', 'LCP', 'CLS', 'INP', 'render-blocking', 'JavaScript weight', 'unused CSS', 'font-display', 'external links', 'performance budgets'].map((c) => (
             <span key={c} className="inline-flex h-[26px] items-center rounded-[7px] border border-line bg-[#111114] px-2.5 text-xs whitespace-nowrap text-muted">
               {c}
             </span>
