@@ -13,3 +13,18 @@ export const PRICE = { amount: 49, currency: '$', label: '$49' };
  */
 export const WAITLIST_API = '/api/waitlist';
 export const LAUNCH_OFFER = 'a launch discount';
+
+/**
+ * Polar checkout link of the Kinglet product (Polar dashboard: Products → Checkout Links,
+ * e.g. https://buy.polar.sh/polar_cl_…). While it is null the site keeps the launch list;
+ * once set, every "Join the list" becomes "Buy Kinglet". Polar hands out the license key, which
+ * the app asks for on first launch.
+ */
+export const CHECKOUT_URL: string | null = null;
+export const LAUNCHED = CHECKOUT_URL !== null;
+/** Where buyers download the app (public releases). */
+export const DOWNLOAD_URL = 'https://github.com/stevenpersia/kinglet-releases/releases/latest';
+/** Polar's customer portal: buyers find their order and license key there, from their email. */
+export const PORTAL_URL = 'https://polar.sh/kinglet/portal';
+// Polar checkout link (Products → Checkout Links): Success URL https://getkinglet.com/thanks?checkout_id={CHECKOUT_ID}
+// (src/Thanks.tsx), Return URL https://getkinglet.com/#pricing.

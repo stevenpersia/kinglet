@@ -5,7 +5,7 @@ import { MCP_COMMAND } from '../config';
 import { AppWindow } from '../demo/AppWindow';
 import { Cursor, type CursorCmd } from '../demo/Cursor';
 import { type DemoState, duration, finalState, initial, SCRIPTS, type SceneId } from '../demo/scenes';
-import { WaitlistForm } from './Waitlist';
+import { GetKinglet } from './Get';
 
 const SCENES: { id: SceneId; label: string; color: string; caption: string }[] = [
   { id: 'inspect', label: 'Inspect', color: '#8ab4f8', caption: 'Turn on the inspector, hover an element: it lights up on every device. Keep it, “Ask Claude”, press Enter.' },
@@ -77,7 +77,6 @@ export function Hero() {
 
   return (
     <section id="top" className="relative px-4 pt-20 sm:px-6 sm:pt-24">
-      <div aria-hidden="true" className="hairline-grid absolute inset-0 [mask-image:radial-gradient(ellipse_65%_50%_at_50%_20%,#000_10%,transparent_75%)]" />
       <div aria-hidden="true" className="absolute top-[560px] left-1/2 h-[420px] w-[min(1000px,100%)] -translate-x-1/2 rounded-full bg-[radial-gradient(closest-side,rgba(217,119,87,0.16),rgba(138,180,248,0.08)_55%,transparent)]" />
 
       <div className="relative mx-auto flex max-w-[1240px] flex-col items-center gap-6 text-center">
@@ -114,7 +113,7 @@ export function Hero() {
           Build with Claude, watch it land on 10 devices at once, point at what’s wrong and let Claude fix it. Then ship through GitHub and Vercel with 37 checks watching your back.
         </motion.p>
         <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.15 }} className="flex w-full flex-col items-center gap-3">
-          <WaitlistForm />
+          <GetKinglet />
           <button
             type="button"
             onClick={copy}

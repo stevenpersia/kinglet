@@ -350,6 +350,28 @@ export interface PhoneState {
   clients: { id: number; userAgent: string; since: number }[];
 }
 
+/** Kinglet's license (a Polar license key, activated on this computer). */
+export interface LicenseState {
+  /**
+   * dev: development build, no license asked. active: checked with Polar. offline: last check
+   * failed for lack of connection, still within the grace period. none: no key on this computer.
+   * invalid: Polar refused the key (refunded, revoked, activation removed). expired: offline for too long.
+   * unconfigured: this build doesn't know its Polar organization and benefit yet.
+   */
+  status: 'dev' | 'active' | 'offline' | 'none' | 'invalid' | 'expired' | 'unconfigured';
+  /** The key with only its last characters visible. */
+  key: string | null;
+  email: string | null;
+  customer: string | null;
+  /** This computer's name in the key's list of activations. */
+  instanceName: string | null;
+  /** How many computers the key can be activated on (null: no limit). */
+  activationLimit: number | null;
+  /** Last successful check with Polar. */
+  validatedAt: number | null;
+  error: string | null;
+}
+
 export interface UpdateState {
   current: string;
   kind: 'appimage' | 'pacman' | 'other' | 'unknown';
@@ -664,6 +686,11 @@ export interface KingletApi {
     stop(projectId: string): Promise<void>;
   };
   openExternal(url: string): void;
+  license: {
+    state(): Promise<LicenseState>;
+    /** Frees this computer's activation, then restarts Kinglet on the license screen. */
+    deactivate(): Promise<{ ok: boolean; error: string | null }>;
+  };
   update: {
     state(): Promise<UpdateState>;
     check(): Promise<UpdateState>;

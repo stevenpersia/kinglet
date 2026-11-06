@@ -21,10 +21,6 @@
   @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
 }
 
-@utility hairline-grid {
-  background-image: linear-gradient(#131317 1px, transparent 1px), linear-gradient(90deg, #131317 1px, transparent 1px);
-  background-size: 72px 72px;
-}
 @utility card-surface {
   background: linear-gradient(180deg, #111114, #0c0c0f);
   border: 1px solid #1e1e23;

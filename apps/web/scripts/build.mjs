@@ -44,15 +44,35 @@ export function head(site) {
   ].join('\n  ');
 }
 
+export function thanksHead(site) {
+  return [
+    '<title>Thanks — Kinglet</title>',
+    '<meta name="description" content="Your Kinglet license: get the key, download the app, activate it.">',
+    '<meta name="robots" content="noindex">',
+    `<link rel="canonical" href="${site}/thanks/">`,
+    '<meta name="theme-color" content="#08080a">',
+    '<link rel="icon" href="/favicon.svg" type="image/svg+xml">',
+    '<link rel="apple-touch-icon" href="/apple-touch-icon.png">',
+  ].join('\n  ');
+}
+
 export async function build(out, site) {
   const { build: vite } = await import('vite');
   const ssr = mkdtempSync(join(tmpdir(), 'kinglet-web-ssr-'));
   try {
     await vite({ root: ROOT, logLevel: 'warn', build: { outDir: out, emptyOutDir: true } });
     await vite({ root: ROOT, logLevel: 'warn', ssr: { noExternal: true }, build: { ssr: 'src/entry-server.tsx', outDir: ssr, emptyOutDir: true, rollupOptions: { output: { entryFileNames: 'entry-server.mjs' } } } });
-    const { render } = await import(pathToFileURL(join(ssr, 'entry-server.mjs')).href);
+    const { render, renderThanks } = await import(pathToFileURL(join(ssr, 'entry-server.mjs')).href);
     const template = readFileSync(join(out, 'index.html'), 'utf8');
     writeFileSync(join(out, 'index.html'), template.replace('<!--head-->', head(site)).replace('<!--app-->', render()));
+    // /thanks (after paying): same styles, no JavaScript (the landing page's script would hydrate the wrong page).
+    mkdirSync(join(out, 'thanks'), { recursive: true });
+    const thanks = template
+      .replace(/<script type="module"[^>]*><\/script>\s*/g, '')
+      .replace(/<link rel="modulepreload"[^>]*>\s*/g, '')
+      .replace('<!--head-->', thanksHead(site))
+      .replace('<!--app-->', renderThanks());
+    writeFileSync(join(out, 'thanks', 'index.html'), thanks);
   } finally {
     rmSync(ssr, { recursive: true, force: true });
   }
@@ -84,7 +104,7 @@ export async function vercelOutput(dist, out = join(ROOT, '.vercel/output')) {
   });
   writeFileSync(join(fn, '.vc-config.json'), JSON.stringify({ runtime: 'edge', entrypoint: 'index.js' }, null, 2));
   mkdirSync(out, { recursive: true });
-  writeFileSync(join(out, 'config.json'), JSON.stringify({ version: 3, routes: [{ handle: 'filesystem' }] }, null, 2));
+  writeFileSync(join(out, 'config.json'), JSON.stringify({ version: 3, routes: [{ handle: 'filesystem' }, { src: '^/thanks/?$', dest: '/thanks/index.html' }] }, null, 2));
   return out;
 }
 

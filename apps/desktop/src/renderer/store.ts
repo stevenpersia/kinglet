@@ -17,7 +17,7 @@ export const cleanError = (e: unknown) => String((e as Error)?.message ?? e).rep
 export type Section = 'apercu' | 'partage' | 'comparer' | 'deploiements' | 'checks' | 'reglages' | 'projets' | 'changes';
 /** Panel opened next to the devices from the left bar. */
 export type Panel = 'page' | 'checks' | 'feedback';
-export type SettingsTab = 'general' | 'devices' | 'project' | 'vercel' | 'github' | 'claude' | 'mcp' | 'updates';
+export type SettingsTab = 'general' | 'devices' | 'project' | 'vercel' | 'github' | 'claude' | 'mcp' | 'updates' | 'license';
 export type LoadStatus = 'idle' | 'loading' | 'loaded' | 'failed';
 
 interface State {

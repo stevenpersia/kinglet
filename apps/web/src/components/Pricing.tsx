@@ -1,7 +1,7 @@
 import { Icon } from '../../../desktop/src/renderer/components/Icons';
-import { LAUNCH_OFFER, PRICE } from '../config';
+import { DOWNLOAD_URL, LAUNCH_OFFER, LAUNCHED, PRICE } from '../config';
 import { Reveal } from './ui';
-import { WaitlistForm } from './Waitlist';
+import { GetKinglet } from './Get';
 
 const INCLUDED = [
   '10 emulated devices and your real phone',
@@ -27,11 +27,11 @@ export function Pricing() {
           <h2 className="m-0 text-[clamp(34px,4.8vw,60px)] leading-none font-semibold tracking-[-0.05em]">
             Pay once.
             <br />
-            <span className="text-ghost">Keep it.</span>
+            <span className="bg-[linear-gradient(92deg,#f0a07f,#e6c07b_70%)] bg-clip-text text-transparent">Keep it.</span>
           </h2>
         </Reveal>
         <Reveal delay={0.06}>
-          <p className="m-0 max-w-[520px] text-base leading-relaxed text-muted">No subscription, no account, no seat to manage. One license, every feature. Launching soon: join the list for {LAUNCH_OFFER}.</p>
+          <p className="m-0 max-w-[520px] text-base leading-relaxed text-muted">No subscription, no account, no seat to manage. One license, every feature.{LAUNCHED ? '' : ` Launching soon: join the list for ${LAUNCH_OFFER}.`}</p>
         </Reveal>
       </div>
 
@@ -43,17 +43,27 @@ export function Pricing() {
               <div className="flex items-center gap-2.5">
                 <span className="text-lg font-semibold">Kinglet</span>
                 <span className="rounded-full bg-[rgba(217,119,87,0.14)] px-2 py-0.5 font-mono text-[11px] text-[#f0a07f]">one-time</span>
-                <span className="rounded-full bg-[rgba(230,192,123,0.12)] px-2 py-0.5 font-mono text-[11px] text-[#e6c07b]">coming soon</span>
+                {!LAUNCHED && <span className="rounded-full bg-[rgba(230,192,123,0.12)] px-2 py-0.5 font-mono text-[11px] text-[#e6c07b]">coming soon</span>}
               </div>
               <div className="flex items-baseline gap-2">
                 <span className="text-[72px] leading-none font-semibold tracking-[-0.05em]">{PRICE.label}</span>
                 <span className="text-sm text-faint">once</span>
               </div>
               <p className="m-0 text-sm leading-relaxed text-faint">
-                One license for you, on your computers. Linux (AppImage and pacman). Leave your email: you’ll hear first when Kinglet launches, with {LAUNCH_OFFER} reserved for the list.
+                {LAUNCHED ? (
+                  <>
+                    One license for you, on up to 3 computers. Linux (AppImage and pacman). The key is ready right after paying;{' '}
+                    <a href={DOWNLOAD_URL} className="text-muted underline underline-offset-2 hover:text-fg">
+                      download Kinglet
+                    </a>{' '}
+                    and enter it on first launch.
+                  </>
+                ) : (
+                  <>One license for you, on your computers. Linux (AppImage and pacman). Leave your email: you’ll hear first when Kinglet launches, with {LAUNCH_OFFER} reserved for the list.</>
+                )}
               </p>
-              <WaitlistForm align="stretch" />
-              <p className="m-0 text-xs text-ghost">One email at launch. No spam, unsubscribe in one click.</p>
+              <GetKinglet align="stretch" />
+              <p className="m-0 text-xs text-ghost">{LAUNCHED ? 'Secure checkout by Polar. VAT included where it applies.' : 'One email at launch. No spam, unsubscribe in one click.'}</p>
             </div>
             <ul className="m-0 flex min-w-0 flex-[1_1_300px] list-none flex-col gap-3 p-0">
               {INCLUDED.map((f) => (
@@ -73,7 +83,10 @@ export function Pricing() {
 }
 
 const FAQ: [string, string][] = [
-  ['When can I get it?', `Soon. Leave your email in Pricing: you’ll get one email at launch, with ${LAUNCH_OFFER} for people on the list.`],
+  LAUNCHED
+    ? ['How do I get it?', 'Buy it in Pricing: your license key is ready right away, in the receipt email and Polar’s customer portal. Download Kinglet, open it and enter the key. It works on up to 3 computers; moving to a new one is a click in Settings → License.']
+    : ['When can I get it?', `Soon. Leave your email in Pricing: you’ll get one email at launch, with ${LAUNCH_OFFER} for people on the list.`],
+  ...(LAUNCHED ? ([['Does it work offline?', 'Yes. Activating needs the internet once; after that Kinglet checks the license now and then and keeps working offline for up to 14 days at a time.']] as [string, string][]) : []),
   ['Is it a subscription?', `No. You pay ${PRICE.label} once and keep Kinglet. Updates install themselves.`],
   ['Which systems does it run on?', 'Linux today: AppImage for any distribution, and a pacman package for Arch and CachyOS.'],
   ['Do I need Claude Code?', 'No. Devices, checks, Open Graph previews and Vercel work on their own. With Claude Code installed, Kinglet opens it in your project with the MCP server already plugged in.'],

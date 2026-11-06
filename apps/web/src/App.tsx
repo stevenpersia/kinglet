@@ -4,7 +4,8 @@ import { Hero } from './components/Hero';
 import { Faq, Pricing } from './components/Pricing';
 import { AiWorkflow, Checks, DeviceLab, Mcp, Ship } from './components/Sections';
 import { Reveal } from './components/ui';
-import { WaitlistForm } from './components/Waitlist';
+import { GetKinglet } from './components/Get';
+import { LAUNCHED } from './config';
 
 function Nav() {
   const links: [string, string][] = [
@@ -31,8 +32,8 @@ function Nav() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <a href="#waitlist" className="inline-flex h-9 items-center rounded-lg bg-fg px-3.5 text-[13px] font-semibold text-ink no-underline hover:bg-white">
-            Join the list
+          <a href="#waitlist" className="inline-flex h-9 items-center rounded-lg px-3.5 text-[13px] font-semibold no-underline bg-[linear-gradient(100deg,#f0a07f,#e6c07b)] text-[#1a120b] hover:brightness-110">
+            {LAUNCHED ? 'Buy Kinglet' : 'Join the list'}
           </a>
         </div>
       </nav>
@@ -66,8 +67,10 @@ function FinalCta() {
           <br />
           you can see everything.
         </h2>
-        <p className="m-0 max-w-[520px] text-base leading-relaxed text-muted">Kinglet launches soon. Leave your email: one message at launch, with a discount for the list.</p>
-        <WaitlistForm />
+        <p className="m-0 max-w-[520px] text-base leading-relaxed text-muted">
+          {LAUNCHED ? 'Pay once, keep it. Your license key is ready right after paying, updates install themselves.' : 'Kinglet launches soon. Leave your email: one message at launch, with a discount for the list.'}
+        </p>
+        <GetKinglet />
       </Reveal>
     </section>
   );
@@ -102,7 +105,7 @@ export function App() {
             FAQ
           </a>
           <a href="#waitlist" className="text-ghost no-underline hover:text-fg">
-            Join the list
+            {LAUNCHED ? 'Buy Kinglet' : 'Join the list'}
           </a>
         </span>
       </footer>

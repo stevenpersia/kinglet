@@ -279,6 +279,86 @@ function Feedback() {
   );
 }
 
+function TabOrder() {
+  const stops = [
+    { x: 14, y: 14, ok: true },
+    { x: 58, y: 14, ok: true },
+    { x: 14, y: 44, ok: false },
+    { x: 58, y: 44, ok: true },
+  ];
+  return (
+    <div className="relative h-[74px] w-[96px] overflow-hidden rounded-[7px] border-[3px] border-black shadow-[0_0_0_1px_#2e2e33]" style={{ background: PAPER }}>
+      {stops.map((s, i) => (
+        <motion.span
+          key={i}
+          className="absolute flex size-[18px] items-center justify-center rounded-full font-mono text-[9px] font-semibold text-white"
+          style={{ left: s.x, top: s.y, background: s.ok ? '#3b82f6' : '#ef4444' }}
+          animate={{ scale: [1, 1, 1.25, 1, 1], opacity: [0.35, 1, 1, 1, 0.35] }}
+          transition={{ ...loop(3.2, i * 0.5), times: [0, 0.1, 0.18, 0.3, 1] }}
+        >
+          {i + 1}
+        </motion.span>
+      ))}
+    </div>
+  );
+}
+
+function CustomDevice() {
+  return (
+    <div className="flex items-end gap-3">
+      <div className="h-[56px] w-[30px] overflow-hidden rounded-[6px] border-[3px] border-black shadow-[0_0_0_1px_#2e2e33]">
+        <MiniPage lines={2} />
+      </div>
+      <motion.div className="overflow-hidden rounded-[6px] border-[3px] border-dashed border-[#e6c07b]" animate={{ width: [34, 64, 64, 34], height: [56, 46, 46, 56] }} transition={loop(3.6)}>
+        <MiniPage lines={2} />
+      </motion.div>
+      <span className="pb-1 font-mono text-[10px] text-[#e6c07b]">+ device</span>
+    </div>
+  );
+}
+
+function ConsoleBadges() {
+  return (
+    <div className="flex items-end gap-3">
+      {[0, 1, 2].map((i) => (
+        <div key={i} className="flex flex-col items-center gap-1.5">
+          <div className={`overflow-hidden rounded-[6px] border-[3px] border-black shadow-[0_0_0_1px_#2e2e33] ${i === 2 ? 'h-[40px] w-[56px]' : 'h-[52px] w-[30px]'}`}>
+            <MiniPage lines={2} />
+          </div>
+          <motion.span
+            className={`rounded-full px-1.5 font-mono text-[9px] leading-[14px] ${i === 1 ? 'bg-[rgba(242,139,130,0.16)] text-err' : 'bg-[rgba(125,211,168,0.12)] text-ok'}`}
+            animate={i === 1 ? { opacity: [0.4, 1, 0.4] } : undefined}
+            transition={loop(1.4)}
+          >
+            {i === 1 ? '2 errors' : '0'}
+          </motion.span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function Vitals() {
+  const rows = [
+    { name: 'LCP', value: '1.1 s', w: '45%' },
+    { name: 'CLS', value: '0.02', w: '20%' },
+  ];
+  return (
+    <div className="flex w-[170px] flex-col gap-2.5">
+      {rows.map((r, i) => (
+        <div key={r.name} className="flex items-center gap-2 font-mono text-[10px]">
+          <span className="w-7 text-faint">{r.name}</span>
+          <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-[#1c1c21]">
+            <motion.span className="block h-full rounded-full bg-ok" animate={{ width: ['0%', r.w, r.w, '0%'] }} transition={{ ...loop(3, i * 0.3), times: [0, 0.4, 0.85, 1] }} />
+          </span>
+          <span className="w-9 text-right text-fg">{r.value}</span>
+        </div>
+      ))}
+      <span className="font-mono text-[9px] text-ghost">on every device, every load</span>
+    </div>
+  );
+}
+
 export const LAB: { title: string; text: string; anim: () => ReactNode }[] = [
   { title: '10 devices, side by side', text: 'iPhone, Pixel, Galaxy, iPads, laptop, desktop or your own. Portrait or landscape, true sizes.', anim: Devices },
   { title: 'Synced scroll and navigation', text: 'Scroll or click on one, every other device follows. DevTools on each.', anim: Sync },
@@ -292,6 +372,10 @@ export const LAB: { title: string; text: string; anim: () => ReactNode }[] = [
   { title: 'Inspector', text: 'Size, margins, font and color of one element on every device, or where it’s hidden.', anim: Inspector },
   { title: 'Export', text: 'A PNG board of every device, a PDF, full pages up to 10,000 px, a WebM or GIF scrolling.', anim: Export },
   { title: 'Feedback and review links', text: 'Pin comments on devices. Send a link to a client: no app, no account. Replies come back.', anim: Feedback },
+  { title: 'Keyboard tab order', text: 'Every Tab stop numbered on every device. No visible focus in red, positive tabindex in orange.', anim: TabOrder },
+  { title: 'Custom devices', text: 'Any width, density and type, ordered by drag and drop. One list for every project, or one each.', anim: CustomDevice },
+  { title: 'Console per device', text: 'Console messages and failed requests live, with an error badge under the device they came from.', anim: ConsoleBadges },
+  { title: 'Web Vitals everywhere', text: 'LCP and CLS measured on each device after every load, with the network and CPU you chose.', anim: Vitals },
 ];
 
 export function LabTile({ title, text, anim: Anim, index }: { title: string; text: string; anim: () => ReactNode; index: number }) {

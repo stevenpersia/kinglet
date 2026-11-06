@@ -75,7 +75,7 @@ export function WaitlistForm({ className = '', align = 'center' }: { className?:
         <button
           type="submit"
           disabled={state === 'sending'}
-          className="inline-flex h-12 flex-[1_0_auto] cursor-pointer items-center justify-center gap-2 rounded-[10px] bg-fg px-5 font-semibold text-ink transition-colors hover:bg-white disabled:cursor-wait disabled:opacity-70"
+          className="inline-flex h-12 flex-[1_0_auto] cursor-pointer items-center justify-center gap-2 rounded-[10px] px-5 font-semibold transition-[filter] bg-[linear-gradient(100deg,#f0a07f,#e6c07b)] text-[#1a120b] hover:brightness-110 disabled:cursor-wait disabled:opacity-70"
         >
           {state === 'sending' ? 'Adding you…' : 'Notify me at launch'}
         </button>
