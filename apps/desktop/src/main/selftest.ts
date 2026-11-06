@@ -701,7 +701,7 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     })()`);
     const screen = () => js<string>(`[...document.querySelectorAll('aside[aria-label=Claude] .xterm-rows > div')].map((r) => r.textContent).join('\\n')`);
     // Open by default; unfold it if an earlier step folded it.
-    if (!(await js<boolean>(`!!document.querySelector('aside[aria-label=Claude] [data-terminal]')`))) await clickText('nav button', 'Claude');
+    if (!(await js<boolean>(`!!document.querySelector('aside[aria-label=Claude] [data-terminal]')`))) ui({ type: 'shortcut', action: 'claude' });
     let term = '';
     const started = await waitFor(async () => (term = await screen()).includes('FAKE-CLAUDE ready'), 8000);
     // Long lines wrap over several rows of the terminal: read them joined.
@@ -954,7 +954,7 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
 
     // 10. Partage section
     ui({ type: 'shortcut', action: 'focus-url' });
-    await win.webContents.executeJavaScript(`[...document.querySelectorAll('nav button')].find((b) => (b.getAttribute('aria-label') || b.textContent).includes('Share'))?.click()`);
+    await win.webContents.executeJavaScript(`[...document.querySelectorAll('nav button')].find((b) => (b.getAttribute('aria-label') || b.textContent).includes('Open Graph'))?.click()`);
     await settle(1200);
     await shot('08-section-partage');
   } catch (e) {

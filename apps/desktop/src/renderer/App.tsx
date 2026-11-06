@@ -154,8 +154,6 @@ export function App() {
       <ClaudeBanner />
       <div className="flex min-h-0 flex-1">
         {section !== 'projets' && <Rail />}
-        {/* Claude first: open by default, it stays in place across the sections. */}
-        {ready && withClaude && <ClaudeColumn />}
         {!ready ? (
           <main className="stage-bg flex-1" />
         ) : section === 'apercu' ? (
@@ -179,6 +177,8 @@ export function App() {
         ) : (
           <ComparePage />
         )}
+        {/* Claude on the right: open by default, it stays in place across the sections. */}
+        {ready && withClaude && <ClaudeColumn />}
       </div>
       <StatusBar />
       <Palette />

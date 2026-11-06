@@ -1,12 +1,20 @@
 import { t } from '@kinglet/core';
-import { claudeOpen, useStore, type Panel, type Section } from '../store';
+import { useStore, type Panel, type Section } from '../store';
 import { Icon, type IconName } from './Icons';
 
-type Item = { id: string; label: string; icon: IconName; on: boolean; run: () => void; badge?: React.ReactNode; hint?: string; claude?: boolean };
+type Item = { id: string; label: string; icon: IconName; on: boolean; run: () => void; badge?: { n: number | string; tone: 'err' | 'warn' | 'ok' | 'clay' } | null; hint?: string };
+
+const TONE = {
+  err: 'bg-err/15 text-err',
+  warn: 'bg-warn/15 text-warn',
+  ok: 'bg-ok/15 text-ok',
+  clay: 'bg-[rgba(217,119,87,0.16)] text-[#d97757]',
+} as const;
 
 /**
- * Narrow icon rail. On top, Claude (its column), then what you use all along while developing (devices, deployments);
- * below, smaller, what you check before publishing (page, share, checks, compare).
+ * Icon rail, no text (the name shows on hover). On top, what you use all along while developing
+ * (devices, deployments, changes); below the line, what you check before publishing.
+ * Claude is not here: its column sits on the right edge of the window (Ctrl J folds it).
  */
 export function Rail() {
   const s = useStore();
@@ -15,68 +23,56 @@ export function Rail() {
   const onDevices = section === 'apercu';
   const go = (id: Section) => () => setSection(id);
   const open = (p: Panel) => () => togglePanel(p);
+  const pins = (s.settings.activeId ? (s.pins[s.settings.activeId] ?? []) : []).filter((p) => !p.done).length;
+  const left = report ? report.score.total - report.score.passed : 0;
 
   const primary: Item[] = [
-    ...(s.settings.claudePanel && s.settings.activeId ? [{ id: 'claude', label: 'Claude', icon: 'spark' as IconName, on: claudeOpen(s), run: () => s.toggleClaude(), hint: 'Ctrl J', claude: true }] : []),
-    { id: 'apercu', label: t('Devices', 'Appareils'), icon: 'eye', on: onDevices, run: go('apercu') },
-    { id: 'deploiements', label: t('Deployments', 'Déploiements'), icon: 'tri', on: section === 'deploiements', run: go('deploiements') },
-    { id: 'changes', label: t('Changes (git diff)', 'Modifications (git diff)'), icon: 'git', on: section === 'changes', run: go('changes') },
+    { id: 'apercu', label: t('Devices', 'Appareils'), icon: 'devices', on: onDevices, run: go('apercu') },
+    { id: 'deploiements', label: t('Deployments', 'Déploiements'), icon: 'deploy', on: section === 'deploiements', run: go('deploiements') },
+    { id: 'changes', label: t('Changes (git diff)', 'Modifications (git diff)'), icon: 'branch', on: section === 'changes', run: go('changes') },
   ];
   const secondary: Item[] = [
-    { id: 'page', label: 'Page', icon: 'page', on: onDevices && panel === 'page', run: open('page') },
-    { id: 'partage', label: t('Share', 'Partage'), icon: 'share', on: section === 'partage', run: go('partage'), badge: shareErrors > 0 ? <span className="text-err">{shareErrors}</span> : null },
+    { id: 'page', label: 'Page', icon: 'doc', on: onDevices && panel === 'page', run: open('page') },
+    { id: 'partage', label: t('Open Graph previews', 'Aperçus Open Graph'), icon: 'graph', on: section === 'partage', run: go('partage'), badge: shareErrors > 0 ? { n: shareErrors, tone: 'err' } : null },
     {
       id: 'checks',
       label: 'Checks',
-      icon: 'check',
+     
+      icon: 'checkCircle',
       on: (onDevices && panel === 'checks') || section === 'checks',
       run: open('checks'),
-      badge: report ? <span className={report.score.passed === report.score.total ? 'text-ok' : 'text-ghost'}>{report.score.total - report.score.passed || '✓'}</span> : null,
+      badge: report ? (left ? { n: left, tone: 'warn' } : { n: '✓', tone: 'ok' }) : null,
     },
-    { id: 'comparer', label: t('Compare', 'Comparer'), icon: 'cols', on: section === 'comparer', run: go('comparer') },
-    {
-      id: 'feedback',
-      label: t('Feedback', 'Retours'),
-      icon: 'pin',
-      on: onDevices && panel === 'feedback',
-      run: open('feedback'),
-      badge: (() => {
-        const open = (s.settings.activeId ? (s.pins[s.settings.activeId] ?? []) : []).filter((p) => !p.done).length;
-        return open ? <span className="text-[#d97757]">{open}</span> : null;
-      })(),
-    },
+    { id: 'comparer', label: t('Compare', 'Comparer'), icon: 'split', on: section === 'comparer', run: go('comparer') },
+    { id: 'feedback', label: t('Feedback', 'Retours'), icon: 'message', on: onDevices && panel === 'feedback', run: open('feedback'), badge: pins ? { n: pins, tone: 'clay' } : null },
   ];
 
-  const button = (it: Item, small = false) => (
+  const button = (it: Item) => (
     <button
       key={it.id}
       onClick={it.run}
       aria-current={it.on ? 'page' : undefined}
       aria-label={it.label}
       title={it.hint ? `${it.label} (${it.hint})` : it.label}
-      className={`relative flex shrink-0 items-center justify-center ${small ? 'size-8 rounded-lg' : 'size-10 rounded-[9px]'} ${
-        it.claude
-          ? it.on
-            ? 'bg-[rgba(217,119,87,0.14)] text-[#d97757] shadow-[inset_0_0_0_1px_rgba(217,119,87,0.35)]'
-            : 'text-[#d97757]/80 hover:bg-[rgba(217,119,87,0.1)] hover:text-[#d97757]'
-          : it.on
-            ? 'bg-active text-fg shadow-[inset_0_0_0_1px_#26262b]'
-            : small ? 'text-ghost hover:bg-active/60 hover:text-fg' : 'text-faint hover:bg-active/60 hover:text-fg'
+      className={`group relative flex size-11 shrink-0 items-center justify-center rounded-[11px] transition-colors ${
+        it.on ? 'bg-active text-fg shadow-[inset_0_0_0_1px_#26262b]' : 'text-faint hover:bg-active/60 hover:text-fg'
       }`}
     >
-      <Icon name={it.icon} size={small ? 14 : 16} />
-      {it.claude && s.settings.activeId && s.claude[s.settings.activeId]?.status === 'working' && <span aria-hidden="true" className="claude-dot absolute top-[6px] right-[6px] size-1.5 rounded-full bg-[#d97757]" />}
-      {it.badge && <span className="absolute top-[2px] right-[2px] font-mono text-[9px] leading-none">{it.badge}</span>}
+      {it.on && <span aria-hidden="true" className="absolute top-1/2 -left-[10px] h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-fg" />}
+      <Icon name={it.icon} size={21} stroke={1.7} />
+      {it.badge && (
+        <span className={`absolute -top-[3px] -right-[3px] flex h-4 min-w-4 items-center justify-center rounded-full px-1 font-mono text-[9.5px] leading-none font-semibold ring-2 ring-chrome ${TONE[it.badge.tone]}`}>{it.badge.n}</span>
+      )}
     </button>
   );
 
   return (
-    <nav aria-label="Sections" className="flex w-14 shrink-0 flex-col items-center gap-1 border-r border-line-soft bg-chrome py-2.5">
-      {primary.map((it) => button(it))}
-      <span aria-hidden="true" className="mt-2 mb-1.5 h-px w-6 bg-line" />
-      {secondary.map((it) => button(it, true))}
+    <nav aria-label="Sections" className="flex w-16 shrink-0 flex-col items-center gap-1.5 overflow-y-auto border-r border-line-soft bg-chrome py-2.5">
+      {primary.map(button)}
+      <span aria-hidden="true" className="my-1 h-px w-7 shrink-0 bg-line" />
+      {secondary.map(button)}
       <span className="flex-1" />
-      {button({ id: 'reglages', label: t('Settings', 'Réglages'), icon: 'gear', on: section === 'reglages', run: go('reglages'), hint: 'Ctrl ,' })}
+      {button({ id: 'reglages', label: t('Settings', 'Réglages'), icon: 'settings', on: section === 'reglages', run: go('reglages'), hint: 'Ctrl ,' })}
     </nav>
   );
 }

@@ -118,7 +118,7 @@ export function GeneralSettings() {
             options={[
               { id: 'apercu', label: t('Devices', 'Appareils') },
               { id: 'deploiements', label: t('Deployments', 'Déploiements') },
-              { id: 'partage', label: t('Share', 'Partage') },
+              { id: 'partage', label: 'Open Graph' },
               { id: 'checks', label: 'Checks' },
             ]}
           />
@@ -166,7 +166,7 @@ export function GeneralSettings() {
         </Row>
         <Row
           title={t('Analyze after each load', 'Analyser après chaque chargement')}
-          hint={t('Reads the tags and runs the checks on every page load. Off: only when Page, Share or Checks is open.', 'Lit les balises et lance les checks à chaque chargement. Désactivé : seulement quand Page, Partage ou Checks est ouvert.')}
+          hint={t('Reads the tags and runs the checks on every page load. Off: only when Page, Open Graph or Checks is open.', 'Lit les balises et lance les checks à chaque chargement. Désactivé : seulement quand Page, Open Graph ou Checks est ouvert.')}
         >
           <Switch label={t('Analyze after each load', 'Analyser après chaque chargement')} on={settings.autoAnalyze} onChange={(autoAnalyze) => set({ autoAnalyze })} />
         </Row>
