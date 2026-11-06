@@ -32,7 +32,7 @@
 
 /* Emulation panel: each group of settings on its own card (the panel is a tool kept open, not a report). */
 .emulation-body > div {
-  background: var(--color-card);
+  background: #1a1a1b;
   border: 1px solid var(--color-line-soft);
   border-radius: 10px;
   padding: 12px;

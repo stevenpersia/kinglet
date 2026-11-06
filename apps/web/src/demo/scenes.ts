@@ -178,7 +178,7 @@ export const SCRIPTS: Record<SceneId, Step[]> = {
     { at: 3300, click: true, set: { keyboard: true } },
     { at: 3800, to: 'emu-tokyo' },
     { at: 4400, click: true, set: { tokyo: true } },
-    { at: 5000, to: 'cta-phone' },
+    { at: 5000, to: 'btn-emu' },
     { at: 5600, click: true, set: { emuMenu: false } },
     ...ask('devices', 'claude-input', 6100, { keyboardFixed: true }),
   ],
