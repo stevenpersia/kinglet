@@ -142,7 +142,7 @@ export function SitePhone({ inspect, keyboard, keyboardFixed, accent }: SiteStat
             className="flex items-center rounded-full"
             style={{ height: 50, padding: '0 18px', fontSize: 15, background: '#fff', color: keyboard ? ink : '#9aa19c', boxShadow: keyboard ? `0 0 0 2px ${ink}` : `0 0 0 1px ${line}` }}
           >
-            {keyboard ? 'jessica@studio.co' : 'you@email.com'}
+            {keyboard ? 'jessica@studio.co' : 'Your email'}
             {keyboard && <span className="blink ml-px inline-block h-5 w-[2px]" style={{ background: ink }} />}
           </span>
           <Cta inspect={inspect} accent={accent} target="cta-phone" label="Get started — free" />

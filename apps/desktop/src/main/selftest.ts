@@ -215,6 +215,12 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
       ok: atelier.checks.length === 53 && st['overflow'] === 'error' && st['console'] === 'error' && st['og-site-name'] === 'warning' && st['robots'] === 'warning',
       detail: `${atelier.checks.length} checks, ${atelier.score.passed}/${atelier.score.total} · débordement ${st['overflow']}, erreurs JS ${st['console']}, robots.txt ${st['robots']} (le serveur Vite renvoie sa page HTML)`,
     });
+    // Content read in the rendered page, privacy from a first visit (not the HTML fallback), speed in the devices.
+    criteria.push({
+      id: 'checks-content-privacy-speed',
+      ok: ['filler-text', 'legal-pages', 'trackers', 'consent-banner'].every((id) => st[id] && st[id] !== 'skip') && st['tracking-cookies'] !== 'skip' && ['main-thread', 'render-blocking', 'js-weight', 'unused-css', 'fonts'].every((id) => st[id] && st[id] !== 'skip'),
+      detail: ['filler-text', 'legal-pages', 'tracking-cookies', 'consent-banner', 'render-blocking', 'js-weight', 'unused-css', 'fonts'].map((id) => `${id} ${st[id]}`).join(' · '),
+    });
     // Measured in the devices: the « mentions » link of atelier.html is tiny and pale on purpose.
     const det = (id: string) => atelier.checks.find((c) => c.id === id)?.detail ?? '';
     criteria.push({
