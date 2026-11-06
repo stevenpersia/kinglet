@@ -1,6 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "installCommand": "true",
+  "installCommand": "cd ../.. && pnpm install --frozen-lockfile --filter @kinglet/web...",
   "buildCommand": "node scripts/build.mjs",
   "outputDirectory": "dist"
 }

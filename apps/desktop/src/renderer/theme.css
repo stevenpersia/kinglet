@@ -1,0 +1,51 @@
+/* Graphite design tokens, shared by the app and the website (apps/web). */
+/* See the design canvas, page V3. */
+@theme {
+  --color-bg: #0a0a0b;
+  --color-chrome: #0e0e10;
+  --color-card: #111113;
+  --color-active: #18181b;
+  --color-raised: #1e1e22;
+  --color-line: #232327;
+  --color-line-soft: #1e1e22;
+  --color-line-strong: #34343a;
+  --color-ghost: #6e6e77;
+  --color-faint: #8a8a93;
+  --color-muted: #a1a1aa;
+  --color-fg: #ededef;
+  --color-local: #8ab4f8;
+  --color-preview: #e6c07b;
+  --color-prod: #7dd3a8;
+  --color-ok: #7dd3a8;
+  --color-warn: #e6c07b;
+  --color-err: #f28b82;
+  --font-sans: 'Geist Variable', system-ui, sans-serif;
+  --font-mono: 'Geist Mono Variable', ui-monospace, monospace;
+  --radius-ui: 7px;
+}
+
+@utility drag { -webkit-app-region: drag; }
+@utility no-drag { -webkit-app-region: no-drag; }
+@utility label {
+  font-size: 11px;
+  color: var(--color-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 500;
+}
+@utility stage-bg {
+  background-color: var(--color-bg);
+  background-image: radial-gradient(ellipse 60% 55% at 50% 45%, rgba(255, 255, 255, 0.045), transparent 70%),
+    radial-gradient(#18181b 1px, transparent 1px);
+  background-size: 100% 100%, 18px 18px;
+}
+
+/* Claude is working: the clay dot pulses. */
+@keyframes claude-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(217, 119, 87, 0.55); }
+  70% { box-shadow: 0 0 0 6px rgba(217, 119, 87, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(217, 119, 87, 0); }
+}
+.claude-dot { animation: claude-pulse 1.6s infinite; }
+@media (prefers-reduced-motion: reduce) { .claude-dot { animation: none; } }
+
