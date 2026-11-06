@@ -637,14 +637,16 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     await sleep(600);
     const probeApi = `fetch('/api/plans?x=1').then(async (r) => r.status + ' ' + (await r.text())).catch((e) => 'failed ' + e.message)`;
     const mocked = (await Promise.all(devices.entries().map((d) => d.view.webContents.executeJavaScript(probeApi) as Promise<string>))) as string[];
-    await clickText('main button[aria-haspopup=dialog]', 'Emulation'); // its button sums up "1 mock"
+    await js(`document.querySelector('button[aria-controls=emulation-panel]')?.click()`); // its tab shows a dot: "1 mock"
     await sleep(500);
     await shot('32b-emulation');
-    await clickText('[role=dialog][aria-label=Emulation] button', 'Simulated API responses');
+    await clickText('#emulation-panel button', 'Simulated API responses');
     await waitFor(() => js<boolean>(`!!document.querySelector('[role=dialog][aria-label="Simulated API responses"]')`), 3000);
     await settle(400);
     await shot('33-reponses-simulees');
     await js(`document.querySelector('[role=dialog][aria-label="Simulated API responses"] button[aria-label=Close]')?.click()`);
+    await sleep(300);
+    await js(`document.querySelector('#emulation-panel button[aria-label=Close]')?.click()`);
     await js(`window.kinglet.updateSettings({ mocks: [], offline: true })`);
     await sleep(600);
     const offline = (await Promise.all(devices.entries().map((d) => d.view.webContents.executeJavaScript(probeApi) as Promise<string>))) as string[];
@@ -842,10 +844,10 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
       // The menu itself: a sheet, a PDF, a GIF and a video, saved (no dialog in the acceptance run).
       const { readdirSync, statSync } = await import('node:fs');
       const exported: string[] = [];
-      for (const [item, ext] of [['Sheet · screens', 'png'], ['PDF · one device per page', 'pdf'], ['GIF of the scroll', 'gif'], ['Video of the scroll', 'webm']] as const) {
-        await clickText('button', 'Export');
-        await sleep(400);
-        await clickText('[role=menu] button', item);
+      await js(`document.querySelector('button[aria-controls=export-panel]')?.click()`);
+      await sleep(500);
+      for (const [item, ext] of [['Sheet of the screens', 'png'], ['One device per page', 'pdf'], ['GIF of every device scrolling', 'gif'], ['Video of every device scrolling', 'webm']] as const) {
+        await clickText('#export-panel button', item);
         const ok = await waitFor(() => readdirSync(outDir).some((f) => f.startsWith('export-') && f.endsWith(`.${ext}`)), 30_000, 400);
         const file = readdirSync(outDir).find((f) => f.startsWith('export-') && f.endsWith(`.${ext}`));
         exported.push(ok && file ? `${ext} ${Math.round(statSync(join(outDir, file)).size / 1024)} Ko` : `${ext} absent`);
@@ -853,6 +855,7 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
       }
       criteria.push({ id: 'export-menu', ok: exported.every((x) => !x.includes('absent')), detail: exported.join(' · ') });
       await shot('31b-export');
+      await js(`document.querySelector('#export-panel button[aria-label=Close]')?.click()`);
 
       const audit = await js<{ pages: { path: string }[]; brokenLinks: unknown[]; duplicateTitles: unknown[] }>(`window.kinglet.audit('http://localhost:5173/', { limit: 20 })`);
       criteria.push({ id: 'site-audit', ok: audit.pages.length >= 2, detail: `${audit.pages.map((p) => p.path).join(', ')} · ${audit.brokenLinks.length} liens cassés · ${audit.duplicateTitles.length} titres en double` });
@@ -926,11 +929,12 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
           seen[2],
         detail: `${formsCheck?.status}: ${formsCheck?.detail} · faux acceptés : ${bad['iphone-16']?.accepted.join(', ')} · refusés : ${bad['iphone-16']?.refused.join(', ')} · valide : ${good['iphone-16']?.filled} champs, ${good['iphone-16']?.refused.length} refusés · page : ${seen[0]}, ${seen[1]} événements input`,
       });
-      await clickText('button', 'Forms');
+      await js(`document.querySelector('button[aria-controls=forms-panel]')?.click()`);
       await sleep(400);
-      await clickText('[role=menu] button', 'wrong data');
+      await clickText('#forms-panel button', 'Wrong data');
       await settle(800);
       await shot('35-formulaires');
+      await js(`document.querySelector('#forms-panel button[aria-label=Close]')?.click()`);
 
       await js(`window.kinglet.updateSettings({ keyboard: true })`);
       await sleep(700);

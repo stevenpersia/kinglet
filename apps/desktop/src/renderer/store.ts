@@ -16,7 +16,7 @@ export const cleanError = (e: unknown) => String((e as Error)?.message ?? e).rep
 
 export type Section = 'apercu' | 'partage' | 'comparer' | 'deploiements' | 'checks' | 'securite' | 'reglages' | 'projets' | 'changes';
 /** Panel opened next to the devices from the left bar. */
-export type Panel = 'page' | 'checks' | 'feedback' | 'emulation';
+export type Panel = 'page' | 'checks' | 'feedback' | 'emulation' | 'forms' | 'export';
 export type SettingsTab = 'general' | 'devices' | 'project' | 'vercel' | 'github' | 'claude' | 'mcp' | 'updates' | 'license';
 export type LoadStatus = 'idle' | 'loading' | 'loaded' | 'failed';
 
@@ -134,6 +134,8 @@ interface State {
   runAudit(limit?: number): Promise<void>;
   /** Last automatic filling of the forms (null: none shown). */
   forms: { mode: 'valid' | 'invalid' | 'clear'; result: Record<string, FormFill> } | null;
+  /** An export (images, PDF, video) is running: its tab shows a dot. */
+  exporting: boolean;
   fillForms(mode: 'valid' | 'invalid' | 'clear'): Promise<void>;
   /** Checks page: the page shown or the whole site. */
   checksScope: 'page' | 'site';
@@ -245,6 +247,7 @@ export const useStore = create<State>((set, get) => ({
     }
   },
   forms: null,
+  exporting: false,
   async fillForms(mode) {
     const result = await api().fillForms(mode);
     set({ forms: mode === 'clear' ? null : { mode, result } });
