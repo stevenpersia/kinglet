@@ -22,7 +22,12 @@ function Stars({ value, best }: { value: number; best: number }) {
   );
 }
 
-function Preview({ c, rich }: { c: ShareCard; rich?: RichPreview | null }) {
+/** A card as the platform draws it. Long words (a URL as the title) wrap instead of leaving the card. */
+function Preview(props: { c: ShareCard; rich?: RichPreview | null }) {
+  return <div className="min-w-0 [overflow-wrap:anywhere]">{PreviewBody(props)}</div>;
+}
+
+function PreviewBody({ c, rich }: { c: ShareCard; rich?: RichPreview | null }) {
   const title = c.title ?? c.url;
   switch (c.platform) {
     case 'telegram':
@@ -87,7 +92,7 @@ function Preview({ c, rich }: { c: ShareCard; rich?: RichPreview | null }) {
         <div className="flex justify-end rounded-lg bg-white p-2.5">
           <div className={`w-[85%] overflow-hidden rounded-2xl bg-[#E9E9EB] text-[#111] ${c.layout === 'large' ? '' : 'flex items-center gap-2 p-2'}`}>
             {c.layout === 'large' && c.image ? <Img src={c.image} className="aspect-[1.91] w-full" /> : c.icon && <Img src={c.icon} className="size-10 shrink-0 rounded-md" />}
-            <div className={c.layout === 'large' ? 'px-3 py-2' : 'min-w-0'}>
+            <div className={c.layout === 'large' ? 'min-w-0 px-3 py-2' : 'min-w-0'}>
               <div className="line-clamp-2 text-xs font-semibold">{title}</div>
               <div className="text-[11px] text-[#6B6B70]">{c.domain}</div>
             </div>
@@ -99,7 +104,7 @@ function Preview({ c, rich }: { c: ShareCard; rich?: RichPreview | null }) {
         <div className="rounded-lg bg-[#1A1D21] p-2.5 text-[#D1D2D3]">
           <div className="flex flex-col gap-1 border-l-[3px] border-[#4A4D52] pl-2.5">
             <span className="text-[11px] font-semibold">{c.siteName}</span>
-            <span className="text-[13px] font-semibold text-[#1D9BD1]">{title}</span>
+            <span className="line-clamp-2 text-[13px] font-semibold text-[#1D9BD1]">{title}</span>
             {c.description && <span className="line-clamp-3 text-xs">{c.description}</span>}
             {c.image && <Img src={c.image} className="mt-1 max-h-28 w-auto max-w-[220px] rounded" />}
           </div>
@@ -110,7 +115,7 @@ function Preview({ c, rich }: { c: ShareCard; rich?: RichPreview | null }) {
         <div className="rounded-lg bg-[#313338] p-2.5 text-[#DBDEE1]">
           <div className="flex flex-col gap-1 rounded bg-[#2B2D31] p-2.5" style={{ borderLeft: `4px solid ${c.accent ?? '#1E1F22'}` }}>
             <span className="text-[11px] text-[#B5BAC1]">{c.siteName}</span>
-            <span className="text-[13px] font-semibold text-[#00A8FC]">{title}</span>
+            <span className="line-clamp-2 text-[13px] font-semibold text-[#00A8FC]">{title}</span>
             {c.description && <span className="line-clamp-3 text-xs">{c.description}</span>}
             {c.image && <Img src={c.image} className="mt-1 w-full rounded" />}
           </div>
@@ -121,7 +126,7 @@ function Preview({ c, rich }: { c: ShareCard; rich?: RichPreview | null }) {
         <div className="rounded-lg bg-[#F4F2EE] p-2.5">
           <div className={`overflow-hidden rounded-md border border-[#E0DFDC] bg-white text-[#111] ${c.layout === 'small' ? 'flex' : ''}`}>
             {c.image && <Img src={c.image} className={c.layout === 'large' ? 'aspect-[1.91] w-full' : 'size-16 shrink-0'} />}
-            <div className="px-3 py-2">
+            <div className="min-w-0 px-3 py-2">
               <div className="line-clamp-2 text-xs font-semibold">{title}</div>
               <div className="text-[11px] text-[#666]">{c.domain}</div>
             </div>
@@ -158,7 +163,7 @@ function Preview({ c, rich }: { c: ShareCard; rich?: RichPreview | null }) {
                 <span className="truncate text-[11px] text-[#4D5156]">{rich?.breadcrumb?.length ? `${c.domain} › ${rich.breadcrumb.join(' › ')}` : c.url}</span>
               </div>
             </div>
-            <span className="text-[15px] text-[#1A0DAB]">{title}</span>
+            <span className="line-clamp-2 text-[15px] text-[#1A0DAB]">{title}</span>
             {(rich?.rating || rich?.price) && (
               <span className="flex flex-wrap items-center gap-x-1.5 text-[11.5px] text-[#70757A]">
                 {rich.rating && (

@@ -679,8 +679,8 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     criteria.push({ id: 'inspector', ok: rows && inspectText.includes('h1') && inspectOff, detail: inspectText.slice(0, 160) });
 
     // 26-feedback. Review pins: pin a spot with a comment, open a GitHub issue with them.
-    await clickText('nav button', 'Feedback');
-    await clickText('aside[aria-label=Feedback] button', 'Pin a comment');
+    await js(`document.querySelector('button[aria-controls=feedback-panel]')?.click()`);
+    await clickText('#feedback-panel button', 'Pin a comment');
     await waitFor(() => js<boolean>(`!!document.querySelector('.cursor-crosshair')`), 4000);
     await js(`(() => {
       const el = document.querySelector('.cursor-crosshair');
@@ -694,11 +694,11 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
       ta.dispatchEvent(new Event('input', { bubbles: true }));
     })()`);
     await sleep(300);
-    await clickText('aside[aria-label=Feedback] button', 'Open an issue');
-    const issued = await waitFor(() => js<boolean>(`document.querySelector('aside[aria-label=Feedback]')?.textContent.includes('Issue opened') ?? false`), 6000);
+    await clickText('#feedback-panel button', 'Open an issue');
+    const issued = await waitFor(() => js<boolean>(`document.querySelector('#feedback-panel')?.textContent.includes('Issue opened') ?? false`), 6000);
     await shot('34-retours');
     criteria.push({ id: 'feedback-pins', ok: pinAdded && issued, detail: `épingle ${pinAdded ? 'posée' : 'absente'} · issue ${issued ? 'ouverte (#7)' : 'non ouverte'}` });
-    await clickText('nav button', 'Feedback');
+    await js(`document.querySelector('button[aria-controls=feedback-panel]')?.click()`);
 
     // 26a. Claude panel: a real terminal running Claude Code (a stand-in here) in the project folder,
     //      with Kinglet's MCP; "Show" puts the pointed spot (capture + element) in its input.
@@ -898,10 +898,10 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
         const bad = await fetch(local.replace(/\/r\/[^/]+/, '/r/mauvais-jeton-de-vingt-caracteres'));
         reviewOk = html.includes('<script>') && data.shots.length === 2 && post.ok && got?.author === 'Alex' && bad.status === 404;
         reviewDetail = `${link} · ${data.shots.length} captures · retour du client ${got ? `de ${got.author}` : 'absent'} · jeton faux ${bad.status}`;
-        await clickText('nav button', 'Feedback');
+        await js(`document.querySelector('button[aria-controls=feedback-panel]')?.click()`);
         await settle(800);
         await shot('34-lien-relecture');
-        await clickText('nav button', 'Feedback');
+        await js(`document.querySelector('button[aria-controls=feedback-panel]')?.click()`);
         await js(`window.kinglet.feedback.save(${JSON.stringify(activeId)}, ${JSON.stringify([])})`);
         await js(`window.kinglet.review.close(${JSON.stringify(activeId)})`);
       }
