@@ -20,12 +20,50 @@ export {
   type AxeViolation,
   type AxeImpact,
   type FormsSummary,
+  type PerfDetails,
 } from './checks.ts';
+export { scanContent, contentPrompt, MAX_CONTENT_TEXT, type PageContent, type ContentScan, type ContentFinding } from './content.ts';
+export {
+  assessPrivacy,
+  privacyFromHtml,
+  privacyPrompt,
+  siteOf,
+  BANNER_PROBE,
+  TRACKERS,
+  EMBEDS,
+  CMPS,
+  type PrivacyCapture,
+  type PrivacyReport,
+  type PrivacyRequest,
+  type PrivacyCookie,
+  type TrackerHit,
+  type TrackerCategory,
+} from './privacy.ts';
 export { readSiteFiles, parseRobots, parseSitemap, type SiteFiles } from './site.ts';
 export { crawl, type CrawledPage } from './crawl.ts';
 export { detectFramework, type Framework } from './meta.ts';
 export { PLATFORMS, buildCard, readSharePreviews, type Platform, type PlatformFamily, type ShareCard, type CardStatus, type SharePreviews } from './share.ts';
 export { buildShareFix, guessSiteName, isAddedLine, type ShareFix } from './fix.ts';
+export {
+  OG_SIZE,
+  OG_MAX_BYTES,
+  OG_LAYOUTS,
+  parseColor,
+  toHex,
+  contrast,
+  textColorOn,
+  ogImageDefaults,
+  ogLogoCandidate,
+  titleSize,
+  buildOgImageHtml,
+  frameworkFromPackage,
+  staticDirFor,
+  freeName,
+  buildOgImageTags,
+  type OgLayout,
+  type OgImageInput,
+  type OgImageTags,
+} from './ogimage.ts';
 export {
   VercelClient,
   VercelError,
@@ -46,6 +84,7 @@ export { t, setLanguage, getLanguage, locale, ago, resolveLanguage, type Languag
 export { consolePrompt, formatEntries, groupEntries, type ConsoleEntry } from './console.ts';
 export { readStructuredData, flattenJsonLd, richKindLabel, type StructuredData, type StructuredItem, type RichPreview, type RichKind } from './structured.ts';
 export { readHreflang, checkHreflangTags, type HreflangReport, type HreflangIssue, type HreflangAlternate } from './hreflang.ts';
+export { checkExternalLinks, type ExternalLink, type ExternalReport } from './external.ts';
 export { auditSite, auditPrompt, type SiteAudit, type AuditPage, type BrokenLink, type Duplicate } from './audit.ts';
 export { evaluateBudgets, pathMatches, describeFailures, budgetMetricLabel, formatBudgetValue, DEFAULT_BUDGET, type Budget, type BudgetMeasure, type BudgetResult, type BudgetMetric } from './budgets.ts';
 export {
@@ -68,3 +107,19 @@ export {
   type CookieInfo,
   type ThirdParty,
 } from './security.ts';
+export {
+  appendStep,
+  describeStep,
+  journeyPrompt,
+  journeyToPlaywright,
+  journeyFileName,
+  pathOf,
+  type Journey,
+  type JourneyStep,
+  type JourneyRun,
+  type JourneyDeviceRun,
+  type JourneyStepResult,
+  type JourneyTrigger,
+  type StepTarget,
+  type PlaywrightDevice,
+} from './journey.ts';

@@ -9,6 +9,7 @@ import { ActivityList, CopyButton, SLASH } from './Mcp';
 import { ProjectSettings, VercelSettings } from './VercelSettings';
 import { ClaudePanelSettings, ClaudeSettings } from './ClaudeSettings';
 import { GitHubSettings } from './GitHubSettings';
+import { LinearSettings, SlackSettings } from './FeedbackSettings';
 import { activeProject } from '../../shared/projects';
 
 const tools = (): [string, string][] => [
@@ -18,7 +19,7 @@ const tools = (): [string, string][] => [
   ['screenshot', t('Captures each device (Claude sees the render)', 'Capture chaque appareil (Claude voit le rendu)')],
   ['get_page_meta', t('Tags as read by a share crawler', 'Balises lues comme un robot de partage')],
   ['get_share_preview', t('Previews on 10 platforms + fix', 'Aperçus sur 10 plateformes + correctif')],
-  ['run_checks', t('All 37 checks, including on-device measurements', 'Les 37 checks, mesures dans les appareils incluses')],
+  ['run_checks', t('All 53 checks, including on-device measurements', 'Les 53 checks, mesures dans les appareils incluses')],
   ['run_security', t('Leaked keys, exposed files, headers, cookies', 'Clés exposées, fichiers accessibles, en-têtes, cookies')],
   ['audit_site', t('Every page: broken links, duplicates, sitemap, hreflang', 'Toutes les pages : liens cassés, doublons, sitemap, hreflang')],
   ['get_accessibility', t('axe-core audit and keyboard focus in the devices', 'Audit axe-core et focus clavier dans les appareils')],
@@ -257,6 +258,8 @@ const NAV = (): { group: string; items: { id: SettingsTab; label: string; icon: 
       items: [
         { id: 'vercel', label: 'Vercel', icon: 'tri' },
         { id: 'github', label: 'GitHub', icon: 'git' },
+        { id: 'linear', label: 'Linear', icon: 'checkCircle' },
+        { id: 'slack', label: 'Slack', icon: 'message' },
         { id: 'claude', label: t('Claude in Kinglet', 'Claude dans Kinglet'), icon: 'spark' },
         { id: 'mcp', label: t('Claude in terminal', 'Claude dans le terminal'), icon: 'terminal' },
         { id: 'updates', label: t('Updates', 'Mises à jour'), icon: 'download' },
@@ -274,6 +277,8 @@ export function SettingsPage() {
     general: t('Applies to every project.', 'Vaut pour tous les projets.'),
     claude: t('Your claude in a terminal next to your devices, in the project folder. To use it from another terminal or your editor instead, see “Claude in terminal”.', 'Ton claude dans un terminal à côté de tes appareils, dans le dossier du projet. Pour l’utiliser depuis un autre terminal ou ton éditeur, vois « Claude dans le terminal ».'),
     mcp: t('Your own claude, in a terminal or editor, drives Kinglet through its MCP server: screenshots, checks, previews.', 'Ton propre claude, dans un terminal ou un éditeur, pilote Kinglet grâce à son serveur MCP : captures, checks, aperçus.'),
+    linear: t('Feedback as Linear issues, captures included.', 'Les retours en issues Linear, captures comprises.'),
+    slack: t('Feedback posted in a Slack channel.', 'Les retours postés dans un canal Slack.'),
     devices: t('Only checked devices appear in the project’s device bar, in this order. Drag a row to move it.', 'Seuls les appareils cochés apparaissent dans la barre des appareils du projet, dans cet ordre. Glisse une ligne pour la déplacer.'),
   };
   return (
@@ -317,6 +322,10 @@ export function SettingsPage() {
             <VercelSettings />
           ) : settingsTab === 'github' ? (
             <GitHubSettings />
+          ) : settingsTab === 'linear' ? (
+            <LinearSettings />
+          ) : settingsTab === 'slack' ? (
+            <SlackSettings />
           ) : settingsTab === 'claude' ? (
             <ClaudePanelSettings />
           ) : settingsTab === 'mcp' ? (

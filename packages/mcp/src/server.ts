@@ -316,10 +316,10 @@ export function createKingletServer(opts: Options = {}) {
   server.registerTool(
     'run_checks',
     {
-      title: t('Run the 37 checks', 'Lancer les 37 checks'),
+      title: t('Run the 53 checks', 'Lancer les 53 checks'),
       description: t(
-        'SEO (with structured data and hreflang), sharing, mobile, accessibility and technical. With the app open, includes the measures in the devices (horizontal overflow, JavaScript errors, heavy images, axe-core accessibility audit, keyboard focus).',
-        'SEO (avec données structurées et hreflang), partage, mobile, accessibilité et technique. Avec l’app ouverte, inclut les mesures dans les appareils (débordement horizontal, erreurs JavaScript, images lourdes, audit d’accessibilité axe-core, focus clavier).',
+        'SEO (with structured data and hreflang), sharing, content (lorem ipsum, fake contact details, placeholder links and images, legal pages), mobile, accessibility, privacy (trackers and cookies before consent, consent banner) and technical (Web Vitals, INP, render-blocking resources, JavaScript weight, unused CSS, fonts). With the app open, includes the measures in the devices (horizontal overflow, JavaScript errors, heavy images, axe-core accessibility audit, keyboard focus) and a first visit without consent for the cookies.',
+        'SEO (avec données structurées et hreflang), partage, contenu (lorem ipsum, coordonnées factices, liens et images de remplissage, pages légales), mobile, accessibilité, vie privée (traceurs et cookies avant consentement, bannière) et technique (Web Vitals, INP, ressources bloquantes, poids du JavaScript, CSS inutilisé, polices). Avec l’app ouverte, inclut les mesures dans les appareils (débordement horizontal, erreurs JavaScript, images lourdes, audit d’accessibilité axe-core, focus clavier) et une première visite sans consentement pour les cookies.',
       ),
       inputSchema: { url: urlArg },
     },
@@ -497,7 +497,7 @@ export function createKingletServer(opts: Options = {}) {
     const bad = a.pages.filter((p) => p.errors || p.warnings);
     return [
       t(`Site audit of ${a.origin}: ${a.pages.length} pages${a.truncated ? ` (stopped at ${a.limit})` : ''}.`, `Audit du site ${a.origin} : ${a.pages.length} pages${a.truncated ? ` (arrêté à ${a.limit})` : ''}.`),
-      t(`${a.brokenLinks.length} broken links or anchors, ${a.duplicateTitles.length} duplicate titles, ${a.duplicateDescriptions.length} duplicate descriptions, ${a.notInSitemap.length} pages missing from the sitemap, ${bad.length} pages with problems.`, `${a.brokenLinks.length} liens ou ancres cassés, ${a.duplicateTitles.length} titres en double, ${a.duplicateDescriptions.length} descriptions en double, ${a.notInSitemap.length} pages absentes du sitemap, ${bad.length} pages avec des problèmes.`),
+      t(`${a.brokenLinks.length} broken links or anchors, ${a.external ? `${a.external.broken.length} broken external links (${a.external.checked} checked), ` : ''}${a.duplicateTitles.length} duplicate titles, ${a.duplicateDescriptions.length} duplicate descriptions, ${a.notInSitemap.length} pages missing from the sitemap, ${bad.length} pages with problems.`, `${a.brokenLinks.length} liens ou ancres cassés, ${a.external ? `${a.external.broken.length} liens externes cassés (${a.external.checked} vérifiés), ` : ''}${a.duplicateTitles.length} titres en double, ${a.duplicateDescriptions.length} descriptions en double, ${a.notInSitemap.length} pages absentes du sitemap, ${bad.length} pages avec des problèmes.`),
       '',
       auditPrompt(a) || t('Nothing to fix.', 'Rien à corriger.'),
     ].join('\n');

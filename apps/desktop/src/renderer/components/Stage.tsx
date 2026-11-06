@@ -231,12 +231,13 @@ function useEmulation() {
   return { state, settings, updateSettings, target, setTarget, mocksOpen, setMocksOpen, m, text, th, all, per, own, current, devices, hasTouch, mocksOn, setMedia, setText, setThrottle, setRegion, network, setNetwork, resetAll, summary, shown, field };
 }
 
-export type Tool = 'emulation' | 'forms' | 'export' | 'feedback';
+export type Tool = 'emulation' | 'forms' | 'journeys' | 'export' | 'feedback';
 
 /** Each tool panel has its colour: on its tab, its icon and the line along its top. */
 const TOOLS = (): { id: Tool; label: string; icon: IconName; accent: string; tint: string }[] => [
   { id: 'emulation', label: t('Emulation', 'Émulation'), icon: 'sliders', accent: '#8ab4f8', tint: 'rgba(138,180,248,' },
   { id: 'forms', label: t('Forms', 'Formulaires'), icon: 'form', accent: '#7dd3a8', tint: 'rgba(125,211,168,' },
+  { id: 'journeys', label: t('Journeys', 'Parcours'), icon: 'route', accent: '#c6f432', tint: 'rgba(198,244,50,' },
   { id: 'export', label: t('Export', 'Export'), icon: 'download', accent: '#e6c07b', tint: 'rgba(230,192,123,' },
   { id: 'feedback', label: t('Feedback', 'Retours'), icon: 'message', accent: '#f0a07f', tint: 'rgba(240,160,127,' },
 ];
@@ -253,6 +254,7 @@ function ToolTabs() {
     emulation: summary.length ? summary.map((x) => x.text).join(' · ') : null,
     forms: state.forms ? (state.forms.mode === 'valid' ? t('Filled with valid data', 'Rempli avec des données valides') : t('Filled with wrong data', 'Rempli avec des données fausses')) : null,
     export: state.exporting ? t('Exporting…', 'Export…') : null,
+    journeys: state.journeyRec ? t('Recording', 'Enregistrement') : state.journeyProgress ? t('Playing', 'En cours') : null,
     feedback: openPins ? t(`${openPins} open`, `${openPins} ouvert${openPins > 1 ? 's' : ''}`) : null,
   };
   return (
@@ -265,7 +267,7 @@ function ToolTabs() {
             aria-pressed={on}
             aria-controls={`${tool.id}-panel`}
             onClick={() => state.togglePanel(tool.id)}
-            disabled={(tool.id === 'forms' || tool.id === 'export') && !state.url}
+            disabled={(tool.id === 'forms' || tool.id === 'export' || tool.id === 'journeys') && !state.url}
             title={active[tool.id] ? `${tool.label} · ${active[tool.id]}` : tool.label}
             className={`relative flex w-8 flex-col items-center gap-2 rounded-[7px] px-1 py-3 text-[12px] transition-colors disabled:opacity-40 ${on ? 'text-fg' : 'text-muted hover:bg-active/60 hover:text-fg'}`}
             style={on ? { background: `${tool.tint}0.12)`, boxShadow: `inset 0 0 0 1px ${tool.tint}0.35)` } : undefined}

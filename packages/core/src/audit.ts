@@ -2,6 +2,7 @@ import { readPageMeta, type FetchOptions, type PageMeta } from './meta.ts';
 import { runChecks, score, type CheckResult } from './checks.ts';
 import type { SiteFiles } from './site.ts';
 import { t } from './i18n.ts';
+import { checkExternalLinks, type ExternalReport } from './external.ts';
 
 /**
  * Site-wide audit: every page found (links, sitemap, rendered links) read like Google,
@@ -56,6 +57,8 @@ export interface SiteAudit {
   truncated: boolean;
   /** Dead anchors were checked again in the rendered page (after JavaScript): the ones left are really missing. */
   anchorsRendered?: boolean;
+  /** Links to other sites: broken, and those that could not be verified (bot walls, timeouts). */
+  external?: ExternalReport;
   limit: number;
 }
 
@@ -75,7 +78,17 @@ const key = (u: string) => {
 
 export async function auditSite(
   start: string,
-  opts: FetchOptions & { limit?: number; seeds?: string[]; site?: SiteFiles | null; concurrency?: number; onProgress?: (done: number, queued: number) => void } = {},
+  opts: FetchOptions & {
+    limit?: number;
+    seeds?: string[];
+    site?: SiteFiles | null;
+    concurrency?: number;
+    onProgress?: (done: number, queued: number) => void;
+    /** Check the links to other sites (default true), up to this many distinct URLs (default 200). */
+    external?: boolean;
+    externalLimit?: number;
+    onExternalProgress?: (done: number, total: number) => void;
+  } = {},
 ): Promise<SiteAudit> {
   const origin = new URL(start).origin;
   const limit = opts.limit ?? 80;
@@ -107,6 +120,7 @@ export async function auditSite(
   const metas = new Map<string, PageMeta | null>();
   const sources = new Map<string, Set<string>>();
   const anchors: { url: string; from: string }[] = [];
+  const external = new Map<string, Set<string>>();
   let done = 0;
   const worker = async () => {
     for (let url = queue.shift(); url; url = queue.shift()) {
@@ -128,6 +142,10 @@ export async function auditSite(
         push(l);
       }
       for (const h of meta.hashLinks) anchors.push({ url: h, from });
+      for (const e of meta.externalLinks ?? []) {
+        if (!external.has(e)) external.set(e, new Set());
+        external.get(e)!.add(from);
+      }
     }
   };
   while (queue.length) await Promise.all(Array.from({ length: opts.concurrency ?? 4 }, worker));
@@ -209,9 +227,12 @@ export async function auditSite(
     }
   }
 
+  const externalReport = opts.external === false ? undefined : await checkExternalLinks(external, { fetchImpl: opts.fetchImpl, limit: opts.externalLimit, onProgress: opts.onExternalProgress });
+
   return {
     origin,
     at: Date.now(),
+    ...(externalReport ? { external: externalReport } : {}),
     pages,
     brokenLinks: brokenLinks.sort((a, b) => b.from.length - a.from.length),
     duplicateTitles: dupes((p) => p.title),
@@ -228,6 +249,7 @@ export async function auditSite(
 export function auditPrompt(a: SiteAudit): string {
   const lines: string[] = [];
   for (const b of a.brokenLinks) lines.push(b.kind === 'page' ? `- Broken link → ${b.path} (${b.status ? `HTTP ${b.status}` : 'unreachable'}), linked from ${b.from.slice(0, 5).join(', ')}` : `- Dead anchor ${b.path} (no element with this id in the HTML), linked from ${b.from.slice(0, 5).join(', ')}`);
+  for (const b of a.external?.broken ?? []) lines.push(`- Broken external link → ${b.url} (${b.status ? `HTTP ${b.status}` : (b.error ?? 'unreachable')}), linked from ${b.from.slice(0, 5).join(', ')}`);
   for (const d of a.duplicateTitles) lines.push(`- Same <title> “${d.value}” on ${d.paths.join(', ')}`);
   for (const d of a.duplicateDescriptions) lines.push(`- Same meta description on ${d.paths.join(', ')}`);
   if (a.notInSitemap.length) lines.push(`- Missing from the sitemap: ${a.notInSitemap.join(', ')}`);

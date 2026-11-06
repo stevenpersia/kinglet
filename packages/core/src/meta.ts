@@ -1,6 +1,7 @@
 import { fetchExplained } from './net.ts';
 import { parse } from 'node-html-parser';
 import { BOTS, type BotId } from './bots.ts';
+import { MAX_CONTENT_TEXT, type PageContent } from './content.ts';
 
 export type Framework = 'next' | 'nuxt' | 'astro' | 'sveltekit' | 'remix' | 'vite' | 'html';
 
@@ -42,6 +43,12 @@ export interface PageMeta {
   links: string[];
   /** Same-origin links that point at a fragment (#id), full URL with the hash. */
   hashLinks: string[];
+  /** http(s) links to other sites found in the raw HTML (without #fragment). */
+  externalLinks: string[];
+  /** Scripts, iframes and stylesheets the raw HTML loads (resolved), for the privacy checks. */
+  resources: string[];
+  /** Text, links and images of the raw HTML, for the content checks. */
+  content: PageContent;
   /** Fragment targets in the raw HTML: id attributes and <a name>. */
   ids: string[];
   /** JSON-LD blocks (<script type="application/ld+json">), parsed; a block that fails to parse is in jsonLdErrors. */
@@ -143,6 +150,15 @@ export function parseMeta(html: string, baseUrl: string): Omit<PageMeta, 'reques
         .filter((u): u is string => !!u && !!origin && u.startsWith(origin) && /#./.test(u)),
     ),
   ];
+  const externalLinks = [
+    ...new Set(
+      root
+        .querySelectorAll('a[href]')
+        .map((a) => resolve(a.getAttribute('href') ?? null))
+        .filter((u): u is string => !!u && /^https?:/i.test(u) && !!origin && !u.startsWith(origin))
+        .map((u) => u.split('#')[0]!),
+    ),
+  ];
   const ids = [...new Set([...root.querySelectorAll('[id]').map((e) => e.getAttribute('id') ?? ''), ...root.querySelectorAll('a[name]').map((e) => e.getAttribute('name') ?? '')].filter(Boolean))];
   const jsonLd: unknown[] = [];
   const jsonLdErrors: string[] = [];
@@ -178,6 +194,18 @@ export function parseMeta(html: string, baseUrl: string): Omit<PageMeta, 'reques
     imgMissingAlt: imgs.filter((i) => i.getAttribute('alt') == null).length,
     links,
     hashLinks,
+    externalLinks,
+    resources: [
+      ...new Set(
+        [
+          ...root.querySelectorAll('script[src], iframe[src]').map((e) => e.getAttribute('src') ?? null),
+          ...root.querySelectorAll('link').filter((l) => /(^|\s)(stylesheet|preload|modulepreload)(\s|$)/i.test(l.getAttribute('rel') ?? '')).map((l) => l.getAttribute('href') ?? null),
+        ]
+          .map(resolve)
+          .filter((u): u is string => !!u && /^https?:/.test(u)),
+      ),
+    ],
+    content: readContent(root.querySelector('body') ?? root, resolve),
     ids,
     jsonLd,
     jsonLdErrors,
@@ -188,6 +216,42 @@ export function parseMeta(html: string, baseUrl: string): Omit<PageMeta, 'reques
     ogImageUrl: resolve(rawImage),
     ogImageIsRelative: rawImage != null && !/^https?:\/\//i.test(rawImage),
   };
+}
+
+type Node = ReturnType<typeof parse>;
+const SKIP_TEXT = new Set(['script', 'style', 'noscript', 'template', 'svg', 'head']);
+
+/** Visible text, links and images of a parsed page (raw HTML: what Google and share bots read). */
+function readContent(body: Node, resolve: (href: string | null) => string | null): PageContent {
+  const parts: string[] = [];
+  let size = 0;
+  const walk = (n: Node) => {
+    for (const c of n.childNodes) {
+      if (size > MAX_CONTENT_TEXT) return;
+      if (c.nodeType === 3) {
+        const v = c.text.replace(/\s+/g, ' ').trim();
+        if (v) {
+          parts.push(v);
+          size += v.length + 1;
+        }
+      } else if (c.nodeType === 1 && !SKIP_TEXT.has((c as Node).rawTagName?.toLowerCase() ?? '')) walk(c as Node);
+    }
+  };
+  walk(body);
+  const anchors = body
+    .querySelectorAll('a')
+    .filter((a) => a.getAttribute('href') != null)
+    .slice(0, 500)
+    .map((a) => {
+      const href = (a.getAttribute('href') ?? '').trim();
+      return { href, url: /^(#|javascript:|mailto:|tel:)/i.test(href) || !href ? null : resolve(href), text: (a.text || a.getAttribute('aria-label') || a.getAttribute('title') || '').replace(/\s+/g, ' ').trim().slice(0, 80) };
+    });
+  const images = body
+    .querySelectorAll('img, source')
+    .slice(0, 300)
+    .map((i) => resolve(i.getAttribute('src') ?? (i.getAttribute('srcset') ?? '').trim().split(/\s+/)[0] ?? null))
+    .filter((u): u is string => !!u);
+  return { text: parts.join(' ').slice(0, MAX_CONTENT_TEXT), anchors, images };
 }
 
 /** Fetch a page the way a link-preview bot does (raw HTML, no JavaScript) and extract its tags. */

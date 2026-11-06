@@ -1,10 +1,10 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, Notification, shell } from 'electron';
-import { resolveLanguage, setLanguage, t, locale, buildShareFix, checkShare, crawl, probeImage, readPageMeta, readSharePreviews, readSiteFiles, runChecks, score, vercelBypassHeaders, auditSite, auditSecurity, securitySummary, readHreflang, readStructuredData, evaluateBudgets, describeFailures, type AxeViolation, type BudgetMeasure, type CrawledPage, type HreflangReport, type SiteFiles } from '@kinglet/core';
+import { resolveLanguage, setLanguage, t, locale, buildShareFix, checkShare, crawl, probeImage, readPageMeta, readSharePreviews, readSiteFiles, runChecks, score, vercelBypassHeaders, auditSite, auditSecurity, securitySummary, readHreflang, readStructuredData, evaluateBudgets, describeFailures, assessPrivacy, journeyToPlaywright, journeyFileName, type Journey, type JourneyRun, type JourneyTrigger, type AxeViolation, type PrivacyReport, type OgImageInput, type BudgetMeasure, type CrawledPage, type HreflangReport, type SiteFiles } from '@kinglet/core';
 import { startStdio } from '@kinglet/mcp';
 import QRCode from 'qrcode';
-import type { SecurityRun, AnalyzeReport, CompareColumn, DeviceSlot, EnvId, ExportShot, FeedbackPin, HistoryEntry, InitState, McpActivity, McpInfo, NewProjectRequest, Project, PhoneQr, PhoneState, PreviewEvent, Settings, ShareStudio } from '../shared/types';
+import type { SecurityRun, AnalyzeReport, CompareColumn, DeviceSlot, EnvId, ExportShot, FeedbackPin, HistoryEntry, InitState, McpActivity, McpInfo, NewProjectRequest, Project, PhoneQr, PhoneState, PreviewEvent, Settings, ShareStudio, OgImageDraft } from '../shared/types';
 import { HistoryStore } from './history';
 import { ReviewServer } from './review';
 import { startControlServer } from './control';
@@ -23,12 +23,17 @@ import { detectLocalServer, detectLocalServers } from './detect';
 import { claudeCli, findClaude } from './claude-cli';
 import { Terminals } from './terminal';
 import { GitHubService } from './github';
+import { LinearService } from './linear';
+import { SlackService } from './slack';
+import type { SlackMessage } from '../shared/feedback';
 import { execFile } from 'node:child_process';
 import { readChanges } from './changes';
+import { capturePrivacy } from './privacy';
 import { DeviceManager, shortcutFor } from './devices';
 import { PRESETS } from './presets';
 import { activeIds, allPresets, setActiveIds } from '../shared/devices';
 import { runSelftest } from './selftest';
+import { ogImageDraft, previewOgImage, saveOgImage } from './ogimage';
 import { SettingsStore } from './settings';
 import { moveOldUserData, oldHookScript } from './rename';
 import { createLicense, openLicenseWindow } from './license-window';
@@ -208,7 +213,10 @@ async function createWindow(license: LicenseService) {
       // A build just went live: measure it (history) and check the budgets.
       if (before && before !== key && d.state === 'READY') {
         const project = settings.value.projects.find((p) => p.vercelProjectId === vpId);
-        if (project) void measureDeployment(project.id, { url: d.url, deploymentId: d.id, production: d.production, branch: d.branch, commit: d.commitMessage }, true, 'vercel').catch((e) => console.error('history', e));
+        if (project)
+          void measureDeployment(project.id, { url: d.url, deploymentId: d.id, production: d.production, branch: d.branch, commit: d.commitMessage }, true, 'vercel')
+            .catch((e) => console.error('history', e))
+            .then(() => runAutoJourneys(project.id, d.url, 'deploy'));
       }
     }
   });
@@ -352,14 +360,26 @@ async function createWindow(license: LicenseService) {
   const budgetMeasures = (vitals: Record<string, { lcpMs: number | null; cls: number | null }>): BudgetMeasure[] =>
     devices.perfs().map((p) => ({ deviceId: p.deviceId, label: p.label, bytes: p.bytes, requests: p.requests, lcpMs: vitals[p.deviceId]?.lcpMs ?? null, cls: vitals[p.deviceId]?.cls ?? null }));
 
+  /** A first visit without consent (privacy checks), kept 5 minutes per page: it costs a page load. */
+  const privacyCache = new Map<string, { at: number; job: Promise<PrivacyReport | null> }>();
+  const privacyOf = (url: string, refresh = false) => {
+    const hit = privacyCache.get(url);
+    if (!refresh && hit && Date.now() - hit.at < 5 * 60_000) return hit.job;
+    const job = capturePrivacy(url, (u) => bypassHeaders(u, true))
+      .then(assessPrivacy)
+      .catch(() => null);
+    privacyCache.set(url, { at: Date.now(), job });
+    return job;
+  };
+
   async function analyzePage(url: string, opts: { refreshSite?: boolean } = {}): Promise<AnalyzeReport> {
     const headers = bypassHeaders(url);
-    const [meta, rendered] = await Promise.all([readPageMeta(url, { headers }), devices.measure()]);
+    const [meta, rendered, privacy] = await Promise.all([readPageMeta(url, { headers }), devices.measure(), privacyOf(url, opts.refreshSite)]);
     const [image, hreflang] = await Promise.all([meta.ogImageUrl ? probeImage(meta.ogImageUrl, { headers: bypassHeaders(meta.ogImageUrl) }) : Promise.resolve(null), hreflangOf(meta, opts.refreshSite)]);
     const key = origin(meta.finalUrl);
     if (opts.refreshSite || !siteCache.has(key)) siteCache.set(key, readSiteFiles(meta.finalUrl, { manifest: meta.manifest, favicon: meta.icons[0] ?? null }, { headers }));
     const site = await siteCache.get(key)!.catch(() => null);
-    const checks = runChecks({ meta, image, site, rendered: rendered.devices, hreflang });
+    const checks = runChecks({ meta, image, site, rendered: rendered.devices, hreflang, privacy });
     const vitals = Object.fromEntries(rendered.devices.filter((r) => r.vitals).map((r) => [r.id, r.vitals!]));
     // Accessibility: violations merged across devices, focus from the worst device.
     const byRule = new Map<string, AxeViolation>();
@@ -373,7 +393,7 @@ async function createWindow(license: LicenseService) {
     const a11y = rendered.devices.some((r) => r.axe || r.focusMissing) ? { violations: [...byRule.values()].sort((a, b) => order[a.impact] - order[b.impact] || b.nodes - a.nodes), focus } : null;
     const project = activeProject(settings.value);
     const budgets = project?.budgets?.length ? evaluateBudgets(project.budgets, new URL(meta.finalUrl).pathname, budgetMeasures(vitals)) : [];
-    return { url, share: { meta, image, issues: checkShare(meta, image) }, site, checks, score: score(checks), vitals, a11y, structured: readStructuredData(meta.jsonLd, meta.jsonLdErrors, locale()), hreflang, budgets };
+    return { url, share: { meta, image, issues: checkShare(meta, image) }, site, checks, score: score(checks), vitals, a11y, structured: readStructuredData(meta.jsonLd, meta.jsonLdErrors, locale()), hreflang, budgets, privacy };
   }
   ipcMain.handle('page:analyze', (_e, url: string, opts: { refreshSite?: boolean }) => analyzePage(url, opts));
 
@@ -401,6 +421,15 @@ async function createWindow(license: LicenseService) {
     const previews = await readSharePreviews(url, { headers: bypassHeaders(url) });
     return { previews, fix: buildShareFix(previews.meta, previews.image) };
   });
+  // Share image generated from a template (Partage page).
+  const ogContext = () => {
+    const project = activeProject(settings.value);
+    const vp = project?.vercelProjectId ? vercel.state.projects.find((p) => p.id === project.vercelProjectId) : null;
+    return { folder: project?.folder ?? null, productionUrl: vp?.productionUrl ?? null, headers: (u: string) => bypassHeaders(u) };
+  };
+  ipcMain.handle('ogimage:draft', (_e, url: string) => ogImageDraft(url, ogContext()));
+  ipcMain.handle('ogimage:render', (_e, input: OgImageInput) => previewOgImage(input));
+  ipcMain.handle('ogimage:save', (_e, input: OgImageInput, draft: OgImageDraft, choose?: boolean) => saveOgImage(win, input, draft, !!choose));
   ipcMain.on('clipboard:write', (_e, text: string) => clipboard.writeText(text));
 
   ipcMain.handle('site:crawl', async (_e, url: string, opts: { force?: boolean }) => {
@@ -436,6 +465,11 @@ async function createWindow(license: LicenseService) {
         if (Date.now() - last < 150 && done < queued) return;
         last = Date.now();
         emit({ type: 'audit', done, queued });
+      },
+      onExternalProgress: (done, total) => {
+        if (Date.now() - last < 150 && done < total) return;
+        last = Date.now();
+        emit({ type: 'audit', done, queued: total, external: true });
       },
     });
     // Dead anchors: the raw HTML misses ids added by JavaScript. Look again in each rendered page.
@@ -608,6 +642,7 @@ ${shots.map((sh) => `<section><header><h1>${esc(title)}</h1><span>${esc(sh.label
     const folder = settings.value.projects.find((x) => x.id === projectId)?.folder;
     const branch = folder ? await git(folder, ['rev-parse', '--abbrev-ref', 'HEAD']) : null;
     await measureDeployment(projectId, { url, deploymentId: null, production: false, branch, commit }, true, source).catch((e) => console.error('history', e));
+    await runAutoJourneys(projectId, url, source);
   };
   const heads = new Map<string, string>();
   const watchCommits = setInterval(async () => {
@@ -624,6 +659,119 @@ ${shots.map((sh) => `<section><header><h1>${esc(title)}</h1><span>${esc(sh.label
   }, 20_000);
   app.on('will-quit', () => clearInterval(watchCommits));
   onClaudeDone = (projectId, prompt) => void measureLocal(projectId, 'claude', prompt);
+
+  // Journeys: recorded on a device, played again on all of them, after each Claude task, commit and deploy.
+  const runsDir = join(app.getPath('userData'), 'journeys');
+  const runsCache = new Map<string, Record<string, JourneyRun>>();
+  const loadRuns = (projectId: string): Record<string, JourneyRun> => {
+    if (!runsCache.has(projectId)) {
+      let runs: Record<string, JourneyRun> = {};
+      try {
+        runs = JSON.parse(readFileSync(join(runsDir, `${encodeURIComponent(projectId)}.json`), 'utf8'));
+      } catch {
+        /* none yet */
+      }
+      runsCache.set(projectId, runs);
+    }
+    return runsCache.get(projectId)!;
+  };
+  const saveRun = (projectId: string, run: JourneyRun) => {
+    const runs = { ...loadRuns(projectId), [run.journeyId]: run };
+    runsCache.set(projectId, runs);
+    try {
+      mkdirSync(runsDir, { recursive: true });
+      // Captures stay in memory: the file keeps what passed and what broke.
+      const light = Object.fromEntries(Object.entries(runs).map(([k, r]) => [k, { ...r, devices: r.devices.map(({ screenshot: _s, ...d }) => d) }]));
+      writeFileSync(join(runsDir, `${encodeURIComponent(projectId)}.json`), JSON.stringify(light));
+    } catch (e) {
+      console.error('journeys', e);
+    }
+    emit({ type: 'journey-runs', projectId, runs });
+  };
+  const journeyOf = (journeyId: string) => {
+    const project = activeProject(settings.value);
+    const journey = project?.journeys?.find((j) => j.id === journeyId);
+    if (!project || !journey) throw new Error(t('Journey not found.', 'Parcours introuvable.'));
+    return { project, journey };
+  };
+  /** Off screen: the history's phone, and a desktop screen when one is shown. */
+  const journeyDevices = () => {
+    const desktop = devices.entries().find((d) => d.preset.kind === 'desktop')?.preset.id ?? PRESETS.find((p) => p.kind === 'desktop')?.id;
+    return [...new Set([historyDevice(), ...(desktop ? [desktop] : [])])];
+  };
+  const runningAuto = new Set<string>();
+  async function runAutoJourneys(projectId: string, url: string, trigger: JourneyTrigger) {
+    const project = settings.value.projects.find((p) => p.id === projectId);
+    const journeys = (project?.journeys ?? []).filter((j) => j.auto !== false);
+    if (!project || !journeys.length || runningAuto.has(projectId)) return;
+    runningAuto.add(projectId);
+    try {
+      const origin = new URL(url).origin;
+      for (const journey of journeys) {
+        const devs = await devices.playOffscreen(journey, origin, journeyDevices());
+        const run: JourneyRun = { journeyId: journey.id, at: Date.now(), trigger, origin, ok: devs.every((d) => d.ok), devices: devs };
+        const before = loadRuns(projectId)[journey.id];
+        saveRun(projectId, run);
+        const failed = devs.filter((d) => !d.ok);
+        // Broken now (or still broken by a new change): say where.
+        if (failed.length && (before?.ok !== false || trigger !== 'commit'))
+          notify(
+            projectId,
+            t(`Journey broken · ${journey.name}`, `Parcours cassé · ${journey.name}`),
+            failed.map((d) => `${d.label}${t(': ', ' : ')}${d.failedAt != null && d.failedAt >= 0 ? t(`step ${d.failedAt + 1}`, `étape ${d.failedAt + 1}`) : t('start page', 'page de départ')} · ${d.error ?? ''}`).join('\n'),
+          );
+        else if (!failed.length && before && !before.ok) notify(projectId, t(`Journey fixed · ${journey.name}`, `Parcours réparé · ${journey.name}`), t(`Passes again on ${devs.map((d) => d.label).join(', ')}.`, `Passe à nouveau sur ${devs.map((d) => d.label).join(', ')}.`));
+      }
+    } catch (e) {
+      console.error('journeys', e);
+    } finally {
+      runningAuto.delete(projectId);
+    }
+  }
+  ipcMain.handle('journeys:record', () => devices.startRecording());
+  ipcMain.on('journeys:drop-step', (_e, index: number) => devices.dropStep(index));
+  ipcMain.handle('journeys:stop', (_e, name: string | null) => {
+    const rec = devices.stopRecording();
+    const project = activeProject(settings.value);
+    if (!rec || !name?.trim() || !project || !rec.steps.length) return null;
+    const journey: Journey = { id: `j${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`, name: name.trim().slice(0, 80), startPath: rec.startPath, steps: rec.steps, createdAt: Date.now(), auto: true };
+    settings.update(patchProject(settings.value, project.id, { journeys: [...(project.journeys ?? []), journey] }));
+    emit({ type: 'settings', settings: settings.value });
+    return journey;
+  });
+  ipcMain.handle('journeys:play', async (_e, journeyId: string) => {
+    const { project, journey } = journeyOf(journeyId);
+    const url = devices.currentUrl;
+    if (!url) throw new Error(t('No page shown.', 'Aucune page affichée.'));
+    const progress: Record<string, number> = {};
+    let last = 0;
+    const devs = await devices.playLive(journey, new URL(url).origin, (deviceId, index) => {
+      progress[deviceId] = index;
+      if (Date.now() - last < 80) return;
+      last = Date.now();
+      emit({ type: 'journey-progress', journeyId, steps: { ...progress } });
+    });
+    const run: JourneyRun = { journeyId, at: Date.now(), trigger: 'manual', origin: new URL(url).origin, ok: devs.every((d) => d.ok), devices: devs };
+    saveRun(project.id, run);
+    return run;
+  });
+  ipcMain.handle('journeys:runs', (_e, projectId: string) => loadRuns(projectId));
+  ipcMain.handle('journeys:export', async (_e, journeyId: string) => {
+    const { project, journey } = journeyOf(journeyId);
+    const shown = devices.entries().map((d) => d.preset);
+    const list = shown.length ? shown : PRESETS.slice(0, 2);
+    const code = journeyToPlaywright(journey, {
+      baseUrl: project.localOrigin ?? (devices.currentUrl ? new URL(devices.currentUrl).origin : 'http://localhost:3000'),
+      devices: list.map((p) => ({ name: p.label, ...devices.viewport(p), deviceScaleFactor: p.dpr, isMobile: p.mobile, hasTouch: p.touch, ...(p.userAgent ? { userAgent: p.userAgent } : {}) })),
+    });
+    const folder = project.folder;
+    const dir = folder ? (['e2e', 'tests'].map((d) => join(folder, d)).find((d) => existsSync(d)) ?? join(folder, 'tests')) : app.getPath('documents');
+    const r = await dialog.showSaveDialog(win, { title: t('Playwright test', 'Test Playwright'), defaultPath: join(dir, journeyFileName(journey)), filters: [{ name: 'TypeScript', extensions: ['ts'] }] });
+    if (r.canceled || !r.filePath) return null;
+    mkdirSync(dirname(r.filePath), { recursive: true });
+    writeFileSync(r.filePath, code);
+    return r.filePath;
+  });
 
   ipcMain.handle('history:measure', (_e, projectId: string, target: Parameters<typeof measureDeployment>[1] | null) => {
     const url = target?.url ?? devices.currentUrl;
@@ -796,6 +944,22 @@ ${shots.map((sh) => `<section><header><h1>${esc(title)}</h1><span>${esc(sh.label
   ipcMain.handle('github:issue', (_e, repo: string, title: string, body: string) => github.createIssue(repo, title, body));
   ipcMain.handle('github:images', (_e, repo: string, folder: string, images: { name: string; dataUrl: string }[]) => github.uploadImages(repo, folder, images));
   ipcMain.handle('github:owners', () => github.owners());
+
+  // Feedback elsewhere: Linear (issues, captures included) and Slack (a message in a channel).
+  const linear = new LinearService(app.getPath('userData'), (state) => emit({ type: 'linear', state }));
+  void linear.restore();
+  ipcMain.handle('linear:state', () => linear.state);
+  ipcMain.handle('linear:connect', (_e, key: string) => linear.connect(key));
+  ipcMain.handle('linear:refresh', () => linear.refresh());
+  ipcMain.handle('linear:disconnect', () => linear.disconnect());
+  ipcMain.handle('linear:images', (_e, images: { name: string; dataUrl: string }[]) => linear.uploadImages(images));
+  ipcMain.handle('linear:issue', (_e, teamId: string, title: string, description: string) => linear.createIssue(teamId, title, description));
+  const slack = new SlackService(app.getPath('userData'), (state) => emit({ type: 'slack', state }));
+  slack.restore();
+  ipcMain.handle('slack:state', () => slack.state);
+  ipcMain.handle('slack:connect', (_e, url: string) => slack.connect(url));
+  ipcMain.handle('slack:disconnect', () => slack.disconnect());
+  ipcMain.handle('slack:send', (_e, message: SlackMessage) => slack.send(message));
 
   // A new project from scratch: an empty folder for Claude, the dev server, then GitHub and Vercel.
   const projectOf = (id: string) => {

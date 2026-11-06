@@ -1,4 +1,4 @@
-import type { SecurityReport, AxeViolation, Budget, BudgetResult, HreflangReport, SiteAudit, StructuredData, Vitals, CheckResult, CrawledPage, ImageProbe, Issue, PageMeta, ShareFix, SharePreviews, SiteFiles, VercelDeployment, VercelProject, VercelTeam, VercelUser } from '@kinglet/core';
+import type { Journey, JourneyRun, JourneyStep, Framework, OgImageInput, OgImageTags, SecurityReport, PrivacyReport, AxeViolation, Budget, BudgetResult, HreflangReport, SiteAudit, StructuredData, Vitals, CheckResult, CrawledPage, ImageProbe, Issue, PageMeta, ShareFix, SharePreviews, SiteFiles, VercelDeployment, VercelProject, VercelTeam, VercelUser } from '@kinglet/core';
 
 export interface DevicePreset {
   id: string;
@@ -68,6 +68,10 @@ export interface Project {
   tools?: ProjectTools;
   /** Measure the local site after each commit and each finished Claude task (history); on by default. */
   historyAuto?: boolean;
+  /** Linear team the feedback of this project goes to (its id). */
+  linearTeamId?: string | null;
+  /** Recorded journeys (clicks, typing, navigation), played again on every device. */
+  journeys?: Journey[];
 }
 
 export interface Settings {
@@ -209,7 +213,7 @@ export interface ShareReport {
   issues: Issue[];
 }
 
-/** Everything known about the current page: share tags, site files, the 37 checks. */
+/** Everything known about the current page: share tags, site files, the 53 checks. */
 export interface AnalyzeReport {
   url: string;
   share: ShareReport;
@@ -224,6 +228,8 @@ export interface AnalyzeReport {
   hreflang?: HreflangReport | null;
   /** The project's budgets that apply to this page. */
   budgets?: BudgetResult[];
+  /** A first visit without consent: trackers, cookies, banner (null when it failed). */
+  privacy?: PrivacyReport | null;
 }
 
 /** One measure of a deployment (or of the page shown), kept to draw the history. */
@@ -425,6 +431,37 @@ export interface ShareStudio {
   fix: ShareFix;
 }
 
+/** Starting point of the share image editor, read from the page and the project. */
+export interface OgImageDraft {
+  input: OgImageInput;
+  /** From the project's package.json when its folder is known, else from the HTML. */
+  framework: Framework;
+  folder: string | null;
+  /** Folder served at the site root (public/, static/…), in the project folder. */
+  targetDir: string | null;
+  /** Production origin when known, else the page's origin. */
+  origin: string;
+  /** Path of the page the image is made for. */
+  page: string;
+}
+
+export interface OgImageRender {
+  dataUrl: string;
+  bytes: number;
+  format: 'png' | 'jpg';
+}
+
+export interface OgImageSaved {
+  path: string;
+  /** Path on the site, e.g. /og.png. */
+  webPath: string;
+  bytes: number;
+  format: 'png' | 'jpg';
+  /** Written in the project's static folder (served by the site). */
+  inProject: boolean;
+  tags: OgImageTags;
+}
+
 export type ShortcutAction = 'reload' | 'focus-url' | 'palette' | 'toggle-scroll-sync' | 'toggle-landscape' | 'settings' | 'switcher' | 'overview' | 'claude' | `tab-${number}`;
 
 /** A call made by Claude Code through the MCP server. */
@@ -461,9 +498,17 @@ export type PreviewEvent =
   | { type: 'perf'; perf: DevicePerf }
   | { type: 'favicon'; url: string; pageUrl: string }
   | { type: 'github'; state: GitHubState }
+  | { type: 'linear'; state: LinearState }
+  | { type: 'slack'; state: SlackState }
   | { type: 'term'; projectId: string; data?: string; exit?: number | null }
   | { type: 'inspect'; state: InspectState }
-  | { type: 'audit'; done: number; queued: number }
+  | { type: 'audit'; done: number; queued: number; external?: boolean }
+  /** Steps recorded so far (startPath null: recording stopped). */
+  | { type: 'journey-recording'; startPath: string | null; steps: JourneyStep[] }
+  /** A journey being played: the step each device is on. */
+  | { type: 'journey-progress'; journeyId: string; steps: Record<string, number> }
+  /** Last run of each journey of a project. */
+  | { type: 'journey-runs'; projectId: string; runs: Record<string, JourneyRun> }
   | { type: 'taborder'; devices: Record<string, TabOrderInfo> }
   | { type: 'history'; projectId: string; entries: HistoryEntry[] }
   | { type: 'feedback'; projectId: string; pins: FeedbackPin[] }
@@ -537,6 +582,23 @@ export interface PullRequest {
 export interface GitHubState {
   connected: boolean;
   user: { login: string; name: string | null } | null;
+  error: string | null;
+}
+
+/** Linear connection (personal API key), to send feedback as issues. */
+export interface LinearState {
+  connected: boolean;
+  user: { name: string; email: string | null } | null;
+  /** Teams the key can open issues in. */
+  teams: import('./feedback').LinearTeam[];
+  error: string | null;
+}
+
+/** Slack Incoming Webhook, to post feedback in a channel. */
+export interface SlackState {
+  connected: boolean;
+  /** The webhook without its secret, to recognize it. */
+  hint: string | null;
   error: string | null;
 }
 
@@ -651,6 +713,25 @@ export interface KingletApi {
   crawl(url: string, opts?: { force?: boolean }): Promise<CrawledPage[]>;
   /** The 10 platform previews (one fetch per bot) and the suggested fix. */
   sharePreviews(url: string): Promise<ShareStudio>;
+  journeys: {
+    record(): Promise<{ startPath: string }>;
+    dropStep(index: number): void;
+    /** Stops recording; with a name, saves the journey in the active project. */
+    stop(name: string | null): Promise<Journey | null>;
+    /** On the devices shown, on the current origin. */
+    play(journeyId: string): Promise<JourneyRun>;
+    runs(projectId: string): Promise<Record<string, JourneyRun>>;
+    /** Writes the Playwright test (tests/ of the project, or where the user chooses); returns the path. */
+    exportPlaywright(journeyId: string): Promise<string | null>;
+  };
+  ogImage: {
+    /** Defaults from the page (title, description, theme-color, icon) and where it would be saved. */
+    draft(url: string): Promise<OgImageDraft>;
+    /** Rendered at 1200×630, as it will be saved. */
+    render(input: OgImageInput): Promise<OgImageRender>;
+    /** Saved in the project's static folder (never over an existing file), or where the user chooses. */
+    save(input: OgImageInput, draft: OgImageDraft, choose?: boolean): Promise<OgImageSaved | null>;
+  };
   copy(text: string): void;
   mcpInfo(): Promise<McpInfo>;
   vercel: {
@@ -751,6 +832,26 @@ export interface KingletApi {
     /** Accounts a new repository can go in: the user, then their organizations. */
     owners(): Promise<GitHubOwners>;
     disconnect(): Promise<GitHubState>;
+  };
+  linear: {
+    state(): Promise<LinearState>;
+    /** Check a personal API key, then keep it encrypted. */
+    connect(key: string): Promise<LinearState>;
+    /** Teams again (one created since). */
+    refresh(): Promise<LinearState>;
+    disconnect(): Promise<LinearState>;
+    /** Captures uploaded to Linear; returns a URL per image (empty when one failed), for an issue. */
+    uploadImages(images: { name: string; dataUrl: string }[]): Promise<string[]>;
+    /** Open an issue in a team; returns its URL. */
+    createIssue(teamId: string, title: string, description: string): Promise<string>;
+  };
+  slack: {
+    state(): Promise<SlackState>;
+    /** Check the webhook by posting a short message in its channel, then keep it encrypted. */
+    connect(url: string): Promise<SlackState>;
+    disconnect(): Promise<SlackState>;
+    /** Post a message (Block Kit) in the webhook's channel. */
+    send(message: import('./feedback').SlackMessage): Promise<void>;
   };
   chat: {
     cli(): Promise<ClaudeCli>;

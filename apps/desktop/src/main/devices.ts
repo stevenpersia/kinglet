@@ -1,6 +1,7 @@
 import { join } from 'node:path';
 import { BaseWindow, BrowserWindow, WebContentsView, ipcMain, screen, session, type Input, type Session } from 'electron';
-import { HEAVY_IMAGE_BYTES, getLanguage, t, type AxeSummary, type AxeViolation, type RenderedDevice } from '@kinglet/core';
+import { HEAVY_IMAGE_BYTES, appendStep, getLanguage, pathOf, t, type AxeSummary, type AxeViolation, type Journey, type JourneyDeviceRun, type JourneyStep, type RenderedDevice } from '@kinglet/core';
+import { JourneyPlayer } from './journeys';
 import AXE_SOURCE from 'axe-core/axe.min.js?raw';
 import { globMatch } from '../shared/mocks';
 import type { FormFill, ApiMock, DeviceLog, DevicePerf, DevicePreset, DeviceSlot, ElementInfo, ElementMetrics, ExportShot, InspectState, MediaPrefs, PreviewEvent, RegionPrefs, ShortcutAction, TabOrderInfo, TextSize, Throttle } from '../shared/types';
@@ -210,7 +211,44 @@ const MEASURE = `(async () => {
   if (!insets) for (const sh of document.styleSheets) { try { for (const rule of sh.cssRules) if (rule.cssText.includes('safe-area-inset')) { insets = true; break; } } catch {} if (insets) break; }
   // Core Web Vitals, from the buffered performance entries.
   const entries = (type) => new Promise((res) => { try { const got = []; const po = new PerformanceObserver((l) => got.push(...l.getEntries())); po.observe({ type, buffered: true }); setTimeout(() => { got.push(...po.takeRecords()); po.disconnect(); res(got); }, 100); } catch { res([]); } });
-  const [lcpList, shifts] = await Promise.all([entries('largest-contentful-paint'), entries('layout-shift')]);
+  const [lcpList, shifts, frames] = await Promise.all([entries('largest-contentful-paint'), entries('layout-shift'), entries('long-animation-frame')]);
+  // Interaction to Next Paint: the slowest interaction (clicks, taps, keys) since the page loaded.
+  const events = await new Promise((res) => { try { const got = []; const po = new PerformanceObserver((l) => got.push(...l.getEntries())); po.observe({ type: 'event', buffered: true, durationThreshold: 16 }); setTimeout(() => { got.push(...po.takeRecords()); po.disconnect(); res(got); }, 100); } catch { res([]); } });
+  const byInteraction = new Map();
+  for (const e of events) if (e.interactionId) byInteraction.set(e.interactionId, Math.max(byInteraction.get(e.interactionId) || 0, e.duration));
+  // Interactions under 16 ms are not reported as events: the first one always is, as first-input.
+  const firstInput = (await entries('first-input'))[0];
+  if (firstInput && !byInteraction.size) byInteraction.set(firstInput.interactionId || 1, firstInput.duration);
+  const resources = performance.getEntriesByType('resource');
+  const bytesOf = (r) => r.transferSize || r.encodedBodySize || 0;
+  const isJs = (r) => r.initiatorType === 'script' || /\\.m?js(\\?|$)/i.test(r.name);
+  const isFont = (r) => /\\.(woff2?|ttf|otf|eot)(\\?|$)/i.test(r.name);
+  const js = resources.filter(isJs).map((r) => ({ url: r.name, bytes: bytesOf(r) })).sort((a, b) => b.bytes - a.bytes);
+  const fonts = resources.filter(isFont);
+  // CSS rules whose selector matches nothing here, and @font-face without font-display.
+  let cssBytes = 0, unusedCss = 0, cssRules = 0, cssUnreadable = 0;
+  const noDisplay = new Set();
+  const strip = (sel) => sel.replace(/::?[\\w-]+(\\((?:[^()]|\\([^()]*\\))*\\))?/g, '').trim();
+  const visit = (rules) => {
+    for (const rule of rules) {
+      if (cssRules > 30000) return;
+      if (rule.type === 1) {
+        cssRules++;
+        const len = rule.cssText.length;
+        cssBytes += len;
+        const parts = rule.selectorText.split(',').map(strip).map((x) => x.replace(/[>+~]\\s*$/, '').trim() || '*');
+        let used = false;
+        for (const sel of parts) { try { if (document.querySelector(sel)) { used = true; break; } } catch { used = true; break; } }
+        if (!used) unusedCss += len;
+      } else if (rule.type === 5) {
+        const d = rule.style.getPropertyValue('font-display');
+        cssBytes += rule.cssText.length;
+        if (!d || d === 'auto' || d === 'block') noDisplay.add((rule.style.getPropertyValue('font-family') || '?').replace(/["']/g, '').trim());
+      } else if (rule.cssRules) visit(rule.cssRules);
+      else cssBytes += (rule.cssText || '').length;
+    }
+  };
+  for (const sh of document.styleSheets) { try { visit(sh.cssRules); } catch { cssUnreadable++; if (/fonts\\.googleapis\\.com/.test(sh.href || '') && !/[?&]display=/.test(sh.href || '')) noDisplay.add('Google Fonts'); } }
   const nav = performance.getEntriesByType('navigation')[0];
   const fcp = performance.getEntriesByName('first-contentful-paint')[0];
   const lcp = lcpList.length ? lcpList[lcpList.length - 1].startTime : null;
@@ -247,6 +285,27 @@ const MEASURE = `(async () => {
       return { fields, wrongKeyboard, noAutocomplete, noLabel };
     })(),
     rootFontPx: parseFloat(getComputedStyle(document.documentElement).fontSize),
+    content: {
+      text: ((document.body && document.body.innerText) || '').replace(/\\s+/g, ' ').trim().slice(0, 100000),
+      anchors: [...document.querySelectorAll('a[href]')].filter((a) => !a.closest('[data-kinglet]')).slice(0, 500).map((a) => ({ href: (a.getAttribute('href') || '').trim(), url: /^https?:/.test(a.href) ? a.href : null, text: (a.innerText || a.getAttribute('aria-label') || a.getAttribute('title') || '').replace(/\\s+/g, ' ').trim().slice(0, 80) })),
+      images: [...document.querySelectorAll('img')].slice(0, 300).map((i) => i.currentSrc || i.src).filter((u) => /^https?:/.test(u)),
+    },
+    performance: {
+      inpMs: byInteraction.size ? Math.round(Math.max(...byInteraction.values())) : null,
+      interactions: byInteraction.size,
+      blockingMs: Math.round(frames.reduce((s, f) => s + (f.blockingDuration || 0), 0)),
+      longFrames: frames.filter((f) => (f.blockingDuration || 0) > 0).length,
+      renderBlocking: resources.filter((r) => r.renderBlockingStatus === 'blocking').map((r) => ({ url: r.name, kind: isJs(r) ? 'js' : 'css', ms: Math.round(r.responseEnd - r.startTime) })),
+      jsBytes: js.reduce((s, r) => s + r.bytes, 0),
+      jsFiles: js.slice(0, 3),
+      cssBytes,
+      unusedCssBytes: cssRules ? unusedCss : null,
+      cssRules,
+      cssUnreadable,
+      fontBytes: fonts.reduce((s, r) => s + bytesOf(r), 0),
+      fontFiles: fonts.length,
+      fontsNoDisplay: [...noDisplay].slice(0, 5),
+    },
     vitals: { lcpMs: lcp != null ? Math.round(lcp) : null, cls: Math.round(cls * 1000) / 1000, fcpMs: fcp ? Math.round(fcp.startTime) : null, ttfbMs: nav ? Math.round(nav.responseStart) : null },
   };
 })()`;
@@ -307,6 +366,10 @@ export class DeviceManager {
   private clearedLogs = new Set<string>();
   private flushTimer: NodeJS.Timeout | null = null;
   readonly session: Session = session.fromPartition(PREVIEW_PARTITION);
+  /** Journey being recorded: the steps so far, and the device the person is using. */
+  private recording: { startPath: string; steps: JourneyStep[]; source: string | null } | null = null;
+  /** A journey is being played on the devices: each one goes its own way, no sync. */
+  private replaying = false;
 
   constructor(
     private window: BaseWindow,
@@ -343,9 +406,17 @@ export class DeviceManager {
       this.tabInfo = { ...this.tabInfo, [d.preset.id]: info };
       this.emit({ type: 'taborder', devices: this.tabInfo });
     });
+    ipcMain.on('device:journey-step', (event, step: JourneyStep) => {
+      const d = [...this.devices.values()].find((x) => x.view.webContents.id === event.sender.id);
+      if (!d || !this.recording || this.replaying) return;
+      // One person, one device at a time: the first one used is the one recorded.
+      this.recording.source ??= d.preset.id;
+      if (this.recording.source !== d.preset.id) return;
+      this.addStep(step);
+    });
     ipcMain.on('device:scroll', (event, ratio: number) => {
       if (process.env.KINGLET_DEBUG) console.log(`[scroll] from ${event.sender.id} ratio ${ratio}`);
-      if (!this.scrollSync) return;
+      if (!this.scrollSync || this.replaying) return;
       for (const d of this.devices.values()) {
         if (d.view.webContents.id !== event.sender.id) d.view.webContents.send('device:scroll-to', ratio);
       }
@@ -354,6 +425,101 @@ export class DeviceManager {
 
   get currentUrl() {
     return this.url;
+  }
+
+  /* ---------------- Journeys ---------------- */
+
+  private addStep(step: JourneyStep) {
+    if (!this.recording) return;
+    this.recording.steps = appendStep(this.recording.steps, step);
+    this.emit({ type: 'journey-recording', startPath: this.recording.startPath, steps: this.recording.steps });
+  }
+
+  /** Where a device went while recording (link, form, client-side route, redirect). */
+  private recordNavigation(d: DeviceEntry, url: string) {
+    const r = this.recording;
+    if (!r || this.replaying || !/^https?:/.test(url)) return;
+    if (r.source ? r.source !== d.preset.id : !this.isPrimary(d.preset.id)) return;
+    // Before any step, a navigation just moves the start.
+    if (!r.steps.length) {
+      r.startPath = pathOf(url);
+      this.emit({ type: 'journey-recording', startPath: r.startPath, steps: r.steps });
+      return;
+    }
+    this.addStep({ kind: 'expect-url', path: pathOf(url) });
+  }
+
+  startRecording(): { startPath: string } {
+    const startPath = this.url ? pathOf(this.url) : '/';
+    this.recording = { startPath, steps: [], source: null };
+    for (const d of this.devices.values()) d.view.webContents.send('device:journey-record', true);
+    this.emit({ type: 'journey-recording', startPath, steps: [] });
+    return { startPath };
+  }
+
+  /** Removes a step recorded by mistake. */
+  dropStep(index: number) {
+    if (!this.recording) return;
+    this.recording.steps = this.recording.steps.filter((_, i) => i !== index);
+    this.emit({ type: 'journey-recording', startPath: this.recording.startPath, steps: this.recording.steps });
+  }
+
+  stopRecording(): { startPath: string; steps: JourneyStep[] } | null {
+    const r = this.recording;
+    this.recording = null;
+    for (const d of this.devices.values()) d.view.webContents.send('device:journey-record', false);
+    this.emit({ type: 'journey-recording', startPath: null, steps: [] });
+    return r ? { startPath: r.startPath, steps: r.steps } : null;
+  }
+
+  /** Plays a journey on every device shown, at once: each one on its own, sync paused. */
+  async playLive(journey: Journey, origin: string, onStep?: (deviceId: string, index: number) => void): Promise<JourneyDeviceRun[]> {
+    if (this.recording) this.stopRecording();
+    this.replaying = true;
+    try {
+      return await Promise.all(this.entries().map((d) => new JourneyPlayer(d.view.webContents, d.scale * (this.text.zoom || 1)).play(journey, origin, { id: d.preset.id, label: d.preset.label }, (i) => onStep?.(d.preset.id, i))));
+    } finally {
+      this.replaying = false;
+    }
+  }
+
+  /** Plays a journey off screen, one device after the other (after a Claude task or a deploy). */
+  async playOffscreen(journey: Journey, origin: string, presetIds: string[]): Promise<JourneyDeviceRun[]> {
+    const runs: JourneyDeviceRun[] = [];
+    for (const id of presetIds) {
+      const preset = this.presets.find((p) => p.id === id);
+      if (!preset) continue;
+      const { width, height } = this.viewport(preset);
+      const win = new BrowserWindow({ show: false, width, height, useContentSize: true, webPreferences: { offscreen: true, session: this.session, sandbox: true } });
+      try {
+        const wc = win.webContents;
+        wc.setAudioMuted(true);
+        wc.setWindowOpenHandler(({ url }) => {
+          void wc.loadURL(url);
+          return { action: 'deny' };
+        });
+        if (preset.userAgent) wc.setUserAgent(preset.userAgent);
+        // Load first: emulating before the first navigation fails (the renderer process changes).
+        await Promise.race([wc.loadURL(new URL(journey.startPath, origin).toString()).catch(() => undefined), new Promise((r) => setTimeout(r, 15_000))]);
+        const dbg = wc.debugger;
+        dbg.attach('1.3');
+        await dbg.sendCommand('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: preset.mobile, screenWidth: width, screenHeight: height });
+        if (preset.touch) {
+          await dbg.sendCommand('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
+          await dbg.sendCommand('Emulation.setEmitTouchEventsForMouse', { enabled: true, configuration: 'mobile' });
+        }
+        runs.push(await new JourneyPlayer(wc).play(journey, origin, { id: preset.id, label: preset.label }));
+      } catch (e) {
+        runs.push({ deviceId: preset.id, label: preset.label, ok: false, steps: [], failedAt: -1, error: (e as Error).message, consoleErrors: [], ms: 0 });
+      } finally {
+        win.destroy();
+      }
+    }
+    return runs;
+  }
+
+  get presetList() {
+    return this.presets;
   }
 
   entries() {
@@ -542,6 +708,10 @@ export class DeviceManager {
         this.emit({ type: 'shortcut', action });
       }
     });
+    // A page loaded while recording: its recorder starts on.
+    wc.on('dom-ready', () => {
+      if (this.recording) wc.send('device:journey-record', true);
+    });
     wc.on('did-start-navigation', (details) => {
       if (details.isMainFrame && !details.isSameDocument) {
         entry.consoleErrors = [];
@@ -591,11 +761,13 @@ export class DeviceManager {
     wc.on('will-navigate', (e) => this.follow(entry, e.url));
     wc.on('did-navigate-in-page', (_e, url, isMainFrame) => {
       if (!isMainFrame) return;
+      this.recordNavigation(entry, url);
       this.follow(entry, url);
       if (this.isPrimary(preset.id)) this.emit({ type: 'navigated', url });
     });
     wc.on('did-navigate', (_e, url) => {
       if (url.startsWith('data:')) return;
+      this.recordNavigation(entry, url);
       if (this.isPrimary(preset.id)) {
         this.url = url;
         this.emit({ type: 'navigated', url });
@@ -1073,7 +1245,7 @@ export class DeviceManager {
   }
 
   private follow(source: DeviceEntry, url: string) {
-    if (!this.scrollSync || Date.now() < source.followingUntil || !/^https?:/.test(url)) return;
+    if (this.replaying || !this.scrollSync || Date.now() < source.followingUntil || !/^https?:/.test(url)) return;
     for (const d of this.devices.values()) {
       if (d === source || d.view.webContents.getURL() === url) continue;
       d.followingUntil = Date.now() + 2000;
@@ -1313,7 +1485,8 @@ export class DeviceManager {
       }),
     );
     const ok = results.filter((r): r is NonNullable<typeof r> => !!r);
-    return { devices: ok.map((r) => r.device), links: ok[0]?.links ?? [] };
+    // The page's text is the same on every device: keep the first one's.
+    return { devices: ok.map((r, i) => (i === 0 ? r.device : { ...r.device, content: undefined })), links: ok[0]?.links ?? [] };
   }
 
   openDevtools(id: string) {
@@ -1322,6 +1495,8 @@ export class DeviceManager {
 
   async navigate(url: string) {
     this.url = url;
+    // Typed in the address bar while recording: the journey goes there.
+    if (this.recording?.steps.length) this.addStep({ kind: 'goto', path: pathOf(url) });
     const until = Date.now() + 2000;
     await Promise.all(
       this.entries().map((d) => {

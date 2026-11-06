@@ -285,3 +285,135 @@ ipcRenderer.on('device:taborder', (_e, on: boolean) => {
   drawTour();
   setTimeout(redrawTour, 600); // late layout (fonts, images)
 });
+
+// ---- Journeys: clicks, typing and keys, recorded while Kinglet asks ----
+
+let recording = false;
+/** When Enter was recorded: the form it submits clicks its submit button itself, not to record twice. */
+let enterAt = 0;
+/** Last value recorded per field: Enter already recorded it, the change that follows is the same. */
+const recordedValue = new WeakMap<Element, string>();
+
+const norm = (s: string | null | undefined) => (s ?? '').replace(/\s+/g, ' ').trim();
+
+/** Ids that frameworks generate (React useId, Radix, Headless UI…) change between renders: not usable. */
+const generatedId = (id: string) => /^:|^radix-|^headlessui-|^react-aria|^mui-|^rc-|\d{4,}|^[a-f0-9-]{16,}$/i.test(id);
+
+function unique(selector: string): boolean {
+  try {
+    return document.querySelectorAll(selector).length === 1;
+  } catch {
+    return false;
+  }
+}
+
+/** The steadiest selector: test ids, id, name, aria-label, href, else the position in the page. */
+function stableSelector(el: Element): string {
+  const tag = el.tagName.toLowerCase();
+  const attr = (a: string) => el.getAttribute(a);
+  for (const a of ['data-testid', 'data-test', 'data-cy', 'data-qa']) {
+    const v = attr(a);
+    if (v && unique(`[${a}=${JSON.stringify(v)}]`)) return `[${a}=${JSON.stringify(v)}]`;
+  }
+  if (el.id && !generatedId(el.id) && unique(`#${CSS.escape(el.id)}`)) return `#${CSS.escape(el.id)}`;
+  const nameAttr = attr('name');
+  if (nameAttr && /^(input|select|textarea|button)$/.test(tag)) {
+    const base = `${tag}[name=${JSON.stringify(nameAttr)}]`;
+    if (unique(base)) return base;
+    const value = attr('value');
+    if (value && unique(`${base}[value=${JSON.stringify(value)}]`)) return `${base}[value=${JSON.stringify(value)}]`;
+  }
+  const aria = attr('aria-label');
+  if (aria && unique(`${tag}[aria-label=${JSON.stringify(aria)}]`)) return `${tag}[aria-label=${JSON.stringify(aria)}]`;
+  const href = attr('href');
+  if (tag === 'a' && href && unique(`a[href=${JSON.stringify(href)}]`)) return `a[href=${JSON.stringify(href)}]`;
+  return pathOf(el);
+}
+
+function roleOf(el: Element): string | undefined {
+  const explicit = el.getAttribute('role');
+  if (explicit) return explicit;
+  const tag = el.tagName.toLowerCase();
+  const type = (el.getAttribute('type') ?? '').toLowerCase();
+  if (tag === 'a' && el.hasAttribute('href')) return 'link';
+  if (tag === 'button' || (tag === 'input' && /^(submit|button|reset)$/.test(type))) return 'button';
+  if (tag === 'input' && (type === 'checkbox' || type === 'radio')) return type;
+  if (tag === 'select') return 'combobox';
+  if (tag === 'textarea' || (tag === 'input' && /^(|text|email|tel|url|search|password|number)$/.test(type))) return 'textbox';
+  return undefined;
+}
+
+function labelOf(el: Element): string {
+  const byId = el.id ? document.querySelector(`label[for="${CSS.escape(el.id)}"]`) : null;
+  return norm(el.getAttribute('aria-label') || (byId as HTMLElement | null)?.innerText || (el.closest('label') as HTMLElement | null)?.innerText || el.getAttribute('placeholder') || el.getAttribute('name') || '').slice(0, 60);
+}
+
+function targetOf(el: Element) {
+  const h = el as HTMLElement & { value?: string };
+  const isField = /^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName);
+  const text = isField && !/^(submit|button)$/i.test(el.getAttribute('type') ?? '') ? '' : norm(h.innerText || h.value || el.getAttribute('aria-label') || el.getAttribute('title') || el.querySelector('img')?.getAttribute('alt') || '').slice(0, 80);
+  const label = isField ? labelOf(el) : '';
+  return { selector: stableSelector(el), tag: el.tagName.toLowerCase(), text, ...(roleOf(el) ? { role: roleOf(el) } : {}), ...(label ? { label } : {}) };
+}
+
+const CLICKABLE = 'a, button, [role=button], [role=link], [role=tab], [role=menuitem], [role=option], [role=switch], [role=checkbox], input, select, textarea, label, summary, [onclick], [tabindex]';
+const ours = (el: Element | null) => !!el?.closest('[data-kinglet], [data-kinglet-inspector], [data-kinglet-keyboard]');
+const send = (step: object) => ipcRenderer.send('device:journey-step', step);
+
+/** A field's value, recorded once. */
+function recordField(el: Element) {
+  const input = el as HTMLInputElement;
+  const type = (input.getAttribute('type') ?? '').toLowerCase();
+  if (el.tagName === 'SELECT') {
+    const select = el as HTMLSelectElement;
+    return send({ kind: 'select', ...targetOf(el), value: select.value, option: norm(select.selectedOptions[0]?.text ?? '') });
+  }
+  if (type === 'checkbox' || type === 'radio') return send({ kind: 'check', ...targetOf(el), checked: input.checked });
+  if (type === 'file' || type === 'range' || type === 'color' || type === 'submit' || type === 'button') return;
+  if (recordedValue.get(el) === input.value) return;
+  recordedValue.set(el, input.value);
+  send({ kind: 'fill', ...targetOf(el), value: input.value, ...(type === 'password' ? { secret: true } : {}) });
+}
+
+document.addEventListener(
+  'click',
+  (e) => {
+    if (!recording || inspecting || !e.isTrusted) return;
+    // A click with no pointer (detail 0) right after Enter: the browser submitting the form.
+    if (e.detail === 0 && Date.now() - enterAt < 600) return;
+    const el = (e.target as Element | null)?.closest?.(CLICKABLE) ?? (e.target as Element | null);
+    if (!el || ours(el) || el === document.documentElement || el === document.body) return;
+    send({ kind: 'click', ...targetOf(el) });
+  },
+  true,
+);
+
+document.addEventListener(
+  'change',
+  (e) => {
+    const el = e.target as Element | null;
+    if (!recording || !e.isTrusted || !el || ours(el) || !/^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName)) return;
+    recordField(el);
+  },
+  true,
+);
+
+document.addEventListener(
+  'keydown',
+  (e) => {
+    if (!recording || !e.isTrusted || (e.key !== 'Enter' && e.key !== 'Escape')) return;
+    const el = document.activeElement;
+    if (ours(el)) return;
+    // Enter on a link or a button is a click (recorded as one); in a textarea, a new line.
+    if (e.key === 'Enter' && el && (el.tagName === 'TEXTAREA' || el.closest('a, button, [role=button], [role=link], summary'))) return;
+    // The value typed so far, before Enter submits the form.
+    if (el && /^(INPUT|TEXTAREA)$/.test(el.tagName)) recordField(el);
+    if (e.key === 'Enter') enterAt = Date.now();
+    send({ kind: 'press', key: e.key });
+  },
+  true,
+);
+
+ipcRenderer.on('device:journey-record', (_e, on: boolean) => {
+  recording = on;
+});

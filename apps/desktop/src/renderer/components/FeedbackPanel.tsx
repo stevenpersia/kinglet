@@ -1,19 +1,12 @@
 import { locale, t } from '@kinglet/core';
 import { useEffect, useRef, useState } from 'react';
 import type { FeedbackPin } from '../../shared/types';
+import { feedbackTitle, linearTeamFor, pathOf, slackMessage } from '../../shared/feedback';
 import { activeProject } from '../../shared/projects';
 import { api, cleanError, projectVercel, useStore } from '../store';
+import { LinearTeamSelect } from './FeedbackSettings';
 import { Icon } from './Icons';
 import { ToolPanel } from './Stage';
-
-const pathOf = (u: string) => {
-  try {
-    const x = new URL(u);
-    return x.pathname + x.search;
-  } catch {
-    return u;
-  }
-};
 
 /** The open pins as Markdown: for an issue, a message, or Claude. With `images` (pin id → URL), each capture shows in it. */
 export function pinsMarkdown(projectName: string, pins: FeedbackPin[], images: Record<string, string> = {}): string {
@@ -55,11 +48,14 @@ export function FeedbackPanel() {
   const repo = projectVercel(s).project?.repo ?? null;
   const [showDone, setShowDone] = useState(false);
   const [status, setStatus] = useState<Status | null>(null);
-  const [sending, setSending] = useState(false);
+  const [sending, setSending] = useState<'github' | 'linear' | 'slack' | null>(null);
+  /** Captures and issue of the last GitHub or Linear send: a Slack message links them. */
+  const [sent, setSent] = useState<{ images: Record<string, string>; url: string } | null>(null);
 
   useEffect(() => {
     if (project) void s.loadPins(project.id);
     setStatus(null);
+    setSent(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project?.id]);
 
@@ -83,34 +79,52 @@ export function FeedbackPanel() {
         .slice(0, 6)
         .map((p) => ({ kind: 'image' as const, label: t(`${p.deviceLabel} · pin ${p.n}`, `${p.deviceLabel} · épingle ${p.n}`), dataUrl: p.image! })),
     );
-  const issue = async () => {
-    if (!repo || sending) return;
+  const linearTeam = s.linear?.connected ? linearTeamFor(s.linear.teams, project.linearTeamId) : null;
+  /**
+   * An issue on GitHub or Linear: the captures first (the repository's feedback branch, or Linear's
+   * storage), so the issue shows them. Their URLs are kept for a Slack message sent next.
+   */
+  const issue = async (where: 'github' | 'linear') => {
+    if (sending || (where === 'github' ? !repo : !linearTeam)) return;
     setStatus(null);
-    setSending(true);
+    setSending(where);
     try {
-      // The captures first, on the repository's feedback branch: the issue shows them.
       const withImage = open.filter((p) => p.image);
       const images: Record<string, string> = {};
       let note: string | undefined;
       if (withImage.length) {
         try {
+          const files = withImage.map((p) => ({ name: `pin-${p.n}.jpg`, dataUrl: p.image! }));
           const stamp = new Date().toISOString().slice(0, 10);
-          const urls = await api().github.uploadImages(repo, `feedback/${stamp}-${Date.now().toString(36)}`, withImage.map((p) => ({ name: `pin-${p.n}.jpg`, dataUrl: p.image! })));
+          const urls = where === 'github' ? await api().github.uploadImages(repo!, `feedback/${stamp}-${Date.now().toString(36)}`, files) : await api().linear.uploadImages(files);
           withImage.forEach((p, i) => urls[i] && (images[p.id] = urls[i]!));
+          if (Object.keys(images).length < withImage.length) note = t('Some captures could not be uploaded: they stay in Kinglet.', 'Certaines captures n’ont pas pu être envoyées : elles restent dans Kinglet.');
         } catch (e) {
           note = cleanError(e);
         }
       }
-      const url = await api().github.createIssue(
-        repo,
-        t(`Feedback · ${open.length} point${open.length > 1 ? 's' : ''}`, `Retours · ${open.length} point${open.length > 1 ? 's' : ''}`),
-        `${pinsMarkdown(project.name, open, images)}\n\n_${Object.keys(images).length ? t('Pinned in Kinglet.', 'Épinglé dans Kinglet.') : t('Pinned in Kinglet (the captures stay in the app).', 'Épinglé dans Kinglet (les captures restent dans l’app).')}_`,
-      );
+      const body = `${pinsMarkdown(project.name, open, images)}\n\n_${Object.keys(images).length ? t('Pinned in Kinglet.', 'Épinglé dans Kinglet.') : t('Pinned in Kinglet (the captures stay in the app).', 'Épinglé dans Kinglet (les captures restent dans l’app).')}_`;
+      const url = where === 'github' ? await api().github.createIssue(repo!, feedbackTitle(open.length), body) : await api().linear.createIssue(linearTeam!.id, feedbackTitle(open.length), body);
+      setSent({ images, url });
       setStatus({ ok: true, text: t('Issue opened ✓', 'Issue ouverte ✓'), url, note, sent: open.map((p) => p.id) });
     } catch (e) {
       setStatus({ ok: false, text: cleanError(e) });
     } finally {
-      setSending(false);
+      setSending(null);
+    }
+  };
+  /** A message in the webhook's channel: text only, with the captures and the issue just sent elsewhere as links. */
+  const toSlack = async () => {
+    if (sending) return;
+    setStatus(null);
+    setSending('slack');
+    try {
+      await api().slack.send(slackMessage(project.name, open.map((p) => ({ ...p, image: p.image ? 'kept' : null })), { images: sent?.images, issueUrl: sent?.url }));
+      setStatus({ ok: true, text: t('Posted in Slack ✓', 'Posté dans Slack ✓'), sent: open.map((p) => p.id) });
+    } catch (e) {
+      setStatus({ ok: false, text: cleanError(e) });
+    } finally {
+      setSending(null);
     }
   };
   const markSent = (ids: string[]) => {
@@ -190,18 +204,52 @@ export function FeedbackPanel() {
                   </span>
                 </div>
                 <button
-                  onClick={() => void issue()}
-                  disabled={!repo || !s.github?.connected || sending}
+                  onClick={() => void issue('github')}
+                  disabled={!repo || !s.github?.connected || !!sending}
                   title={!s.github?.connected ? t('Connect GitHub in Settings', 'Connecte GitHub dans les réglages') : !repo ? t('No repository linked to this project', 'Aucun dépôt relié à ce projet') : t('Captures go on the kinglet-feedback branch of the repository', 'Les captures vont sur la branche kinglet-feedback du dépôt')}
                   className="flex h-8 min-w-0 items-center justify-center gap-2 rounded-ui bg-fg px-3 text-xs font-semibold text-bg disabled:opacity-50"
                 >
                   <Icon name="git" size={12} />
-                  {sending ? t('Opening the issue…', 'Ouverture de l’issue…') : t('Open an issue', 'Ouvrir une issue')}
-                  {repo && !sending && <span className="truncate font-mono text-[11px] font-medium opacity-60">{repo}</span>}
+                  {sending === 'github' ? t('Opening the issue…', 'Ouverture de l’issue…') : t('Open an issue', 'Ouvrir une issue')}
+                  {repo && sending !== 'github' && <span className="truncate font-mono text-[11px] font-medium opacity-60">{repo}</span>}
                 </button>
                 {!s.github?.connected || !repo ? (
                   <p className="m-0 -mt-1 text-[11px] text-faint">{!s.github?.connected ? t('Connect GitHub in Settings to open an issue.', 'Connecte GitHub dans les réglages pour ouvrir une issue.') : t('Link a repository to this project to open an issue.', 'Relie un dépôt à ce projet pour ouvrir une issue.')}</p>
                 ) : null}
+                {(s.linear?.connected || s.slack?.connected) && (
+                  <div className="flex gap-1.5">
+                    {s.linear?.connected && (
+                      <span className="flex min-w-0 flex-1 gap-1">
+                        <button
+                          onClick={() => void issue('linear')}
+                          disabled={!linearTeam || !!sending}
+                          title={linearTeam ? t(`Issue in ${linearTeam.name}, captures included`, `Issue dans ${linearTeam.name}, captures comprises`) : t('Choose the Linear team of this project', 'Choisis l’équipe Linear de ce projet')}
+                          className="flex h-8 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-ui border border-[#2a2a2f] bg-active px-2 text-xs font-medium hover:border-line-strong disabled:opacity-50"
+                        >
+                          <Icon name="checkCircle" size={11} />
+                          <span className="truncate">{sending === 'linear' ? t('Sending…', 'Envoi…') : 'Linear'}</span>
+                        </button>
+                        {s.linear.teams.length > 1 && <LinearTeamSelect compact />}
+                      </span>
+                    )}
+                    {s.slack?.connected && (
+                      <button
+                        onClick={() => void toSlack()}
+                        disabled={!!sending}
+                        title={sent ? t('Posted with links to the issue and its captures', 'Posté avec les liens de l’issue et de ses captures') : t('Text only: a webhook can’t send the captures', 'Texte seul : un webhook ne peut pas envoyer les captures')}
+                        className="flex h-8 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-ui border border-[#2a2a2f] bg-active px-2 text-xs font-medium hover:border-line-strong disabled:opacity-50"
+                      >
+                        <Icon name="message" size={11} />
+                        <span className="truncate">{sending === 'slack' ? t('Posting…', 'Envoi…') : 'Slack'}</span>
+                      </button>
+                    )}
+                  </div>
+                )}
+                {!s.linear?.connected && !s.slack?.connected && (
+                  <button onClick={() => s.openSettings('linear')} className="-mt-1 self-start text-[11px] text-faint hover:text-fg">
+                    {t('Send to Linear or Slack too… (Settings)', 'Envoyer aussi vers Linear ou Slack… (réglages)')}
+                  </button>
+                )}
                 <div className="flex gap-1.5">
                   {s.settings.claudePanel && (
                     <button onClick={toClaude} className="flex h-8 flex-1 items-center justify-center gap-1.5 rounded-ui border border-[rgba(217,119,87,0.35)] bg-[rgba(217,119,87,0.08)] text-xs font-semibold text-[#d97757] hover:bg-[rgba(217,119,87,0.14)]">
@@ -221,7 +269,7 @@ export function FeedbackPanel() {
                   {status.text}{' '}
                   {status.url && (
                     <button onClick={() => api().openExternal(status.url!)} className="underline-offset-2 hover:underline">
-                      {status.url.replace(/^https:\/\/github\.com\//, '')}
+                      {status.url.replace(/^https:\/\/(github\.com|linear\.app)\//, '')}
                     </button>
                   )}
                 </p>

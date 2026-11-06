@@ -371,7 +371,7 @@ export const LAB: { title: string; text: string; anim: () => ReactNode }[] = [
   { title: 'Offline and API mocks', text: 'Cut the network or fake any endpoint: status, delay, body. See error, empty and slow states.', anim: Mocks },
   { title: 'Inspector', text: 'Size, margins, font and color of one element on every device, or where it’s hidden.', anim: Inspector },
   { title: 'Export', text: 'A PNG board of every device, a PDF, full pages up to 10,000 px, a WebM or GIF scrolling.', anim: Export },
-  { title: 'Feedback and review links', text: 'Pin comments on devices. Send a link to a client: no app, no account. Replies come back.', anim: Feedback },
+  { title: 'Feedback and review links', text: 'Pin comments on devices. Send a link to a client: no app, no account. Replies come back. Then to GitHub, Linear or Slack.', anim: Feedback },
   { title: 'Keyboard tab order', text: 'Every Tab stop numbered on every device. No visible focus in red, positive tabindex in orange.', anim: TabOrder },
   { title: 'Custom devices', text: 'Any width, density and type, ordered by drag and drop. One list for every project, or one each.', anim: CustomDevice },
   { title: 'Console per device', text: 'Console messages and failed requests live, with an error badge under the device they came from.', anim: ConsoleBadges },

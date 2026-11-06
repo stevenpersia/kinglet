@@ -4,6 +4,7 @@ import { askCheck } from './askCheck';
 import { Icon } from './Icons';
 import { CopyButton, SLASH } from './Mcp';
 import { SiteAuditView } from './SiteAudit';
+import { openOgImageEditor } from './OgImageEditor';
 import { A11yDetails, BudgetsCard } from './PageExtras';
 import { AllClear, askAllButton, EmptyReport, NotChecked, PassedBlock, PassedGrid, ProblemList, reRunButton, ReportHeader, ScoreValue, SummaryBand, TONE_RANK, type Problem, type Tone } from './ReportUI';
 
@@ -77,7 +78,21 @@ function PageChecks() {
   const errors = problems.filter((c) => c.status === 'error').length;
   const groupLabel = (g: CheckGroup) => CHECK_GROUPS.find((x) => x.id === g)?.label ?? g;
   const ask = askCheck();
-  const asProblem = (c: CheckResult): Problem => ({ id: c.id, tone: c.status as 'error' | 'warning', label: c.label, family: groupLabel(c.group), detail: c.detail });
+  const asProblem = (c: CheckResult): Problem => ({
+    id: c.id,
+    tone: c.status as 'error' | 'warning',
+    label: c.label,
+    family: groupLabel(c.group),
+    detail: c.detail,
+    // A share image made from the page fixes these two.
+    evidence:
+      c.id === 'og-image' || c.id === 'og-image-format' ? (
+        <button onClick={openOgImageEditor} className="flex h-8 w-fit items-center gap-2 rounded-ui border border-[#2a2a2f] bg-active px-3 text-xs font-medium text-fg hover:border-line-strong">
+          <Icon name="page" size={13} />
+          {t('Make the share image…', 'Générer l’image de partage…')}
+        </button>
+      ) : undefined,
+  });
   const askAll = () =>
     state.askClaude(
       [
@@ -133,7 +148,7 @@ function PageChecks() {
       ) : (
         <AllClear
           title={t('Nothing to fix', 'Rien à corriger')}
-          text={t('Every check that can be measured here passes: SEO, sharing, mobile, accessibility and technical.', 'Chaque check mesurable ici passe : SEO, partage, mobile, accessibilité et technique.')}
+          text={t('Every check that can be measured here passes: SEO, sharing, content, mobile, accessibility, privacy and technical.', 'Chaque check mesurable ici passe : SEO, partage, contenu, mobile, accessibilité, vie privée et technique.')}
           score={<ScoreValue passed={report.score.passed} total={report.score.total} tone="ok" />}
         />
       )}

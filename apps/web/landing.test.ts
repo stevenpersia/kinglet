@@ -37,7 +37,7 @@ it('passes every check that can be measured without a browser', async () => {
   const results = runChecks({ meta, image, site: siteFiles });
   const failing = results.filter((r) => r.status === 'warning' || r.status === 'error').map((r) => `${r.id}: ${r.detail}`);
   expect(failing).toEqual([]);
-  expect(results.filter((r) => r.status === 'skip').map((r) => r.id).sort()).toEqual(['a11y-minor', 'a11y-serious', 'cls', 'console', 'contrast', 'focus-visible', 'forms', 'heavy-images', 'lcp', 'overflow', 'safe-area', 'small-text', 'tap-targets', 'text-zoom']);
+  expect(results.filter((r) => r.status === 'skip').map((r) => r.id).sort()).toEqual(['a11y-minor', 'a11y-serious', 'cls', 'console', 'contrast', 'focus-visible', 'fonts', 'forms', 'heavy-images', 'inp', 'js-weight', 'lcp', 'main-thread', 'overflow', 'render-blocking', 'safe-area', 'small-text', 'tap-targets', 'text-zoom', 'tracking-cookies', 'unused-css']);
 });
 
 it('looks right when shared, on all 10 platforms', async () => {

@@ -3,6 +3,8 @@ import type { ImageProbe } from './image.ts';
 import { t } from './i18n.ts';
 import { readStructuredData } from './structured.ts';
 import { checkHreflangTags, type HreflangReport } from './hreflang.ts';
+import { scanContent, type PageContent } from './content.ts';
+import { assessPrivacy, privacyFromHtml, type PrivacyReport } from './privacy.ts';
 
 export type Severity = 'error' | 'warning';
 
@@ -64,7 +66,7 @@ export function checkShare(meta: PageMeta, image?: ImageProbe | null): Issue[] {
 /* Full check list (the « 30 checks »)                                 */
 /* ------------------------------------------------------------------ */
 
-export type CheckGroup = 'seo' | 'partage' | 'mobile' | 'accessibilite' | 'technique';
+export type CheckGroup = 'seo' | 'partage' | 'contenu' | 'mobile' | 'accessibilite' | 'vie-privee' | 'technique';
 /** `info`: fine in this context (e.g. noindex on a preview). `skip`: not measurable here. */
 export type CheckStatus = 'ok' | 'info' | 'warning' | 'error' | 'skip';
 
@@ -106,6 +108,35 @@ export interface RenderedDevice {
   rootFontPx?: number;
   /** Form fields of the rendered page: the keyboard they bring up, autofill, labels. */
   forms?: FormsSummary;
+  /** Text, links and images of the rendered page (after JavaScript), for the content checks. */
+  content?: PageContent;
+  /** What slows the page down: responsiveness, main thread, blocking resources, JavaScript, CSS, fonts. */
+  performance?: PerfDetails;
+}
+
+/** Performance details measured in a device. Bytes are transferred (compressed) bytes. */
+export interface PerfDetails {
+  /** Interaction to Next Paint: the slowest interaction so far (null: no click, tap or key yet). */
+  inpMs: number | null;
+  interactions: number;
+  /** Main thread blocked (long animation frames, beyond 50 ms each). */
+  blockingMs: number | null;
+  longFrames: number;
+  /** Stylesheets and scripts that hold the first paint. */
+  renderBlocking: { url: string; kind: 'css' | 'js'; ms: number }[];
+  jsBytes: number;
+  /** The heaviest scripts. */
+  jsFiles: { url: string; bytes: number }[];
+  cssBytes: number;
+  /** Bytes of CSS rules whose selector matches nothing on the page (readable stylesheets only). */
+  unusedCssBytes: number | null;
+  /** Rules read to measure it (and stylesheets from other domains that cannot be read). */
+  cssRules: number;
+  cssUnreadable: number;
+  fontBytes: number;
+  fontFiles: number;
+  /** @font-face rules without font-display (text invisible while the font loads). */
+  fontsNoDisplay: string[];
 }
 
 /** One problem per field, as "label (what is wrong)". */
@@ -155,6 +186,10 @@ export interface CheckInput {
   rendered?: RenderedDevice[];
   /** Alternates fetched (return links); without it, only the tags of the page are checked. */
   hreflang?: HreflangReport | null;
+  /** A fresh visit (no consent given): without it, the scripts of the HTML are read instead. */
+  privacy?: PrivacyReport | null;
+  /** Today, for the copyright year (tests). */
+  now?: Date;
 }
 
 /** Labels are getters: the language can change while the app runs. */
@@ -166,11 +201,23 @@ export const CHECK_GROUPS: { id: CheckGroup; label: string }[] = [
       return t('Share', 'Partage');
     },
   },
+  {
+    id: 'contenu',
+    get label() {
+      return t('Content', 'Contenu');
+    },
+  },
   { id: 'mobile', label: 'Mobile' },
   {
     id: 'accessibilite',
     get label() {
       return t('Accessibility', 'Accessibilité');
+    },
+  },
+  {
+    id: 'vie-privee',
+    get label() {
+      return t('Privacy', 'Vie privée');
     },
   },
   {
@@ -193,6 +240,16 @@ export function isNonProduction(url: string): boolean {
   }
 }
 
+/** A dev server on this computer (unminified code, no compression). */
+function isDevServer(url: string): boolean {
+  try {
+    const h = new URL(url).hostname;
+    return h === 'localhost' || h.startsWith('127.') || h === '[::1]' || h.endsWith('.local') || /^(10|192\.168)\./.test(h);
+  } catch {
+    return false;
+  }
+}
+
 const kb = (b: number) => `${Math.round(b / 1024)} ${t('KB', 'Ko')}`;
 
 /** "1.2 s" / "1,2 s", or ms under a second. */
@@ -201,7 +258,7 @@ const secs = (ms: number) => (ms < 1000 ? `${Math.round(ms)} ms` : `${t((ms / 10
 /** "1 image" / "2 images" (English; the French strings keep their own plural). */
 const n = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
 
-export function runChecks({ meta, image, site, rendered, hreflang }: CheckInput): CheckResult[] {
+export function runChecks({ meta, image, site, rendered, hreflang, privacy, now }: CheckInput): CheckResult[] {
   const out: CheckResult[] = [];
   const add = (id: string, group: CheckGroup, label: string, status: CheckStatus, detail: string) => out.push({ id, group, label, status, detail });
   const nonProd = isNonProduction(meta.finalUrl);
@@ -314,6 +371,98 @@ export function runChecks({ meta, image, site, rendered, hreflang }: CheckInput)
     add('og-image-format', 'partage', imageFormat, problems.length ? 'warning' : 'ok', problems.length ? problems.join(', ') : `${image.width}×${image.height}, ${kb(image.bytes ?? 0)}.`);
   }
   add('twitter-card', 'partage', 'twitter:card', meta.twitter['card'] ? 'ok' : 'warning', meta.twitter['card'] ?? t('Missing: X will show a small card.', 'Absent : X affichera une petite carte.'));
+
+  // Content: what a site built in a hurry leaves behind. The rendered page when there is one (SPA), else the HTML.
+  const pageContent = rendered?.find((r) => r.content)?.content ?? meta.content;
+  if (pageContent) {
+    const c = scanContent(pageContent);
+    const list = (f: { sample: string; why: string }[], max = 3) => f.slice(0, max).map((x) => `${x.sample} (${x.why})`).join(' · ');
+    add(
+      'filler-text',
+      'contenu',
+      t('Filler text', 'Texte de remplissage'),
+      c.lorem ? 'error' : c.filler.length ? 'warning' : 'ok',
+      c.filler.length ? list(c.filler) : t('No lorem ipsum or template text.', 'Ni lorem ipsum ni texte de modèle.'),
+    );
+    add('fake-contacts', 'contenu', t('Contact details', 'Coordonnées'), c.contacts.length ? 'warning' : 'ok', c.contacts.length ? list(c.contacts) : t('No example e-mail, phone number or address.', 'Pas d’e-mail, de téléphone ou d’adresse d’exemple.'));
+    add(
+      'placeholder-links',
+      'contenu',
+      t('Placeholder links', 'Liens factices'),
+      c.links.length ? 'warning' : 'ok',
+      c.links.length ? `${n(c.links.length, t('link', 'lien'))}${t(': ', ' : ')}${list(c.links)}` : t('Every link goes somewhere.', 'Chaque lien mène quelque part.'),
+    );
+    add('demo-images', 'contenu', t('Demo images', 'Images de démonstration'), c.images.length ? 'warning' : 'ok', c.images.length ? list(c.images) : t('No placeholder image.', 'Aucune image de remplissage.'));
+    const year = (now ?? new Date()).getFullYear();
+    add(
+      'copyright-year',
+      'contenu',
+      t('Copyright year', 'Année du copyright'),
+      c.copyrightYear == null ? 'info' : c.copyrightYear < year ? 'warning' : 'ok',
+      c.copyrightYear == null
+        ? t('No © notice on the page.', 'Pas de mention © sur la page.')
+        : c.copyrightYear < year
+          ? t(`© ${c.copyrightYear}, we are in ${year}: write the year in code (new Date().getFullYear()).`, `© ${c.copyrightYear}, on est en ${year} : écris l’année dans le code (new Date().getFullYear()).`)
+          : `© ${c.copyrightYear}.`,
+    );
+    const missing = [!c.legal.notice && t('legal notice', 'mentions légales'), !c.legal.privacy && t('privacy policy', 'politique de confidentialité')].filter((x): x is string => !!x);
+    add(
+      'legal-pages',
+      'contenu',
+      t('Legal pages', 'Pages légales'),
+      missing.length ? 'warning' : 'ok',
+      missing.length
+        ? t(`No link to the ${missing.join(' or the ')} (required in the EU for a site that collects data or is run by a business).`, `Aucun lien vers ${missing.length > 1 ? 'les mentions légales ni la politique de confidentialité' : missing[0] === 'mentions légales' ? 'les mentions légales' : 'la politique de confidentialité'} (obligatoires en France pour un site professionnel ou qui collecte des données).`)
+        : t(`Legal notice and privacy policy linked${c.legal.terms ? ', terms too' : ''}.`, `Mentions légales et politique de confidentialité liées${c.legal.terms ? ', conditions aussi' : ''}.`),
+    );
+  }
+
+  // Privacy: what loads and is stored before the visitor says yes to anything.
+  const priv = privacy ?? assessPrivacy(privacyFromHtml(meta.finalUrl, meta.resources ?? []));
+  const fromHtml = priv.source === 'html';
+  const names = (xs: { name: string }[]) => [...new Set(xs.map((x) => x.name))].join(', ');
+  add(
+    'trackers',
+    'vie-privee',
+    t('Trackers before consent', 'Traceurs avant consentement'),
+    priv.trackers.length ? (fromHtml ? 'warning' : 'error') : 'ok',
+    priv.trackers.length
+      ? fromHtml
+        ? t(`In the HTML: ${names(priv.trackers)}. Check they wait for consent.`, `Dans le HTML : ${names(priv.trackers)}. Vérifie qu’ils attendent le consentement.`)
+        : t(`${names(priv.trackers)} load as soon as the page opens, before any consent.`, `${names(priv.trackers)} se chargent dès l’ouverture, avant tout consentement.`)
+      : priv.exempt.length
+        ? t(`None. Audience measurement without consent: ${names(priv.exempt)}.`, `Aucun. Mesure d’audience sans consentement : ${names(priv.exempt)}.`)
+        : t('No tracker loads before consent.', 'Aucun traceur ne se charge avant consentement.'),
+  );
+  if (fromHtml) add('tracking-cookies', 'vie-privee', t('Cookies before consent', 'Cookies avant consentement'), 'skip', t('Measured in a fresh visit, in the app.', 'Mesuré lors d’une visite neuve, dans l’app.'));
+  else
+    add(
+      'tracking-cookies',
+      'vie-privee',
+      t('Cookies before consent', 'Cookies avant consentement'),
+      priv.trackingCookies.length ? 'error' : 'ok',
+      priv.trackingCookies.length
+        ? t(`${n(priv.trackingCookies.length, 'tracking cookie')} set without consent: ${priv.trackingCookies.slice(0, 5).map((c) => `${c.name}${c.vendor ? ` (${c.vendor})` : ''}`).join(', ')}.`, `${priv.trackingCookies.length} cookie${priv.trackingCookies.length > 1 ? 's' : ''} de suivi posé${priv.trackingCookies.length > 1 ? 's' : ''} sans consentement : ${priv.trackingCookies.slice(0, 5).map((c) => `${c.name}${c.vendor ? ` (${c.vendor})` : ''}`).join(', ')}.`)
+        : priv.thirdPartyCookies.length
+          ? t(`No tracking cookie. Other domains’ cookies: ${priv.thirdPartyCookies.slice(0, 4).map((c) => `${c.name} (${c.domain})`).join(', ')}.`, `Aucun cookie de suivi. Cookies d’autres domaines : ${priv.thirdPartyCookies.slice(0, 4).map((c) => `${c.name} (${c.domain})`).join(', ')}.`)
+          : t('No tracking cookie before consent.', 'Aucun cookie de suivi avant consentement.'),
+    );
+  const needsConsent = priv.trackers.length > 0 || priv.trackingCookies.length > 0;
+  const bannerLabel = t('Consent banner', 'Bannière de consentement');
+  if (priv.banner?.visible && !priv.banner.reject)
+    add('consent-banner', 'vie-privee', bannerLabel, 'warning', t(`${priv.cmp ? `${priv.cmp}: ` : ''}no “Reject” button next to “Accept”: refusing must be as easy as accepting.`, `${priv.cmp ? `${priv.cmp} : ` : ''}pas de bouton « Refuser » à côté de « Accepter » : refuser doit être aussi simple qu’accepter.`));
+  else if (priv.cmp || priv.banner?.visible)
+    add('consent-banner', 'vie-privee', bannerLabel, 'ok', priv.cmp ? t(`${priv.cmp}${priv.banner?.reject ? ', with a reject button' : ''}.`, `${priv.cmp}${priv.banner?.reject ? ', avec un bouton pour refuser' : ''}.`) : t('Banner shown, with a reject button.', 'Bannière affichée, avec un bouton pour refuser.'));
+  else if (needsConsent)
+    add('consent-banner', 'vie-privee', bannerLabel, fromHtml ? 'warning' : 'error', t('Trackers, and no consent banner: they need the visitor’s consent first.', 'Des traceurs, et aucune bannière de consentement : il faut l’accord du visiteur avant.'));
+  else add('consent-banner', 'vie-privee', bannerLabel, 'info', t('No tracker: no banner needed.', 'Aucun traceur : pas besoin de bannière.'));
+  add(
+    'third-party-content',
+    'vie-privee',
+    t('Third-party content', 'Contenus tiers'),
+    priv.embeds.length ? 'warning' : 'ok',
+    priv.embeds.length ? priv.embeds.map((e) => `${e.name}${t(': ', ' : ')}${e.fix}`).join(' · ') : t('No font, video or map loaded from another company.', 'Aucune police, vidéo ou carte chargée chez une autre entreprise.'),
+  );
 
   // Mobile
   const vp = meta.viewport ?? '';
@@ -551,6 +700,103 @@ export function runChecks({ meta, image, site, rendered, hreflang }: CheckInput)
             `${list.length} image${list.length > 1 ? 's' : ''} > ${kb(HEAVY_IMAGE)} : ${list[0]![0].split('/').pop()} (${kb(list[0]![1])})`,
           )
         : t(`No images > ${kb(HEAVY_IMAGE)}.`, `Aucune image > ${kb(HEAVY_IMAGE)}.`),
+    );
+  }
+
+  // Performance details (the slowest device decides).
+  const withPerf = rendered?.filter((r) => r.performance) ?? [];
+  const worstBy = <K extends keyof PerfDetails>(k: K) => [...withPerf].filter((r) => r.performance![k] != null).sort((a, b) => (b.performance![k] as number) - (a.performance![k] as number))[0];
+  const inpLabel = t('Responsiveness (INP)', 'Réactivité (INP)');
+  const inpDev = worstBy('inpMs');
+  if (!inpDev) add('inp', 'technique', inpLabel, 'skip', withPerf.length ? t('Click, tap or type in a device to measure.', 'Clique, touche ou tape dans un appareil pour mesurer.') : inDevices);
+  else {
+    const ms = inpDev.performance!.inpMs!;
+    add('inp', 'technique', inpLabel, ms > 500 ? 'error' : ms > 200 ? 'warning' : 'ok', t(`${secs(ms)} on ${inpDev.label}, ${n(inpDev.performance!.interactions, 'interaction')} (good under 200 ms).`, `${secs(ms)} sur ${inpDev.label}, ${inpDev.performance!.interactions} interaction${inpDev.performance!.interactions > 1 ? 's' : ''} (bon sous 200 ms).`));
+  }
+  const blockLabel = t('Main thread blocked', 'Fil principal bloqué');
+  const blockDev = worstBy('blockingMs');
+  if (!blockDev) add('main-thread', 'technique', blockLabel, 'skip', inDevices);
+  else {
+    const p = blockDev.performance!;
+    const ms = p.blockingMs!;
+    add(
+      'main-thread',
+      'technique',
+      blockLabel,
+      ms > 600 ? 'error' : ms > 200 ? 'warning' : 'ok',
+      ms
+        ? t(`${secs(ms)} blocked in ${n(p.longFrames, 'long task')} on ${blockDev.label} (good under 200 ms): the page does not answer meanwhile.`, `${secs(ms)} bloqués en ${p.longFrames} tâche${p.longFrames > 1 ? 's' : ''} longue${p.longFrames > 1 ? 's' : ''} sur ${blockDev.label} (bon sous 200 ms) : la page ne répond pas pendant ce temps.`)
+        : t(`Never blocked on ${blockDev.label}.`, `Jamais bloqué sur ${blockDev.label}.`),
+    );
+  }
+  const rbLabel = t('Render-blocking resources', 'Ressources bloquantes');
+  if (!withPerf.length) add('render-blocking', 'technique', rbLabel, 'skip', inDevices);
+  else {
+    const rb = new Map<string, PerfDetails['renderBlocking'][number]>();
+    for (const r of withPerf) for (const x of r.performance!.renderBlocking) if ((rb.get(x.url)?.ms ?? -1) < x.ms) rb.set(x.url, x);
+    const all = [...rb.values()].sort((a, b) => b.ms - a.ms);
+    const scripts = all.filter((x) => x.kind === 'js');
+    const css = all.filter((x) => x.kind === 'css');
+    const file = (u: string) => u.split('?')[0]!.split('/').filter(Boolean).pop() ?? u;
+    add(
+      'render-blocking',
+      'technique',
+      rbLabel,
+      scripts.length || css.length > 2 ? 'warning' : 'ok',
+      !all.length
+        ? t('Nothing holds the first paint.', 'Rien ne retient le premier affichage.')
+        : scripts.length
+          ? t(`${n(scripts.length, 'script')} without defer or async hold the first paint: ${scripts.slice(0, 3).map((x) => `${file(x.url)} (${secs(x.ms)})`).join(', ')}.`, `${scripts.length} script${scripts.length > 1 ? 's' : ''} sans defer ni async retien${scripts.length > 1 ? 'nent' : 't'} le premier affichage : ${scripts.slice(0, 3).map((x) => `${file(x.url)} (${secs(x.ms)})`).join(', ')}.`)
+          : t(`${n(css.length, 'stylesheet')} before the first paint${css.length > 2 ? ': merge or inline the critical CSS' : ''}: ${css.slice(0, 3).map((x) => file(x.url)).join(', ')}.`, `${css.length} feuille${css.length > 1 ? 's' : ''} de style avant le premier affichage${css.length > 2 ? ' : regroupe-les ou intègre le CSS critique' : ''} : ${css.slice(0, 3).map((x) => file(x.url)).join(', ')}.`),
+    );
+  }
+  const jsLabel = t('JavaScript weight', 'Poids du JavaScript');
+  const jsDev = worstBy('jsBytes');
+  if (!jsDev) add('js-weight', 'technique', jsLabel, 'skip', inDevices);
+  else {
+    const p = jsDev.performance!;
+    const top = p.jsFiles[0];
+    const dev = isDevServer(meta.finalUrl);
+    const heavy = p.jsBytes > 350 * 1024;
+    add(
+      'js-weight',
+      'technique',
+      jsLabel,
+      heavy && dev ? 'info' : p.jsBytes > 1024 * 1024 ? 'error' : heavy ? 'warning' : 'ok',
+      `${kb(p.jsBytes)}${t(' transferred', ' transférés')}${top ? t(`, the heaviest: ${top.url.split('?')[0]!.split('/').pop()} (${kb(top.bytes)})`, `, le plus lourd : ${top.url.split('?')[0]!.split('/').pop()} (${kb(top.bytes)})`) : ''}${heavy && dev ? t(': dev server, code not minified. Judge it on a preview.', ' : serveur de dev, code non minifié. À juger sur une preview.') : t(' (good under 350 KB).', ' (bon sous 350 Ko).')}`,
+    );
+  }
+  const cssLabel = t('Unused CSS', 'CSS inutilisé');
+  const cssDev = withPerf.find((r) => r.performance!.unusedCssBytes != null && r.performance!.cssRules > 0);
+  if (!cssDev) add('unused-css', 'technique', cssLabel, 'skip', withPerf.length ? t('No stylesheet readable on this page.', 'Aucune feuille de style lisible sur cette page.') : inDevices);
+  else {
+    const p = cssDev.performance!;
+    const total = Math.max(p.cssBytes, 1);
+    const unused = p.unusedCssBytes!;
+    const pct = Math.round((unused / total) * 100);
+    add(
+      'unused-css',
+      'technique',
+      cssLabel,
+      unused > 50 * 1024 && pct > 60 ? 'warning' : 'ok',
+      t(`${pct}% of the CSS matches nothing on this page (${kb(unused)} of ${kb(total)})${p.cssUnreadable ? `, ${n(p.cssUnreadable, 'stylesheet')} from other domains not read` : ''}.`, `${pct} % du CSS ne sert à rien sur cette page (${kb(unused)} sur ${kb(total)})${p.cssUnreadable ? `, ${p.cssUnreadable} feuille${p.cssUnreadable > 1 ? 's' : ''} d’autres domaines non lue${p.cssUnreadable > 1 ? 's' : ''}` : ''}.`),
+    );
+  }
+  const fontLabel = t('Fonts', 'Polices');
+  if (!withPerf.length) add('fonts', 'technique', fontLabel, 'skip', inDevices);
+  else {
+    const p = [...withPerf].sort((a, b) => b.performance!.fontBytes - a.performance!.fontBytes)[0]!.performance!;
+    const noDisplay = [...new Set(withPerf.flatMap((r) => r.performance!.fontsNoDisplay))];
+    const problems: string[] = [];
+    if (noDisplay.length) problems.push(t(`no font-display on ${noDisplay.slice(0, 3).join(', ')}: text stays invisible while it loads`, `pas de font-display sur ${noDisplay.slice(0, 3).join(', ')} : le texte reste invisible pendant le chargement`));
+    if (p.fontBytes > 300 * 1024) problems.push(t(`${kb(p.fontBytes)} of fonts (under 300 KB recommended)`, `${kb(p.fontBytes)} de polices (moins de 300 Ko conseillé)`));
+    if (p.fontFiles > 6) problems.push(t(`${p.fontFiles} font files`, `${p.fontFiles} fichiers de police`));
+    add(
+      'fonts',
+      'technique',
+      fontLabel,
+      problems.length ? 'warning' : 'ok',
+      problems.length ? problems.join(' · ') : p.fontFiles ? t(`${n(p.fontFiles, 'file')}, ${kb(p.fontBytes)}, text shown while they load.`, `${p.fontFiles} fichier${p.fontFiles > 1 ? 's' : ''}, ${kb(p.fontBytes)}, texte affiché pendant le chargement.`) : t('System fonts only.', 'Polices du système seulement.'),
     );
   }
   return out;

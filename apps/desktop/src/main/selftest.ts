@@ -211,9 +211,15 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     const atelier = await analyze('http://localhost:5173/atelier.html');
     const st = Object.fromEntries(atelier.checks.map((c) => [c.id, c.status]));
     criteria.push({
-      id: 'checks-37',
-      ok: atelier.checks.length === 37 && st['overflow'] === 'error' && st['console'] === 'error' && st['og-site-name'] === 'warning' && st['robots'] === 'warning',
+      id: 'checks-53',
+      ok: atelier.checks.length === 53 && st['overflow'] === 'error' && st['console'] === 'error' && st['og-site-name'] === 'warning' && st['robots'] === 'warning',
       detail: `${atelier.checks.length} checks, ${atelier.score.passed}/${atelier.score.total} · débordement ${st['overflow']}, erreurs JS ${st['console']}, robots.txt ${st['robots']} (le serveur Vite renvoie sa page HTML)`,
+    });
+    // Content read in the rendered page, privacy from a first visit (not the HTML fallback), speed in the devices.
+    criteria.push({
+      id: 'checks-content-privacy-speed',
+      ok: ['filler-text', 'legal-pages', 'trackers', 'consent-banner'].every((id) => st[id] && st[id] !== 'skip') && st['tracking-cookies'] !== 'skip' && ['main-thread', 'render-blocking', 'js-weight', 'unused-css', 'fonts'].every((id) => st[id] && st[id] !== 'skip'),
+      detail: ['filler-text', 'legal-pages', 'tracking-cookies', 'consent-banner', 'render-blocking', 'js-weight', 'unused-css', 'fonts'].map((id) => `${id} ${st[id]}`).join(' · '),
     });
     // Measured in the devices: the « mentions » link of atelier.html is tiny and pale on purpose.
     const det = (id: string) => atelier.checks.find((c) => c.id === id)?.detail ?? '';
@@ -971,6 +977,79 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
       await sleep(800);
       await clickText('nav button', 'Devices');
       await sleep(400);
+    }
+
+    // Journeys: recorded with real input on a device, played on every device, then off screen.
+    {
+      const js = <T,>(code: string) => win.webContents.executeJavaScript(code) as Promise<T>;
+      const say = (m: string) => process.env.KINGLET_DEBUG_JOURNEY && process.stdout.write(`JOURNEY:${m}\n`);
+      // Devices on screen: a hidden device paints nothing, and input waits for a frame.
+      await js(`[...document.querySelectorAll('nav button')].find((b) => (b.getAttribute('aria-label') || b.textContent).includes('Devices'))?.click()`);
+      await waitFor(() => devices.entries().every((d) => d.view.getVisible()), 4000);
+      await devices.navigate('http://localhost:5173/contact.html');
+      await waitFor(() => devices.entries().every((d) => d.view.webContents.getURL().endsWith('/contact.html') && !d.view.webContents.isLoading()), 8000);
+      say(`visible ${devices.entries().map((d) => d.view.getVisible()).join(',')}`);
+      await sleep(600);
+      say('record');
+      await js(`window.kinglet.journeys.record()`);
+      const dev = devices.entries()[0]!;
+      const wc = dev.view.webContents;
+      const dbg = wc.debugger;
+      const tap = async (selector: string) => {
+        const r = (await wc.executeJavaScript(`(() => { const e = document.querySelector(${JSON.stringify(selector)}); e.scrollIntoView({ block: 'center', behavior: 'instant' }); const r = e.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`)) as { x: number; y: number };
+        // A person's click, on the device as it is drawn (scaled down in the window).
+        const x = Math.round(r.x * dev.scale), y = Math.round(r.y * dev.scale);
+        wc.sendInputEvent({ type: 'mouseDown', x, y, button: 'left', clickCount: 1 });
+        wc.sendInputEvent({ type: 'mouseUp', x, y, button: 'left', clickCount: 1 });
+        await sleep(150);
+      };
+      const type = async (text: string) => {
+        await Promise.race([wc.insertText(text), sleep(3000).then(() => say('no answer to insertText'))]);
+        await sleep(100);
+      };
+      await tap('#nom');
+      await type('Camille');
+      await tap('input[name=rgpd]');
+      await tap('#email');
+      await type('camille@atelier.fr');
+      for (const t of ['rawKeyDown', 'char', 'keyUp']) await Promise.race([dbg.sendCommand('Input.dispatchKeyEvent', { type: t, key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, ...(t === 'char' ? { text: '\r' } : {}) }), sleep(3000)]);
+      await waitFor(() => wc.getURL().includes('nom=Camille'), 6000);
+      await sleep(800);
+      say(`typed, url ${wc.getURL()}`);
+      const journey = await js<{ id: string; steps: { kind: string; path?: string }[] } | null>(`window.kinglet.journeys.stop('Contact')`);
+      const kinds = journey?.steps.map((x) => x.kind).join(' → ') ?? 'rien';
+      criteria.push({ id: 'journey-record', ok: kinds === 'fill → check → fill → press → expect-url', detail: `${dev.preset.label} : ${kinds} · ${journey?.steps.at(-1)?.path ?? ''}` });
+      report['journey'] = journey;
+      if (journey) {
+        // Back to the form, then played on every device at once.
+        await devices.navigate('http://localhost:5173/');
+        await sleep(800);
+        say(`saved ${JSON.stringify(journey)}`);
+        const run = await js<{ ok: boolean; devices: { label: string; ok: boolean; error: string | null; failedAt: number | null }[] }>(`window.kinglet.journeys.play(${JSON.stringify(journey.id)})`);
+        say(`played ${JSON.stringify(run)}`);
+        // The panel, with the journey that just passed.
+        await js(`[...document.querySelectorAll('nav[aria-label] button[aria-controls="journeys-panel"]')][0]?.click()`);
+        await sleep(600);
+        await js(`[...document.querySelectorAll('#journeys-panel button[aria-expanded]')][0]?.click()`);
+        await sleep(400);
+        await shot('09-parcours');
+        await js(`document.querySelector('#journeys-panel button[aria-label="Close"], #journeys-panel button[aria-label="Fermer"]')?.click()`);
+        const urls = devices.entries().map((d) => new URL(d.view.webContents.getURL()).search);
+        criteria.push({ id: 'journey-play', ok: run.ok && run.devices.length === devices.entries().length && urls.every((u) => u.includes('email=camille%40atelier.fr') && u.includes('rgpd=on')), detail: `${run.devices.map((d) => `${d.label} ${d.ok ? 'ok' : `étape ${(d.failedAt ?? 0) + 1} : ${d.error}`}`).join(' · ')} · ${urls[0]}` });
+        // Off screen (after Claude or a deploy), and a journey broken on purpose.
+        const saved = { id: journey.id, name: 'Contact', startPath: '/contact.html', createdAt: 0, steps: journey.steps } as Parameters<typeof devices.playOffscreen>[0];
+        const ids = devices.entries().map((d) => d.preset.id);
+        const off = await devices.playOffscreen(saved, 'http://localhost:5173', ids);
+        say(`offscreen ${JSON.stringify(off.map((d) => [d.label, d.ok, d.error]))}`);
+        const broken = await devices.playOffscreen({ ...saved, steps: [...saved.steps.slice(0, 1), { kind: 'click', selector: '#nulle-part', tag: 'button', text: 'Payer' }] }, 'http://localhost:5173', ids.slice(0, 1));
+        criteria.push({
+          id: 'journey-offscreen',
+          ok: off.every((d) => d.ok) && broken[0]?.ok === false && broken[0].failedAt === 1 && /Payer/.test(broken[0].error ?? '') && !!broken[0].screenshot,
+          detail: `${off.map((d) => `${d.label} ${d.ok ? 'ok' : d.error}`).join(' · ')} · cassé exprès : étape ${(broken[0]?.failedAt ?? 0) + 1}, ${broken[0]?.error}, capture ${broken[0]?.screenshot ? 'oui' : 'non'}`,
+        });
+      }
+      await devices.navigate('http://localhost:5173/');
+      await sleep(600);
     }
 
     // 10. Partage section

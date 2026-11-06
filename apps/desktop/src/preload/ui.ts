@@ -17,6 +17,19 @@ const api: KingletApi = {
   analyze: (url, opts) => ipcRenderer.invoke('page:analyze', url, opts ?? {}),
   crawl: (url, opts) => ipcRenderer.invoke('site:crawl', url, opts ?? {}),
   sharePreviews: (url) => ipcRenderer.invoke('share:previews', url),
+  journeys: {
+    record: () => ipcRenderer.invoke('journeys:record'),
+    dropStep: (index) => ipcRenderer.send('journeys:drop-step', index),
+    stop: (name) => ipcRenderer.invoke('journeys:stop', name),
+    play: (journeyId) => ipcRenderer.invoke('journeys:play', journeyId),
+    runs: (projectId) => ipcRenderer.invoke('journeys:runs', projectId),
+    exportPlaywright: (journeyId) => ipcRenderer.invoke('journeys:export', journeyId),
+  },
+  ogImage: {
+    draft: (url) => ipcRenderer.invoke('ogimage:draft', url),
+    render: (input) => ipcRenderer.invoke('ogimage:render', input),
+    save: (input, draft, choose) => ipcRenderer.invoke('ogimage:save', input, draft, choose),
+  },
   copy: (text) => ipcRenderer.send('clipboard:write', text),
   mcpInfo: () => ipcRenderer.invoke('mcp:info'),
   vercel: {
@@ -90,6 +103,20 @@ const api: KingletApi = {
     connect: (token) => ipcRenderer.invoke('github:connect', token),
     owners: () => ipcRenderer.invoke('github:owners'),
     disconnect: () => ipcRenderer.invoke('github:disconnect'),
+  },
+  linear: {
+    state: () => ipcRenderer.invoke('linear:state'),
+    connect: (key) => ipcRenderer.invoke('linear:connect', key),
+    refresh: () => ipcRenderer.invoke('linear:refresh'),
+    disconnect: () => ipcRenderer.invoke('linear:disconnect'),
+    uploadImages: (images) => ipcRenderer.invoke('linear:images', images),
+    createIssue: (teamId, title, description) => ipcRenderer.invoke('linear:issue', teamId, title, description),
+  },
+  slack: {
+    state: () => ipcRenderer.invoke('slack:state'),
+    connect: (url) => ipcRenderer.invoke('slack:connect', url),
+    disconnect: () => ipcRenderer.invoke('slack:disconnect'),
+    send: (message) => ipcRenderer.invoke('slack:send', message),
   },
   chat: {
     cli: () => ipcRenderer.invoke('chat:cli'),
