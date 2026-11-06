@@ -3,7 +3,7 @@
  * the device's real CSS width (393 px phone, 1280 px laptop) and scaled down like Kinglet does. What you see is the
  * layout that width really gets.
  */
-export type SiteState = { inspect?: boolean; keyboard?: boolean; keyboardFixed?: boolean; broken?: boolean; accent?: boolean };
+export type SiteState = { inspect?: boolean; keyboard?: boolean; keyboardFixed?: boolean; broken?: boolean; accent?: boolean; banner?: boolean };
 
 const ink = '#11241c';
 const paper = '#f6f5f0';
@@ -112,7 +112,7 @@ function Toast({ style }: { style?: React.CSSProperties }) {
   );
 }
 
-export function SitePhone({ inspect, keyboard, keyboardFixed, accent }: SiteState) {
+export function SitePhone({ inspect, keyboard, keyboardFixed, accent, banner }: SiteState) {
   return (
     <div className="relative h-full overflow-hidden" style={{ background: paper, color: ink, fontFamily: 'var(--font-sans)' }}>
       <div className="flex flex-col transition-transform duration-500" style={{ padding: '58px 22px 22px', gap: 18, transform: keyboard ? 'translateY(-150px)' : 'none' }}>
@@ -164,6 +164,24 @@ export function SitePhone({ inspect, keyboard, keyboardFixed, accent }: SiteStat
         </span>
       </div>
       {keyboard && <IosKeyboard />}
+      {/* A cookie sheet too tall for the phone: it covers the sign-up button (the journeys demo). */}
+      <div
+        className="absolute inset-x-0 bottom-0 flex flex-col gap-3 transition-transform duration-500"
+        style={{ zIndex: 3, height: 470, padding: '26px 22px 34px', background: '#fff', borderRadius: '22px 22px 0 0', boxShadow: '0 -10px 40px rgba(17,36,28,.25)', transform: banner ? 'none' : 'translateY(110%)' }}
+      >
+        <span className="font-semibold" style={{ fontSize: 21, letterSpacing: '-0.03em' }}>
+          We value your privacy
+        </span>
+        <span style={{ fontSize: 14.5, lineHeight: 1.5, color: grey }}>Saltmint uses cookies to measure the audience and improve the app. You can accept them, refuse them, or choose.</span>
+        <span className="mt-auto flex flex-col gap-2">
+          <span className="flex h-12 items-center justify-center rounded-full font-semibold" style={{ background: ink, color: '#fff', fontSize: 15 }}>
+            Accept all
+          </span>
+          <span className="flex h-12 items-center justify-center rounded-full font-semibold" style={{ border: `1px solid ${line}`, fontSize: 15 }}>
+            Reject all
+          </span>
+        </span>
+      </div>
     </div>
   );
 }

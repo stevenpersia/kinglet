@@ -23,7 +23,7 @@ function scaleOf(s: DemoState) {
   if (s.consoleOpen) return 0.28;
   if (s.checksOpen) return 0.27;
   if (s.picked) return 0.35;
-  if (s.emuMenu) return 0.25;
+  if (s.emuMenu || s.journeysOpen) return 0.25;
   return 0.43;
 }
 
@@ -246,12 +246,13 @@ function DeviceToolbar({ s }: { s: DemoState }) {
   );
 }
 
-/** Emulation, Forms, Export: tabs on the edge of the devices, as in the app. */
+/** Emulation, Forms, Journeys, Export, Feedback: tabs on the edge of the devices, as in the app. */
 function ToolTabs({ s }: { s: DemoState }) {
   const emuOn = s.slow || s.keyboard || s.tokyo;
-  const tabs: [string, 'sliders' | 'form' | 'download' | 'message', string, boolean, boolean, string?][] = [
+  const tabs: [string, 'sliders' | 'form' | 'route' | 'download' | 'message', string, boolean, boolean, string?][] = [
     ['Emulation', 'sliders', '#8ab4f8', s.emuMenu, emuOn, 'btn-emu'],
     ['Forms', 'form', '#7dd3a8', false, false],
+    ['Journeys', 'route', '#c6f432', s.journeysOpen, s.journeyStep >= 0 && !s.fixed, 'tab-journeys'],
     ['Export', 'download', '#e6c07b', false, false],
     ['Feedback', 'message', '#f0a07f', false, true],
   ];
@@ -337,7 +338,7 @@ function Device({ kind, s }: { kind: 'phone' | 'laptop'; s: DemoState }) {
         <div className="relative overflow-hidden bg-card" style={{ width: w, height: h, borderRadius: radius, transition: `width .5s ${EASE}, height .5s ${EASE}, border-radius .5s ${EASE}` }}>
           <div className="origin-top-left" style={{ width: d.w, height: d.h, transform: `scale(${scale})`, transition: `transform .5s ${EASE}` }}>
             {kind === 'phone' ? (
-              <SitePhone inspect={highlight} keyboard={s.keyboard} keyboardFixed={s.keyboardFixed} accent={s.accent} />
+              <SitePhone inspect={highlight} keyboard={s.keyboard} keyboardFixed={s.keyboardFixed} accent={s.accent} banner={s.banner} />
             ) : (
               <SiteDesktop inspect={highlight} broken={s.scene === 'console' && !s.fixed} accent={s.accent} />
             )}
@@ -473,7 +474,7 @@ function ChecksPanel({ s }: { s: DemoState }) {
         <span className={`font-mono text-xs ${fixed ? 'text-ok' : 'text-warn'}`}>{fixed ? '53' : '51'} / 53</span>
       </div>
       <div className="flex gap-1 border-b border-line-soft px-3 py-2">
-        {['All', 'SEO', 'Share', 'Mobile', 'A11y'].map((f, i) => (
+        {['All', 'SEO', 'Content', 'Privacy', 'Speed'].map((f, i) => (
           <span key={f} className={`inline-flex h-6 items-center rounded-md px-2 text-[11px] ${i === 0 ? 'bg-raised text-fg shadow-[inset_0_0_0_1px_#2e2e33]' : 'text-faint'}`}>
             {f}
           </span>
@@ -483,17 +484,103 @@ function ChecksPanel({ s }: { s: DemoState }) {
         {fixed ? (
           <>
             {item('Tap targets', 'Every target is 24 × 24 px or more.', 'ok')}
-            {item('Share image', 'og:image 1200 × 630.', 'ok')}
+            {item('Trackers before consent', 'None: Meta Pixel waits for “Accept”.', 'ok')}
           </>
         ) : (
           <>
             {item('Tap targets', 'iPhone 16: 3 links under 24 × 24 px in the nav.', 'err', true)}
-            {item('Share image', 'og:image is 800 × 420, under 1200 × 630.', 'warn')}
+            {item('Trackers before consent', 'Meta Pixel loads as soon as the page opens.', 'warn')}
           </>
         )}
-        {item('Horizontal overflow', 'Nothing wider than the screen.', 'ok')}
-        {item('Contrast', 'Every text passes 4.5:1.', 'ok')}
+        {item('Placeholder links', 'Every link goes somewhere.', 'ok')}
+        {item('Responsiveness (INP)', '120 ms on iPhone 16.', 'ok')}
         {item('LCP', 'iPhone 16 0.9 s · Laptop 0.6 s', 'ok')}
+      </div>
+    </motion.aside>
+  );
+}
+
+const JOURNEY_STEPS = ['Open /', 'Type “jessica@studio.co” in “Email”', 'Click “Get started — free”', 'Arrive on /welcome'];
+/** The phone stops at this step (the cookie banner covers the button) until Claude fixes it. */
+const PHONE_FAILS_AT = 2;
+
+/** The Journeys panel: a recorded sign-up, played on both devices at once. */
+function JourneysPanel({ s }: { s: DemoState }) {
+  const played = s.journeyStep >= 0;
+  const mark = (device: 'phone' | 'laptop', i: number) => {
+    if (s.fixed) return <span className="text-ok">✓</span>;
+    if (!played || i > s.journeyStep) return <span className="text-ghost">·</span>;
+    if (device === 'phone' && i === PHONE_FAILS_AT) return <span className="text-err">✕</span>;
+    if (device === 'phone' && i > PHONE_FAILS_AT) return <span className="text-ghost">·</span>;
+    return <span className="text-ok">✓</span>;
+  };
+  const failed = played && !s.fixed && s.journeyStep >= PHONE_FAILS_AT;
+  const done = s.fixed || s.journeyStep >= JOURNEY_STEPS.length;
+  return (
+    <motion.aside
+      initial={{ width: 0, opacity: 0 }}
+      animate={{ width: 250, opacity: 1 }}
+      exit={{ width: 0, opacity: 0 }}
+      transition={{ duration: 0.3, ease: [0.2, 0.8, 0.2, 1] }}
+      className="relative flex shrink-0 flex-col overflow-hidden border-r border-line-soft bg-[#131314]"
+    >
+      <span aria-hidden="true" className="absolute inset-x-0 top-0 h-px bg-[linear-gradient(90deg,transparent,#c6f432_30%,#c6f432_70%,transparent)] opacity-70" />
+      <div className="flex w-[250px] items-center gap-2.5 border-b border-line-soft px-3 py-2.5">
+        <span className="flex size-7 items-center justify-center rounded-md bg-[rgba(198,244,50,0.12)] text-[#c6f432] shadow-[inset_0_0_0_1px_rgba(198,244,50,0.25)]">
+          <Icon name="route" size={13} />
+        </span>
+        <span className="flex flex-col">
+          <span className="text-[12.5px] font-semibold">Journeys</span>
+          <span className="text-[10.5px] text-faint">2 journeys</span>
+        </span>
+      </div>
+      <div className="flex w-[250px] flex-col gap-2 p-2.5">
+        <div className={`flex flex-col gap-2 rounded-[9px] border bg-[#1a1a1b] p-2.5 transition-colors ${failed ? 'border-err/40' : 'border-line-soft'}`}>
+          <div className="flex items-center gap-2">
+            <span className={`size-2 shrink-0 rounded-full ${s.fixed || (done && !failed) ? 'bg-ok' : failed ? 'bg-err' : 'bg-ghost'}`} />
+            <span className="flex min-w-0 flex-1 flex-col">
+              <span className="text-[12px] font-medium">Sign up</span>
+              <span className="truncate text-[10px] text-faint">{s.fixed ? 'passed after Claude' : failed ? 'broke on iPhone 16' : played ? 'playing…' : '4 steps from /'}</span>
+            </span>
+            <span data-target="journey-play" className="inline-flex h-6 items-center gap-1 rounded-md bg-[rgba(198,244,50,0.12)] px-2 text-[10.5px] font-medium text-[#c6f432]">
+              <Icon name="play" size={9} />
+              Play
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5 font-mono text-[9.5px] text-ghost">
+            <span className="w-3 text-center">
+              <Icon name="phone" size={9} />
+            </span>
+            <span className="w-3 text-center">
+              <Icon name="laptop" size={9} />
+            </span>
+          </div>
+          {JOURNEY_STEPS.map((text, i) => (
+            <div key={text} className="flex items-center gap-1.5 text-[11px]">
+              <span className="w-3 text-center font-mono text-[10px]">{mark('phone', i)}</span>
+              <span className="w-3 text-center font-mono text-[10px]">{mark('laptop', i)}</span>
+              <span className={`min-w-0 truncate ${failed && i === PHONE_FAILS_AT ? 'text-err' : 'text-muted'}`}>{text}</span>
+            </div>
+          ))}
+          <AnimatePresence>
+            {failed && (
+              <motion.div {...fade} className="flex flex-col gap-1.5 rounded-md bg-err/10 p-2 text-[10.5px] text-err">
+                <span>iPhone 16 · step 3: covered by div.cookie-banner</span>
+                <span data-target="ask-journey" className="self-start rounded-md border border-[rgba(217,119,87,0.35)] px-2 text-[10.5px] leading-5 font-medium text-[#d97757]">
+                  Ask Claude
+                </span>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+        <div className="flex items-center gap-2 rounded-[9px] border border-line-soft bg-[#1a1a1b] p-2.5">
+          <span className="size-2 shrink-0 rounded-full bg-ok" />
+          <span className="flex min-w-0 flex-col">
+            <span className="text-[12px] font-medium">Checkout</span>
+            <span className="truncate text-[10px] text-faint">passed after a deploy, 2 h ago</span>
+          </span>
+        </div>
+        <span className="px-1 text-[10px] leading-snug text-faint">Played again after each Claude task, commit and deploy. → checkout.spec.ts</span>
       </div>
     </motion.aside>
   );
@@ -903,6 +990,7 @@ export const AppWindow = forwardRef<HTMLDivElement, { s: DemoState; children?: R
       <div className="relative flex min-h-0 flex-1">
         <Rail s={s} />
         <AnimatePresence>{s.section !== 'share' && s.emuMenu && <EmulationPanel key="emu" s={s} />}</AnimatePresence>
+        <AnimatePresence>{s.section !== 'share' && s.journeysOpen && <JourneysPanel key="journeys" s={s} />}</AnimatePresence>
         {s.section !== 'share' && <ToolTabs s={s} />}
         <main className="stage-bg relative flex min-w-0 flex-1 flex-col">
           {s.section === 'share' ? (

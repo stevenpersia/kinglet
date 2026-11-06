@@ -265,16 +265,36 @@ function Export() {
 
 function Feedback() {
   return (
-    <div className="relative h-[70px] w-[120px] rounded-md" style={{ background: PAPER }}>
+    <div className="relative h-[70px] w-[120px] -translate-x-[34px] rounded-md" style={{ background: PAPER }}>
       <div className="h-full w-full overflow-hidden rounded-md">
         <MiniPage lines={4} />
       </div>
       <motion.span className="absolute top-[22px] left-[52px] flex size-5 items-center justify-center rounded-full rounded-bl-none bg-[#d97757] font-mono text-[10px] font-bold text-[#1a0e09] shadow-lg" animate={{ y: [-30, 0, 0, 0, -30], opacity: [0, 1, 1, 1, 0] }} transition={{ ...loop(4), times: [0, 0.15, 0.5, 0.9, 1] }}>
         1
       </motion.span>
-      <motion.span className="absolute top-[12px] left-[78px] rounded-md border border-line bg-card px-1.5 py-1 text-[9.5px] whitespace-nowrap text-fg shadow-lg" animate={{ opacity: [0, 0, 1, 1, 0], x: [-4, -4, 0, 0, -4] }} transition={{ ...loop(4), times: [0, 0.25, 0.35, 0.9, 1] }}>
+      <motion.span className="absolute top-[12px] left-[78px] rounded-md border border-line bg-card px-1.5 py-1 text-[9.5px] whitespace-nowrap text-fg shadow-lg" animate={{ opacity: [0, 0, 1, 1, 0, 0], x: [-4, -4, 0, 0, -4, -4] }} transition={{ ...loop(4), times: [0, 0.2, 0.28, 0.5, 0.56, 1] }}>
         Bigger on mobile?
       </motion.span>
+      {/* Then it leaves for the team's tracker: GitHub, Linear or Slack. */}
+      <span className="absolute top-[8px] -right-[66px] flex flex-col gap-1">
+        {(
+          [
+            ['GitHub', '#c4c4cc', 0.58],
+            ['Linear', '#8b93f8', 0.64],
+            ['Slack', '#e6c07b', 0.7],
+          ] as const
+        ).map(([name, color, at]) => (
+          <motion.span
+            key={name}
+            className="flex h-[17px] items-center gap-1 rounded-[5px] border border-line bg-card px-1.5 font-mono text-[9px] whitespace-nowrap"
+            style={{ color }}
+            animate={{ opacity: [0, 0, 1, 1, 0], x: [-10, -10, 0, 0, -10] }}
+            transition={{ ...loop(4), times: [0, at, at + 0.08, 0.9, 1] }}
+          >
+            → {name}
+          </motion.span>
+        ))}
+      </span>
     </div>
   );
 }
