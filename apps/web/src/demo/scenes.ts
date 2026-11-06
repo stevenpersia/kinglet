@@ -2,7 +2,7 @@
  * The hero's scripted demos. Each scene is a timeline: the cursor moves to a target (an element with
  * data-target="…" in the app window), clicks, presses a key, and the window's state changes.
  */
-export type SceneId = 'inspect' | 'console' | 'devices' | 'phone' | 'share' | 'checks' | 'deploy';
+export type SceneId = 'inspect' | 'console' | 'devices' | 'phone' | 'share' | 'checks' | 'journeys' | 'deploy';
 export type Env = 'local' | 'preview' | 'prod';
 
 export type DemoState = {
@@ -33,6 +33,12 @@ export type DemoState = {
   phoneDialog: boolean;
   wifi: boolean;
   phoneLive: boolean;
+  // Journeys
+  journeysOpen: boolean;
+  /** Step the replay has reached (-1: not played). */
+  journeyStep: number;
+  /** A cookie banner covers the sign-up button on the phone. */
+  banner: boolean;
   // Claude
   draft: boolean;
   sent: boolean;
@@ -62,6 +68,9 @@ export const initial = (scene: SceneId): DemoState => ({
   phoneDialog: false,
   wifi: false,
   phoneLive: false,
+  journeysOpen: false,
+  journeyStep: -1,
+  banner: false,
   draft: false,
   sent: false,
   shown: 0,
@@ -114,12 +123,22 @@ export const CLAUDE: Partial<Record<SceneId, Conversation>> = {
   },
   checks: {
     prompt: 'Fix the failing checks',
-    note: 'Tap targets · og:image size',
+    note: 'Tap targets · Meta Pixel before consent',
     lines: [
       { k: 'tool', text: 'kinglet - run_checks', note: '51/53' },
       { k: 'edit', text: 'Update(components/Nav.tsx)', note: '+3 −3', ok: true },
-      { k: 'edit', text: 'Update(app/layout.tsx)', note: '+1 −1', ok: true },
+      { k: 'edit', text: 'Update(app/consent.tsx)', note: 'pixel after “Accept” · +7 −2', ok: true },
       { k: 'tool', text: 'kinglet - run_checks', note: '53/53', ok: true },
+    ],
+  },
+  journeys: {
+    prompt: 'Fix the “Sign up” journey',
+    note: 'iPhone 16 · step 3 · covered by div.cookie-banner',
+    lines: [
+      { k: 'tool', text: 'kinglet - screenshot', note: 'iphone-16 · banner over the button' },
+      { k: 'edit', text: 'Update(components/CookieBanner.tsx)', note: '+6 −3', ok: true },
+      { k: 'tool', text: 'Journey “Sign up” played again', note: 'iPhone 16 ✓ · Laptop ✓', ok: true },
+      { k: 'say', text: 'The banner no longer covers the form: the journey passes on both devices.' },
     ],
   },
   deploy: {
@@ -204,6 +223,18 @@ export const SCRIPTS: Record<SceneId, Step[]> = {
     { at: 300, to: 'rail-checks' },
     { at: 1000, click: true, set: { checksOpen: true } },
     ...ask('checks', 'ask-checks', 2000, { fixed: true }),
+  ],
+  journeys: [
+    { at: 0, set: { banner: true } },
+    { at: 300, to: 'tab-journeys' },
+    { at: 1000, click: true, set: { journeysOpen: true } },
+    { at: 1700, to: 'journey-play' },
+    { at: 2300, click: true, set: { journeyStep: 0 } },
+    { at: 2800, set: { journeyStep: 1 } },
+    { at: 3300, set: { journeyStep: 2 } },
+    { at: 3800, set: { journeyStep: 3 } },
+    { at: 4300, set: { journeyStep: 4 } },
+    ...ask('journeys', 'ask-journey', 5000, { fixed: true, banner: false }),
   ],
   deploy: [
     { at: 300, to: 'claude-input' },
