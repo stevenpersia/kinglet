@@ -139,7 +139,7 @@ claude mcp add --scope user kinglet -- node /chemin/vers/kinglet/packages/mcp/sr
 
 Outils exposés : `status`, `open_url`, `set_devices`, `screenshot`, `get_page_meta`, `get_share_preview`, `run_checks`, `audit_site`, `get_accessibility`, `get_structured_data`, `list_pages`, `list_deployments`, `get_console`. Cinq commandes sont aussi disponibles dans Claude Code :
 
-- `/mcp__kinglet__fix_share` corrige les aperçus de partage de la page ouverte, puis vérifie ;
+- `/mcp__kinglet__fix_open_graph` corrige les aperçus de partage de la page ouverte, puis vérifie ;
 - `/mcp__kinglet__fix_checks` corrige les problèmes trouvés par les checks, puis les relance ;
 - `/mcp__kinglet__fix_console` corrige les erreurs JavaScript et réseau vues dans les appareils, puis revérifie la console ;
 - `/mcp__kinglet__fix_site` audite toutes les pages du site (liens cassés, ancres mortes, doublons, sitemap, hreflang, checks), corrige, puis réaudite ;

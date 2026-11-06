@@ -334,7 +334,7 @@ export function Mcp() {
             <h2 className="m-0 text-[clamp(30px,4vw,48px)] leading-[1.02] font-semibold tracking-[-0.05em]">Your terminal Claude gets eyes too.</h2>
             <p className="m-0 text-base leading-relaxed text-muted">13 tools and 5 slash commands for Claude Code. It screenshots devices, runs checks, audits the site and verifies its own fix. Works with the app closed, on any URL.</p>
             <div className="flex flex-wrap gap-1.5">
-              {['fix_share', 'fix_checks', 'fix_console', 'fix_site', 'fix_accessibility'].map((c) => (
+              {['fix_open_graph', 'fix_checks', 'fix_console', 'fix_site', 'fix_accessibility'].map((c) => (
                 <span key={c} className="inline-flex h-[26px] items-center rounded-[7px] border border-line bg-[#111114] px-2.5 font-mono text-xs text-muted">
                   /{c}
                 </span>

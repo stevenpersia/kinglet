@@ -478,11 +478,11 @@ export function createKingletServer(opts: Options = {}) {
     ].join('\n');
   }
 
-  // Prompts become slash commands in Claude Code: /mcp__kinglet__fix_share, /mcp__kinglet__fix_checks
+  // Prompts become slash commands in Claude Code: /mcp__kinglet__fix_open_graph, /mcp__kinglet__fix_checks
   server.registerPrompt(
-    'fix_share',
+    'fix_open_graph',
     {
-      title: t('Fix share previews', 'Corriger les aperçus de partage'),
+      title: t('Fix Open Graph tags', 'Corriger les balises Open Graph'),
       description: t('Fixes the share tags of the page open in Kinglet (or of the given URL), then checks.', 'Corrige les balises de partage de la page ouverte dans Kinglet (ou de l’URL donnée), puis vérifie.'),
       argsSchema: { url: z.string().optional() },
     },

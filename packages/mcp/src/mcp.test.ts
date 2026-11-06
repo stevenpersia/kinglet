@@ -57,7 +57,7 @@ describe('MCP server, app closed (headless)', () => {
     const tools = (await client.listTools()).tools.map((t) => t.name).sort();
     expect(tools).toEqual(['approve', 'audit_site', 'get_accessibility', 'get_console', 'get_page_meta', 'get_share_preview', 'get_structured_data', 'list_deployments', 'list_pages', 'open_url', 'run_checks', 'screenshot', 'set_devices', 'status']);
     const prompts = (await client.listPrompts()).prompts.map((p) => p.name).sort();
-    expect(prompts).toEqual(['fix_accessibility', 'fix_checks', 'fix_console', 'fix_share', 'fix_site']);
+    expect(prompts).toEqual(['fix_accessibility', 'fix_checks', 'fix_console', 'fix_open_graph', 'fix_site']);
     await client.close();
   });
 
@@ -75,7 +75,7 @@ describe('MCP server, app closed (headless)', () => {
     expect(textOf(await call(client, 'list_pages', { url: siteUrl }))).toMatch(/200 {2}\/atelier/);
     const shot = await call(client, 'screenshot');
     expect(shot.isError).toBe(true);
-    const prompt = await client.getPrompt({ name: 'fix_share', arguments: { url: siteUrl } });
+    const prompt = await client.getPrompt({ name: 'fix_open_graph', arguments: { url: siteUrl } });
     expect((prompt.messages[0]!.content as { text: string }).text).toMatch(/og:site_name[\s\S]*get_share_preview/);
     await client.close();
   });

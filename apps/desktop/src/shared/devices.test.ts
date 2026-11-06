@@ -47,14 +47,25 @@ describe('devices', () => {
     expect(activeIds(builtins, s)).toEqual(['c', 'a']);
   });
 
-  it('keeps one list for all projects, or one per project', () => {
-    expect(setActiveIds(builtins, base, ['b', 'a'])).toEqual({ active: ['a', 'b'] });
-    const per = { ...base, devicesPerProject: true };
-    const patch = setActiveIds(builtins, per, ['b']);
-    expect(patch.projects?.[0]?.active).toEqual(['b']);
-    expect(activeIds(builtins, { ...per, ...patch })).toEqual(['b']);
-    // A project without its own list shows the global one.
-    expect(activeIds(builtins, per)).toEqual(['a', 'c']);
+  it('remembers the devices shown per project, whatever the list setting', () => {
+    const two: Settings = { ...base, projects: [...base.projects, { ...base.projects[0]!, id: 'q', name: 'q' }], openIds: ['p', 'q'] };
+    for (const devicesPerProject of [false, true]) {
+      const s = { ...two, devicesPerProject };
+      const patch = setActiveIds(builtins, s, ['b', 'a']);
+      expect(patch.active).toEqual(['a', 'b']);
+      expect(patch.projects?.find((p) => p.id === 'p')?.active).toEqual(['a', 'b']);
+      expect(patch.projects?.find((p) => p.id === 'q')?.active).toBeUndefined();
+      let next = { ...s, ...patch };
+      expect(activeIds(builtins, next)).toEqual(['a', 'b']);
+      // Project q never chose: it starts from the last choice, then keeps its own.
+      next = { ...next, activeId: 'q' };
+      expect(activeIds(builtins, next)).toEqual(['a', 'b']);
+      next = { ...next, ...setActiveIds(builtins, next, ['c']) };
+      expect(activeIds(builtins, next)).toEqual(['c']);
+      // Back on p: its devices again.
+      expect(activeIds(builtins, { ...next, activeId: 'p' })).toEqual(['a', 'b']);
+    }
+    expect(activeIds(builtins, base)).toEqual(['a', 'c']);
     expect(setActiveIds(builtins, base, [])).toEqual({});
   });
 
@@ -80,7 +91,13 @@ describe('devices', () => {
 
   it('lists a device shown from elsewhere (Claude, onboarding)', () => {
     const s = { ...base, listed: ['a'] };
-    expect(setActiveIds(builtins, s, ['b'])).toEqual({ active: ['b'], listed: ['a', 'b'] });
-    expect(setActiveIds(builtins, base, ['b'])).toEqual({ active: ['b'] });
+    const shownOnP = (patch: Partial<Settings>) => patch.projects?.[0]?.active;
+    const sPatch = setActiveIds(builtins, s, ['b']);
+    expect(sPatch).toMatchObject({ active: ['b'], listed: ['a', 'b'] });
+    expect(shownOnP(sPatch)).toEqual(['b']);
+    const basePatch = setActiveIds(builtins, base, ['b']);
+    expect(basePatch.active).toEqual(['b']);
+    expect(basePatch.listed).toBeUndefined();
+    expect(shownOnP(basePatch)).toEqual(['b']);
   });
 });

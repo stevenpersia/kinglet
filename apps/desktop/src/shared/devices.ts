@@ -49,9 +49,13 @@ export function listedIds(builtins: DevicePreset[], s: Settings): string[] {
   return ids.length ? ids : all.slice(0, 1);
 }
 
-/** Devices shown side by side, among the listed ones: the project's own list (when enabled), else the global one, in order. */
+/**
+ * Devices shown side by side, among the listed ones, in order. Always remembered per project: switching
+ * projects brings back that project's devices. A project that never chose any shows the last choice
+ * made (the global `active`).
+ */
 export function activeIds(builtins: DevicePreset[], s: Settings): string[] {
-  const project = ownList(s);
+  const project = s.projects.find((p) => p.id === s.activeId);
   const raw = project?.active?.length ? project.active : s.active;
   const listed = listedIds(builtins, s);
   const ids = listed.filter((id) => raw.includes(id));
@@ -68,7 +72,10 @@ export function setListedIds(builtins: DevicePreset[], s: Settings, ids: string[
   return { listed: ordered };
 }
 
-/** The settings patch that shows these devices (on the project or globally). A device not listed yet joins the list. */
+/**
+ * The settings patch that shows these devices: on the active project, and as the starting choice of
+ * projects that have none yet. A device not listed yet joins the list (the project's or the global one).
+ */
 export function setActiveIds(builtins: DevicePreset[], s: Settings, ids: string[]): Partial<Settings> {
   const ordered = allPresets(builtins, s)
     .map((p) => p.id)
@@ -78,7 +85,11 @@ export function setActiveIds(builtins: DevicePreset[], s: Settings, ids: string[
   const missing = ordered.filter((id) => !listed.includes(id));
   const explicit = !!(ownList(s)?.listed?.length || s.listed?.length);
   const list = missing.length && explicit ? [...listed, ...missing] : null;
-  if (s.devicesPerProject && s.activeId)
-    return { projects: s.projects.map((p) => (p.id === s.activeId ? { ...p, active: ordered, ...(list ? { listed: list } : {}) } : p)) };
-  return { active: ordered, ...(list ? { listed: list } : {}) };
+  const perProjectList = s.devicesPerProject && !!s.activeId;
+  const inProject = !!s.activeId && s.projects.some((p) => p.id === s.activeId);
+  return {
+    active: ordered,
+    ...(list && !perProjectList ? { listed: list } : {}),
+    ...(inProject ? { projects: s.projects.map((p) => (p.id === s.activeId ? { ...p, active: ordered, ...(list && perProjectList ? { listed: list } : {}) } : p)) } : {}),
+  };
 }
