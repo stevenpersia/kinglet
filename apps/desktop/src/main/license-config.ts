@@ -6,8 +6,8 @@
  * installed app refuses every key (the development build doesn't ask for one).
  */
 export const POLAR: { organizationId: string | null; benefitId: string | null } = {
-  organizationId: null,
-  benefitId: null,
+  organizationId: 'f0f9f1df-e6ff-4cf8-8880-5188ea951f47',
+  benefitId: 'c2ba08de-14f6-4970-86be-322300452003',
 };
 
 /** Where "Buy Kinglet" leads (the Pricing section, which opens the Polar checkout). */
