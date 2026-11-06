@@ -8,7 +8,7 @@ const INCLUDED = [
   'MCP server: 13 tools, 5 slash commands',
   'Vercel and GitHub: previews, prod, PRs, CI',
   '37 checks, site audit, budgets, history',
-  'Share previews on 10 platforms',
+  'Open Graph previews on 10 platforms',
   'Region, keyboards, forms, mocks, export',
   'Automatic updates',
 ];
@@ -83,7 +83,7 @@ export function Pricing() {
 const FAQ: [string, string][] = [
   ['Is it a subscription?', `No. You pay ${PRICE.label} once and keep Kinglet. Updates install themselves.`],
   ['Which systems does it run on?', 'Linux today: AppImage for any distribution, and a pacman package for Arch and CachyOS.'],
-  ['Do I need Claude Code?', 'No. Devices, checks, share previews and Vercel work on their own. With Claude Code installed, Kinglet opens it in your project with the MCP server already plugged in.'],
+  ['Do I need Claude Code?', 'No. Devices, checks, Open Graph previews and Vercel work on their own. With Claude Code installed, Kinglet opens it in your project with the MCP server already plugged in.'],
   ['Do I need Vercel or GitHub?', 'No. Any local address works (localhost:3000, 5173…). Connect Vercel and GitHub for previews, production, pull requests and publishing.'],
   ['Which frameworks?', 'Anything that runs in a browser. Fixes are written for Next.js, Nuxt, Astro, SvelteKit and Vite.'],
   ['Where do my tokens go?', 'Into your system keyring (KWallet, GNOME Keyring). Kinglet talks to Vercel and GitHub from your computer only.'],

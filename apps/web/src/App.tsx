@@ -1,3 +1,4 @@
+import { MotionConfig } from 'motion/react';
 import { Icon, KingletBird, Mark } from '../../desktop/src/renderer/components/Icons';
 import { Hero } from './components/Hero';
 import { Faq, Pricing } from './components/Pricing';
@@ -85,7 +86,7 @@ function FinalCta() {
 
 export function App() {
   return (
-    <>
+    <MotionConfig reducedMotion="user">
       <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded focus:bg-fg focus:px-3 focus:py-2 focus:text-ink">
         Skip to content
       </a>
@@ -119,6 +120,6 @@ export function App() {
           </a>
         </span>
       </footer>
-    </>
+    </MotionConfig>
   );
 }

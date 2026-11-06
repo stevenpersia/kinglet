@@ -7,13 +7,13 @@
 import { AnimatePresence, motion } from 'motion/react';
 import { forwardRef, type ReactNode } from 'react';
 import { Dot, Icon, type IconName, Mark } from '../../../desktop/src/renderer/components/Icons';
-import { CLAUDE, type DemoState, type Env, type Platform } from './scenes';
-import { TidalDesktop, TidalPhone } from './Tidal';
+import { CLAUDE, type DemoState, type Env } from './scenes';
+import { ShareImage, SiteDesktop, SitePhone } from './Saltmint';
 
 const PHONE = { w: 393, h: 852, radius: 36, pad: 6 };
 const LAPTOP = { w: 1280, h: 800, pad: 8 };
 const EASE = 'cubic-bezier(.2,.8,.2,1)';
-const URL: Record<Env, string> = { local: 'http://localhost:3000/', preview: 'https://tidal-git-feat-budgets.vercel.app/', prod: 'https://tidal.money/' };
+const URL: Record<Env, string> = { local: 'http://localhost:3000/', preview: 'https://saltmint-git-feat-budgets.vercel.app/', prod: 'https://saltmint.app/' };
 
 const fade = { initial: { opacity: 0, y: 6 }, animate: { opacity: 1, y: 0 }, exit: { opacity: 0, y: 4 }, transition: { duration: 0.25 } };
 const pop = { initial: { opacity: 0, y: -6, scale: 0.98 }, animate: { opacity: 1, y: 0, scale: 1 }, exit: { opacity: 0, y: -4 }, transition: { duration: 0.2 } };
@@ -45,7 +45,7 @@ function TitleBar({ s }: { s: DemoState }) {
         <Mark />
       </span>
       <div className="flex min-w-0 flex-1 items-stretch overflow-hidden">
-        <Tab name="tidal" color="#c6f432" on status={status} />
+        <Tab name="saltmint" color="#a6f0c6" on status={status} />
         <Tab name="docs" color="#8ab4f8" status={{ color: '#e6c07b', label: 'building' }} />
         <Tab name="portfolio" color="#a78bfa" />
         <span className="flex w-[42px] shrink-0 items-center justify-center border-r border-line-soft text-lg leading-none text-faint">+</span>
@@ -167,40 +167,39 @@ function DeployMenu({ hover }: { hover: boolean }) {
   );
 }
 
+/** The app's left rail (Sidebar.tsx): icons only, a marker on the active one, badges as pills. Claude is on the right. */
 function Rail({ s }: { s: DemoState }) {
-  const working = claudeStatus(s) === 'working';
-  const big = (icon: IconName, on: boolean, claude?: boolean) => (
+  const tone = { err: 'bg-err/15 text-err', warn: 'bg-warn/15 text-warn', ok: 'bg-ok/15 text-ok', clay: 'bg-[rgba(217,119,87,0.16)] text-[#d97757]' } as const;
+  const button = (icon: IconName, on: boolean, target?: string, badge?: { n: number | string; tone: keyof typeof tone } | null) => (
     <span
-      className={`relative flex size-10 shrink-0 items-center justify-center rounded-[9px] ${
-        claude ? 'bg-[rgba(217,119,87,0.14)] text-[#d97757] shadow-[inset_0_0_0_1px_rgba(217,119,87,0.35)]' : on ? 'bg-active text-fg shadow-[inset_0_0_0_1px_#26262b]' : 'text-faint'
-      }`}
+      key={icon}
+      data-target={target}
+      className={`relative flex size-11 shrink-0 items-center justify-center rounded-[11px] transition-colors ${on ? 'bg-active text-fg shadow-[inset_0_0_0_1px_#26262b]' : 'text-faint'}`}
     >
-      <Icon name={icon} size={16} />
-      {claude && working && <span className="claude-dot absolute top-[6px] right-[6px] size-1.5 rounded-full bg-[#d97757]" />}
+      {on && <span className="absolute top-1/2 -left-[10px] h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-fg" />}
+      <Icon name={icon} size={21} stroke={1.7} />
+      {badge && (
+        <span className={`absolute -top-[3px] -right-[3px] flex h-4 min-w-4 items-center justify-center rounded-full px-1 font-mono text-[9.5px] leading-none font-semibold ring-2 ring-chrome ${tone[badge.tone]}`}>
+          {badge.n}
+        </span>
+      )}
     </span>
   );
-  const small = (icon: IconName, on: boolean, target?: string, badge?: ReactNode) => (
-    <span data-target={target} className={`relative flex size-8 shrink-0 items-center justify-center rounded-lg ${on ? 'bg-active text-fg shadow-[inset_0_0_0_1px_#26262b]' : 'text-ghost'}`}>
-      <Icon name={icon} size={14} />
-      {badge && <span className="absolute top-[2px] right-[2px] font-mono text-[9px] leading-none">{badge}</span>}
-    </span>
-  );
-  const shareBad = !(s.scene === 'share' && s.fixed);
-  const checksBad = !(s.scene === 'checks' && s.fixed);
+  const ogFixed = s.scene === 'share' && s.fixed;
+  const checksFixed = s.scene === 'checks' && s.fixed;
   return (
-    <nav aria-hidden="true" className="flex w-14 shrink-0 flex-col items-center gap-1 border-r border-line-soft bg-chrome py-2.5">
-      {big('spark', true, true)}
-      {big('eye', s.section === 'devices')}
-      {big('tri', false)}
-      {big('git', false)}
-      <span className="mt-2 mb-1.5 h-px w-6 bg-line" />
-      {small('page', false)}
-      {small('share', s.section === 'share', 'rail-share', shareBad ? <span className="text-err">2</span> : null)}
-      {small('check', s.checksOpen, 'rail-checks', <span className={checksBad ? 'text-ghost' : 'text-ok'}>{checksBad ? 2 : '✓'}</span>)}
-      {small('cols', false)}
-      {small('pin', false, undefined, <span className="text-[#d97757]">3</span>)}
+    <nav aria-hidden="true" className="flex w-16 shrink-0 flex-col items-center gap-1.5 border-r border-line-soft bg-chrome py-2.5">
+      {button('devices', s.section === 'devices' && !s.checksOpen)}
+      {button('deploy', false)}
+      {button('branch', false)}
+      <span className="my-1 h-px w-7 shrink-0 bg-line" />
+      {button('doc', false)}
+      {button('graph', s.section === 'share', 'rail-og', ogFixed ? null : { n: 1, tone: 'err' })}
+      {button('checkCircle', s.checksOpen, 'rail-checks', checksFixed ? { n: '✓', tone: 'ok' } : { n: 2, tone: 'warn' })}
+      {button('split', false)}
+      {button('message', false, undefined, { n: 3, tone: 'clay' })}
       <span className="flex-1" />
-      {small('gear', false)}
+      {button('settings', false)}
     </nav>
   );
 }
@@ -305,9 +304,9 @@ function Device({ kind, s }: { kind: 'phone' | 'laptop'; s: DemoState }) {
         <div className="relative overflow-hidden bg-card" style={{ width: w, height: h, borderRadius: radius, transition: `width .5s ${EASE}, height .5s ${EASE}, border-radius .5s ${EASE}` }}>
           <div className="origin-top-left" style={{ width: d.w, height: d.h, transform: `scale(${scale})`, transition: `transform .5s ${EASE}` }}>
             {kind === 'phone' ? (
-              <TidalPhone inspect={highlight} keyboard={s.keyboard} keyboardFixed={s.keyboardFixed} lime={s.ctaLime} />
+              <SitePhone inspect={highlight} keyboard={s.keyboard} keyboardFixed={s.keyboardFixed} accent={s.accent} />
             ) : (
-              <TidalDesktop inspect={highlight} broken={s.scene === 'console' && !s.fixed} lime={s.ctaLime} />
+              <SiteDesktop inspect={highlight} broken={s.scene === 'console' && !s.fixed} accent={s.accent} />
             )}
           </div>
         </div>
@@ -320,11 +319,11 @@ function Device({ kind, s }: { kind: 'phone' | 'laptop'; s: DemoState }) {
   );
 }
 
-function InspectBar({ lime }: { lime: boolean }) {
-  const color = lime ? '#c6f432' : '#0e0f0c';
+function InspectBar({ accent }: { accent: boolean }) {
+  const color = accent ? '#a6f0c6' : '#11241c';
   const rows = [
-    ['iPhone 16', '349 × 46', '0 · 0 · 0 · 0', 'Geist 14 / 600', color],
-    ['Laptop', '206 × 50', '0 · 14 · 0 · 0', 'Geist 15 / 600', color],
+    ['iPhone 16', '349 × 48', '0 · 0 · 0 · 0', 'Geist 15 / 600', color],
+    ['Laptop', '226 × 51', '0 · 14 · 0 · 0', 'Geist 15 / 600', color],
   ];
   return (
     <motion.section {...fade} className="flex shrink-0 flex-col border-t border-line-soft bg-chrome">
@@ -467,100 +466,241 @@ function ChecksPanel({ s }: { s: DemoState }) {
   );
 }
 
-const PLATFORMS: [Platform, string][] = [
-  ['whatsapp', 'WhatsApp'],
-  ['imessage', 'iMessage'],
-  ['slack', 'Slack'],
-  ['linkedin', 'LinkedIn'],
-  ['x', 'X'],
-  ['google', 'Google'],
+type OgCard = { id: string; label: string; family: string; status: 'error' | 'warning' | 'ok'; problems: string[]; preview: (fixed: boolean) => ReactNode };
+
+const OG_CARDS: OgCard[] = [
+  {
+    id: 'whatsapp',
+    label: 'WhatsApp',
+    family: 'Messaging',
+    status: 'error',
+    problems: ['No og:image: only the link is shown.', 'No og:site_name.'],
+    preview: (fixed) => (
+      <div className="rounded-lg bg-[#0B141A] p-2.5">
+        <div className="ml-6 rounded-lg rounded-br-sm bg-[#144D37] p-[3px] text-[#E9EDEF]">
+          <div className="overflow-hidden rounded-md bg-[#0F3A2A]">
+            {fixed && <ShareImage height={92} />}
+            <div className="flex min-w-0 flex-col gap-0.5 px-2.5 py-2">
+              <span className="line-clamp-2 text-xs font-semibold">{fixed ? 'Saltmint — Money, finally calm' : 'saltmint.app'}</span>
+              <span className="text-[10.5px] text-[#8FB0A3]">saltmint.app</span>
+            </div>
+          </div>
+          <div className="truncate px-1.5 pt-1.5 pb-0.5 text-[11.5px] text-[#53BDEB]">https://saltmint.app</div>
+        </div>
+      </div>
+    ),
+  },
+  {
+    id: 'linkedin',
+    label: 'LinkedIn',
+    family: 'Social',
+    status: 'warning',
+    problems: ['Image cropped to 1.91:1, the title on it gets cut.'],
+    preview: (fixed) => (
+      <div className="rounded-lg bg-[#F4F2EE] p-2.5">
+        <div className="overflow-hidden rounded-md border border-[#E0DFDC] bg-white text-[#111]">
+          {fixed ? <ShareImage height={92} /> : <div className="flex h-[92px] items-center justify-center bg-[#e9e7e2] text-[11px] text-[#888]">no image</div>}
+          <div className="px-3 py-2">
+            <div className="line-clamp-2 text-xs font-semibold">{fixed ? 'Saltmint — Money, finally calm' : 'saltmint.app'}</div>
+            <div className="text-[11px] text-[#666]">saltmint.app</div>
+          </div>
+        </div>
+      </div>
+    ),
+  },
+  {
+    id: 'x',
+    label: 'X',
+    family: 'Social',
+    status: 'warning',
+    problems: ['No twitter:card: a small card is shown.'],
+    preview: (fixed) => (
+      <div className="rounded-lg border border-line-soft bg-black p-2.5 text-[#E7E9EA]">
+        {fixed ? (
+          <div className="relative overflow-hidden rounded-xl border border-[#2F3336]">
+            <ShareImage height={92} />
+            <span className="absolute bottom-2 left-2 rounded bg-black/75 px-1.5 text-[11px] text-white">saltmint.app</span>
+          </div>
+        ) : (
+          <div className="flex overflow-hidden rounded-xl border border-[#2F3336]">
+            <div className="flex size-[72px] shrink-0 items-center justify-center bg-[#16181C]">
+              <Icon name="link" className="text-[#71767B]" />
+            </div>
+            <div className="flex min-w-0 flex-col justify-center gap-0.5 px-3">
+              <span className="text-[11px] text-[#71767B]">saltmint.app</span>
+              <span className="line-clamp-2 text-xs">saltmint.app</span>
+            </div>
+          </div>
+        )}
+      </div>
+    ),
+  },
+  {
+    id: 'slack',
+    label: 'Slack',
+    family: 'Messaging',
+    status: 'ok',
+    problems: [],
+    preview: () => (
+      <div className="rounded-lg bg-[#1A1D21] p-2.5 text-[#D1D2D3]">
+        <div className="flex flex-col gap-1 border-l-[3px] border-[#4A4D52] pl-2.5">
+          <span className="text-[11px] font-semibold">Saltmint</span>
+          <span className="text-[13px] font-semibold text-[#1D9BD1]">Money, finally calm</span>
+          <span className="line-clamp-2 text-xs">Sorts every payment and tells you what’s safe to spend.</span>
+        </div>
+      </div>
+    ),
+  },
+  {
+    id: 'google',
+    label: 'Google',
+    family: 'Search',
+    status: 'ok',
+    problems: [],
+    preview: () => (
+      <div className="flex flex-col gap-0.5 rounded-lg bg-white p-3 text-[#202124]">
+        <span className="text-[11px] text-[#4D5156]">saltmint.app › pricing</span>
+        <span className="text-[14px] text-[#1A0DAB]">Saltmint — Money, finally calm</span>
+        <span className="text-[11px] text-[#E7711B]">
+          ★★★★★ <span className="text-[#70757A]">4.9 · 12,000 reviews</span>
+        </span>
+      </div>
+    ),
+  },
+  {
+    id: 'imessage',
+    label: 'iMessage',
+    family: 'Messaging',
+    status: 'ok',
+    problems: [],
+    preview: () => (
+      <div className="flex justify-end rounded-lg bg-white p-2.5">
+        <div className="flex w-[85%] items-center gap-2 rounded-2xl bg-[#E9E9EB] p-2 text-[#111]">
+          <span className="size-9 shrink-0 rounded-md bg-[#11241c]" />
+          <div className="min-w-0">
+            <div className="truncate text-xs font-semibold">Saltmint — Money, finally calm</div>
+            <div className="text-[11px] text-[#6B6B70]">saltmint.app</div>
+          </div>
+        </div>
+      </div>
+    ),
+  },
 ];
 
-function SharePage({ s }: { s: DemoState }) {
-  const fixed = s.scene === 'share' && s.fixed;
-  const bad = (p: Platform) => !fixed && (p === 'whatsapp' || p === 'linkedin');
-  const image = (
-    <div className="flex h-[120px] items-end bg-[#f6f6f1] p-3 text-[#0e0f0c]">
-      <span className="text-[22px] leading-none font-semibold tracking-[-0.05em]">
-        Money,
-        <br />
-        finally calm.
-      </span>
-      <span className="ml-auto h-12 w-16 rounded-md bg-[#0e0f0c] shadow-[inset_-10px_-6px_0_#c6f432]" />
-    </div>
-  );
+function OgPill({ status }: { status: OgCard['status'] }) {
+  const label = status === 'error' ? 'Problem' : status === 'warning' ? 'Needs work' : 'OK';
+  const tone = status === 'error' ? 'border-err/30 bg-err/10 text-err' : status === 'warning' ? 'border-warn/30 bg-warn/10 text-warn' : 'border-ok/25 bg-ok/10 text-ok';
   return (
-    <motion.div {...fade} className="flex min-h-0 flex-1">
-      <div className="flex w-[170px] shrink-0 flex-col gap-0.5 border-r border-line-soft bg-chrome p-2">
-        <span className="label px-2 pt-1 pb-2">Platforms</span>
-        {PLATFORMS.map(([id, label]) => (
-          <span
-            key={id}
-            data-target={`share-${id}`}
-            className={`flex h-8 items-center justify-between rounded-md px-2.5 text-xs transition-colors ${s.platform === id ? 'bg-raised text-fg shadow-[inset_0_0_0_1px_#2e2e33]' : 'text-faint'}`}
-          >
-            {label}
-            <Dot className={bad(id) ? 'bg-err' : 'bg-ok'} />
-          </span>
+    <span className={`flex h-[22px] shrink-0 items-center gap-1.5 rounded-full border px-2 text-[11px] font-medium ${tone}`}>
+      <Dot className={status === 'error' ? 'bg-err' : status === 'warning' ? 'bg-warn' : 'bg-ok'} />
+      {label}
+    </span>
+  );
+}
+
+function OgCardView({ c, fixed, hover }: { c: OgCard; fixed: boolean; hover?: boolean }) {
+  const status = fixed ? 'ok' : c.status;
+  return (
+    <motion.article
+      layout
+      data-target={`og-${c.id}`}
+      className={`flex flex-col gap-2.5 rounded-xl border bg-card p-3 transition-shadow ${status === 'error' ? 'border-err/30' : status === 'warning' ? 'border-warn/25' : 'border-line'} ${hover ? 'shadow-[0_0_0_1px_#3a3a42]' : ''}`}
+    >
+      <div className="flex min-w-0 items-center gap-2.5">
+        <div className="flex min-w-0 flex-col leading-tight">
+          <span className="truncate text-[13px] font-semibold tracking-[-0.01em] text-fg">{c.label}</span>
+          <span className="truncate font-mono text-[10px] text-ghost">{c.family} · HTTP 200</span>
+        </div>
+        <span className="flex-1" />
+        <OgPill status={status} />
+      </div>
+      {c.preview(fixed)}
+      {status !== 'ok' && (
+        <ul className="m-0 flex list-none flex-col gap-1 border-t border-line-soft p-0 pt-2.5">
+          {c.problems.map((p) => (
+            <li key={p} className="flex gap-2 text-[11.5px] leading-snug text-muted">
+              <Dot className={`mt-[5px] ${status === 'error' ? 'bg-err' : 'bg-warn'}`} />
+              {p}
+            </li>
+          ))}
+        </ul>
+      )}
+    </motion.article>
+  );
+}
+
+/** The Open Graph page (SharePage.tsx): every preview at a glance, problems first, the fix in one bar on top. */
+function OpenGraphPage({ s }: { s: DemoState }) {
+  const fixed = s.scene === 'share' && s.fixed;
+  const todo = fixed ? [] : OG_CARDS.filter((c) => c.status !== 'ok');
+  const fine = fixed ? OG_CARDS : OG_CARDS.filter((c) => c.status === 'ok');
+  const group = (title: string, tone: string, cards: OgCard[], count: number) => (
+    <section className="flex flex-col gap-3">
+      <div className="flex items-center gap-2.5">
+        <Dot className={tone} />
+        <h3 className="m-0 text-[13px] font-semibold tracking-[-0.01em]">{title}</h3>
+        <span className="font-mono text-[11px] text-ghost">{count}</span>
+        <span className="h-px flex-1 bg-line-soft" />
+      </div>
+      <div className="grid grid-cols-3 items-start gap-3">
+        {cards.map((c) => (
+          <OgCardView key={c.id} c={c} fixed={fixed} hover={s.ogCard && c.id === 'whatsapp' && !fixed} />
         ))}
       </div>
-      <div className="flex min-w-0 flex-1 flex-col gap-4 p-5">
-        <div className="flex flex-1 items-center justify-center rounded-xl p-5" style={{ background: s.platform === 'whatsapp' ? '#0b141a' : '#000' }}>
-          <AnimatePresence mode="wait">
-            {s.platform === 'whatsapp' ? (
-              <motion.div key={`wa${fixed}`} {...fade} className="ml-auto w-[260px] overflow-hidden rounded-[10px] bg-[#005c4b] text-[#e9edef] shadow-lg">
-                {fixed ? (
-                  <>
-                    {image}
-                    <div className="flex flex-col gap-0.5 px-2.5 py-2 text-[11px]">
-                      <strong>Tidal — Budgeting that stays calm</strong>
-                      <span className="opacity-75">Sorts every payment and tells you what’s safe to spend.</span>
-                      <span className="opacity-60">tidal.money</span>
-                    </div>
-                  </>
-                ) : (
-                  <div className="flex flex-col gap-1 px-2.5 py-2 text-[11px]">
-                    <span className="rounded bg-black/20 px-2 py-1.5 opacity-80">tidal.money</span>
-                    <span className="text-[#53bdeb]">https://tidal.money</span>
-                  </div>
-                )}
-                <div className="px-2.5 pb-1.5 text-right text-[9px] opacity-60">10:42 ✓✓</div>
-              </motion.div>
-            ) : (
-              <motion.div key="li" {...fade} className="w-[300px] overflow-hidden rounded-lg border border-[#333] bg-[#1b1f23] text-[#e8e8e8]">
-                <div className="px-3 py-2 text-[11px]">Our spring release is live.</div>
-                {fixed ? image : <div className="flex h-[120px] items-center justify-center bg-[#2a2e33] text-[11px] text-[#8a8f95]">No image</div>}
-                <div className="flex flex-col px-3 py-2 text-[11px]">
-                  <strong>tidal.money</strong>
-                  <span className="opacity-60">tidal.money</span>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+    </section>
+  );
+  return (
+    <motion.div {...fade} className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <header className="flex shrink-0 items-center gap-4 border-b border-line-soft bg-chrome/90 px-5 py-3">
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <span className="text-[16px] font-semibold tracking-[-0.015em]">Open Graph</span>
+          <span className="truncate font-mono text-[11px] text-faint">localhost:3000/ · og:* · twitter:*</span>
         </div>
-        <div className="flex items-start gap-4">
-          <div className="flex min-w-0 flex-1 flex-col gap-1.5 text-xs">
-            {fixed ? (
-              <span className="flex items-center gap-2 text-ok">
-                <Icon name="check" size={13} /> Looks right on 10 platforms.
-              </span>
-            ) : (
-              <>
-                <span className="flex items-center gap-2 text-fg">
-                  <Dot className="bg-err" /> No og:image: only the address is shown.
-                </span>
-                <span className="flex items-center gap-2 text-fg">
-                  <Dot className="bg-warn" /> No og:site_name: the domain replaces your name.
-                </span>
-              </>
-            )}
-          </div>
-          {!fixed && (
-            <span data-target="ask-share" className="h-7 shrink-0 rounded-ui border border-[rgba(217,119,87,0.35)] bg-[rgba(217,119,87,0.08)] px-2.5 text-xs leading-7 font-semibold text-[#d97757]">
-              Ask Claude
+        <div className="flex items-center gap-1.5">
+          {fixed ? (
+            <span className="flex h-6 items-center gap-1.5 rounded-full bg-ok/10 px-2.5 text-[11.5px] font-medium text-ok">
+              <Dot className="bg-ok" />
+              10 OK
             </span>
+          ) : (
+            <>
+              <span className="flex h-6 items-center gap-1.5 rounded-full bg-err/10 px-2.5 text-[11.5px] font-medium text-err">
+                <Dot className="bg-err" />1 problem
+              </span>
+              <span className="flex h-6 items-center gap-1.5 rounded-full bg-warn/10 px-2.5 text-[11.5px] font-medium text-warn">
+                <Dot className="bg-warn" />2 to improve
+              </span>
+              <span className="flex h-6 items-center gap-1.5 rounded-full bg-ok/10 px-2.5 text-[11.5px] font-medium text-ok">
+                <Dot className="bg-ok" />7 OK
+              </span>
+            </>
           )}
         </div>
+        <span className="flex-1" />
+        <span className="flex h-8 items-center gap-2 rounded-ui border border-[#2a2a2f] bg-active px-3 text-xs font-medium">
+          <Icon name="reload" size={13} />
+          Re-read
+        </span>
+      </header>
+      <div className="flex min-h-0 flex-col gap-5 overflow-hidden px-5 pt-4">
+        <div className="flex items-center gap-3 rounded-xl border border-line bg-card px-4 py-3">
+          <span className={`flex size-8 shrink-0 items-center justify-center rounded-lg ${fixed ? 'bg-ok/10 text-ok' : 'bg-warn/10 text-warn'}`}>
+            <Icon name={fixed ? 'check' : 'code'} size={15} />
+          </span>
+          <div className="flex min-w-0 flex-1 flex-col leading-tight">
+            <span className="text-[13px] font-medium">{fixed ? 'All Open Graph tags are in place' : '3 tags to add'}</span>
+            <span className="truncate font-mono text-[11px] text-faint">Next.js{fixed ? '' : ' · app/layout.tsx'}</span>
+          </div>
+          {!fixed && (
+            <span data-target="ask-og" className="flex h-8 items-center gap-2 rounded-ui border border-[rgba(217,119,87,0.35)] bg-[rgba(217,119,87,0.08)] px-3 text-xs font-semibold text-[#d97757]">
+              <Icon name="spark" size={12} />
+              Ask Claude to fix it
+            </span>
+          )}
+          <span className="flex h-8 items-center gap-1.5 rounded-ui border border-[#2a2a2f] bg-active px-3 text-xs font-medium text-fg">{fixed ? 'Tags read' : 'Tags & fix'} ▾</span>
+        </div>
+        {todo.length > 0 && group('Needs a look', 'bg-err', todo, 3)}
+        {group('Working', 'bg-ok', fine, fixed ? 10 : 7)}
       </div>
     </motion.div>
   );
@@ -609,7 +749,7 @@ function PhoneDialog({ s }: { s: DemoState }) {
 }
 
 /** The real phone that scanned the code, sliding in next to the window. */
-function RealPhone({ lime }: { lime: boolean }) {
+function RealPhone({ accent }: { accent: boolean }) {
   return (
     <motion.div
       initial={{ opacity: 0, x: 80, rotate: 8 }}
@@ -620,7 +760,7 @@ function RealPhone({ lime }: { lime: boolean }) {
     >
       <div className="relative h-[396px] w-[183px] overflow-hidden rounded-[28px]">
         <div className="origin-top-left" style={{ width: 393, height: 852, transform: 'scale(0.4656)' }}>
-          <TidalPhone lime={lime} />
+          <SitePhone accent={accent} />
         </div>
         <span className="absolute top-2 left-1/2 h-4 w-14 -translate-x-1/2 rounded-full bg-black" />
       </div>
@@ -634,10 +774,10 @@ function ClaudePanel({ s }: { s: DemoState }) {
   return (
     <aside aria-hidden="true" className="flex w-[300px] shrink-0 flex-col border-l border-line-soft bg-chrome">
       <div className="flex h-11 shrink-0 items-center justify-between border-b border-line-soft pr-3 pl-4">
-        <span className="flex items-center gap-2 text-[13px] font-semibold">
-          <Icon name="spark" size={14} className="text-[#d97757]" />
+        <span className="flex items-center gap-2 text-[13px] font-medium">
+          <span className={`size-2 shrink-0 rounded-full bg-[#d97757] ${st === 'working' ? 'claude-dot' : ''}`} />
           Claude
-          <span className="font-mono text-[10.5px] font-normal text-ghost">~/dev/tidal</span>
+          <span className="font-mono text-[10.5px] font-normal text-ghost">~/dev/saltmint</span>
         </span>
         <span className={`flex items-center gap-1.5 font-mono text-[11px] ${st === 'working' ? 'text-[#d97757]' : st === 'done' ? 'text-ok' : 'text-ghost'}`}>
           <span className={`size-1.5 rounded-full ${st === 'working' ? 'claude-dot bg-[#d97757]' : st === 'done' ? 'bg-ok' : 'bg-ghost'}`} />
@@ -731,7 +871,7 @@ export const AppWindow = forwardRef<HTMLDivElement, { s: DemoState; children?: R
         <Rail s={s} />
         <main className="stage-bg relative flex min-w-0 flex-1 flex-col">
           {s.section === 'share' ? (
-            <SharePage s={s} />
+            <OpenGraphPage s={s} />
           ) : (
             <>
               <DeviceToolbar s={s} />
@@ -743,7 +883,7 @@ export const AppWindow = forwardRef<HTMLDivElement, { s: DemoState; children?: R
                 <AnimatePresence>{s.checksOpen && <ChecksPanel s={s} />}</AnimatePresence>
               </div>
               <AnimatePresence mode="popLayout">
-                {s.picked && <InspectBar key="inspect" lime={s.ctaLime} />}
+                {s.picked && <InspectBar key="inspect" accent={s.accent} />}
                 {s.consoleOpen && <ConsoleDrawer key="console" s={s} />}
               </AnimatePresence>
             </>
@@ -751,7 +891,7 @@ export const AppWindow = forwardRef<HTMLDivElement, { s: DemoState; children?: R
           <AnimatePresence>{s.phoneDialog && <PhoneDialog s={s} />}</AnimatePresence>
         </main>
         <ClaudePanel s={s} />
-        <AnimatePresence>{s.phoneLive && <RealPhone lime={s.ctaLime} />}</AnimatePresence>
+        <AnimatePresence>{s.phoneLive && <RealPhone accent={s.accent} />}</AnimatePresence>
       </div>
       <StatusBar s={s} />
       {children}

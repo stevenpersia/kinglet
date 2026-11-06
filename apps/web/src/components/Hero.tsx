@@ -12,7 +12,7 @@ const SCENES: { id: SceneId; label: string; color: string; caption: string }[] =
   { id: 'console', label: 'Console', color: '#f28b82', caption: 'Errors and failed requests from every device in one drawer. “Send to Claude” hands them over; Claude fixes, then reads the console again.' },
   { id: 'devices', label: 'Device tools', color: '#c6f432', caption: 'Slow 3G, the iOS keyboard, Tokyo: real-world conditions on every device at once. Then Claude fixes what they reveal.' },
   { id: 'phone', label: 'On my phone', color: '#a78bfa', caption: 'Share the dev server on the Wi-Fi, scan the code: your real phone shows localhost, with hot reload.' },
-  { id: 'share', label: 'Share previews', color: '#53bdeb', caption: 'Your link as WhatsApp, LinkedIn, Slack, X or Google show it, read by their own bots. Then the fix, by Claude.' },
+  { id: 'share', label: 'Open Graph', color: '#53bdeb', caption: 'Every Open Graph preview at a glance: WhatsApp, LinkedIn, X, Slack, Google… read by their own bots, problems first. One click and Claude adds the missing tags.' },
   { id: 'checks', label: 'Checks', color: '#7dd3a8', caption: '37 checks on every render: SEO, share, mobile, accessibility, performance. Each failure goes to Claude in one click.' },
   { id: 'deploy', label: 'Deploy', color: '#e6c07b', caption: 'Claude pushes, the Vercel preview is ready: open it from the address bar with its pull request and CI, then compare with prod.' },
 ];
@@ -181,7 +181,7 @@ export function Hero() {
       >
         <div
           role="img"
-          aria-label={`Kinglet showing the Tidal site on an iPhone 16 and a laptop, with Claude Code on the side. ${current.caption}`}
+          aria-label={`Kinglet showing the Saltmint site on an iPhone 16 and a laptop, with Claude Code on the side. ${current.caption}`}
           className="absolute top-0 left-0 origin-top-left"
           style={{ transform: `scale(${scale})`, width: WIDTH }}
         >
