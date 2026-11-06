@@ -1,7 +1,7 @@
 // Static build: Vite bundles the React page, then renders it to HTML (so the page reads without JavaScript),
 // fills in the head with absolute URLs, and writes robots.txt, sitemap and manifest.
 // The site URL comes from --site, KINGLET_SITE_URL, or Vercel's production domain at build time.
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -65,8 +65,35 @@ export async function build(out, site) {
   return out;
 }
 
+/**
+ * Vercel Build Output API (.vercel/output): the static site plus the launch-list function at /api/waitlist.
+ * Packaging the function here (rather than an api/ folder) keeps Vercel from re-installing the whole
+ * monorepo, Electron included, just to build it.
+ */
+export async function vercelOutput(dist, out = join(ROOT, '.vercel/output')) {
+  const { build: vite } = await import('vite');
+  rmSync(out, { recursive: true, force: true });
+  cpSync(dist, join(out, 'static'), { recursive: true });
+  const fn = join(out, 'functions/api/waitlist.func');
+  await vite({
+    root: ROOT,
+    logLevel: 'warn',
+    publicDir: false,
+    ssr: { noExternal: true },
+    build: { ssr: 'functions/waitlist.ts', outDir: fn, emptyOutDir: true, rollupOptions: { output: { entryFileNames: 'index.js', format: 'es' } } },
+  });
+  writeFileSync(join(fn, '.vc-config.json'), JSON.stringify({ runtime: 'edge', entrypoint: 'index.js' }, null, 2));
+  mkdirSync(out, { recursive: true });
+  writeFileSync(join(out, 'config.json'), JSON.stringify({ version: 3, routes: [{ handle: 'filesystem' }] }, null, 2));
+  return out;
+}
+
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const site = siteUrl();
-  await build(join(ROOT, 'dist'), site);
+  const dist = await build(join(ROOT, 'dist'), site);
   console.log(`dist/ built for ${site}`);
+  if (process.env.VERCEL) {
+    await vercelOutput(dist);
+    console.log('.vercel/output/ written (static site + /api/waitlist)');
+  }
 }

@@ -8,7 +8,7 @@ export const MCP_COMMAND = 'claude mcp add --scope user kinglet -- kinglet --mcp
 export const PRICE = { amount: 49, currency: '€', label: '€49' };
 
 /**
- * Before launch there is no download: people leave their email (api/waitlist.ts, a Resend audience)
+ * Before launch there is no download: people leave their email (functions/waitlist.ts, a Resend audience)
  * and get the launch discount by email.
  */
 export const WAITLIST_API = '/api/waitlist';
