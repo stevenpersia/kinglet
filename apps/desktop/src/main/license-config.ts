@@ -1,15 +1,16 @@
 /**
- * Lemon Squeezy store and product that Kinglet's license keys come from (Lemon Squeezy dashboard:
- * Settings → Stores for the store ID, Products → Kinglet for the product ID; not secrets).
- * A key from any other store or product is refused. Until both are filled in, the installed app
- * refuses every key (the development build doesn't ask for one).
+ * Polar organization and License Keys benefit that Kinglet's keys come from (not secrets).
+ * - organizationId: Polar dashboard → Settings → General, "Organization ID".
+ * - benefitId: Products → Benefits → the "License Keys" benefit of Kinglet, its ID.
+ * A key from another organization or another benefit is refused. Until both are filled in, the
+ * installed app refuses every key (the development build doesn't ask for one).
  */
-export const LEMON_SQUEEZY: { storeId: number | null; productId: number | null } = {
-  storeId: null,
-  productId: null,
+export const POLAR: { organizationId: string | null; benefitId: string | null } = {
+  organizationId: null,
+  benefitId: null,
 };
 
-/** Where "Buy Kinglet" leads (the Pricing section, which opens the Lemon Squeezy checkout). */
+/** Where "Buy Kinglet" leads (the Pricing section, which opens the Polar checkout). */
 export const BUY_URL = 'https://getkinglet.com/#pricing';
-/** Lemon Squeezy's page where buyers find their orders and keys again from their email. */
-export const ORDERS_URL = 'https://app.lemonsqueezy.com/my-orders';
+/** Polar's customer portal, where buyers find their key again from their email (polar.sh/<organization slug>/portal). */
+export const ORDERS_URL = 'https://polar.sh/kinglet/portal';

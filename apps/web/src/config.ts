@@ -15,9 +15,9 @@ export const WAITLIST_API = '/api/waitlist';
 export const LAUNCH_OFFER = 'a launch discount';
 
 /**
- * Lemon Squeezy checkout of the Kinglet product (Lemon Squeezy dashboard: Products → Kinglet → Share,
- * e.g. https://kinglet.lemonsqueezy.com/buy/…). While it is null the site keeps the launch list;
- * once set, every "Join the list" becomes "Buy Kinglet". Lemon Squeezy emails the license key, which
+ * Polar checkout link of the Kinglet product (Polar dashboard: Products → Checkout Links,
+ * e.g. https://buy.polar.sh/polar_cl_…). While it is null the site keeps the launch list;
+ * once set, every "Join the list" becomes "Buy Kinglet". Polar hands out the license key, which
  * the app asks for on first launch.
  */
 export const CHECKOUT_URL: string | null = null;

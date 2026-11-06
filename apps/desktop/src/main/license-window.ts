@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { app, BrowserWindow, ipcMain, Menu, safeStorage, shell } from 'electron';
 import { resolveLanguage, setLanguage } from '@kinglet/core';
 import type { LicenseState } from '../shared/types';
-import { BUY_URL, LEMON_SQUEEZY, ORDERS_URL } from './license-config';
+import { BUY_URL, ORDERS_URL, POLAR } from './license-config';
 import { LicenseService, type Sealer } from './license';
 
 /** The OS keyring through Electron (KWallet, GNOME Keyring), like the Vercel and GitHub tokens. */
@@ -16,12 +16,13 @@ const keyring: Sealer = {
 
 /**
  * The installed app asks for a license; the development build doesn't, unless KINGLET_LICENSE_API
- * points it at a (test) License API. The installed app ignores both test variables: it only talks
- * to Lemon Squeezy, about Kinglet's own store and product.
+ * points it at a (test) license API, e.g. https://sandbox-api.polar.sh. The installed app ignores both
+ * test variables: it only talks to Polar, about Kinglet's own organization and benefit.
  */
 export function createLicense() {
   const test = !app.isPackaged && !!process.env.KINGLET_LICENSE_API;
-  const [storeId, productId] = (process.env.KINGLET_LICENSE_PRODUCT ?? '').split(':').map(Number);
+  // KINGLET_LICENSE_PRODUCT=<organization id>:<benefit id> (e.g. a Polar sandbox organization).
+  const [organizationId, benefitId] = (process.env.KINGLET_LICENSE_PRODUCT ?? '').split(':');
   const name = (() => {
     try {
       return `${userInfo().username}@${hostname()}`;
@@ -31,7 +32,7 @@ export function createLicense() {
   })();
   return new LicenseService({
     file: join(app.getPath('userData'), 'license.json'),
-    product: test && storeId && productId ? { storeId, productId } : LEMON_SQUEEZY,
+    product: test && organizationId && benefitId ? { organizationId, benefitId } : POLAR,
     instanceName: name,
     enforced: app.isPackaged || test,
     seal: keyring,

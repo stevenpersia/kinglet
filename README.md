@@ -186,25 +186,25 @@ Le workflow `release.yml` refait les tests, construit, teste l'app packagée (mi
 
 Le prix (paiement unique) est dans `apps/web/src/config.ts`. Avant la sortie, il n'y a pas de téléchargement sur le site : un champ e-mail (hero, Pricing, bas de page) inscrit à la liste de lancement, et ceux qui y sont recevront une remise à la sortie. Le formulaire envoie à la fonction Vercel `apps/web/functions/waitlist.ts` (une fonction Edge, emballée par `scripts/build.mjs` au format *Build Output* de Vercel, servie sur `/api/waitlist`), qui ajoute l'adresse à une *audience* Resend (là d'où partira l'e-mail de lancement). Variables à mettre dans le projet Vercel : `RESEND_API_KEY` et `RESEND_AUDIENCE_ID`. Le formulaire marche aussi sans JavaScript, avec un champ piège contre les robots.
 
-### Licence (Lemon Squeezy)
+### Licence (Polar)
 
 Sans licence valide, l'app installée (AppImage ou paquet pacman) **ne s'ouvre pas** : seule une fenêtre « Activer Kinglet » s'affiche (champ pour la clé, « Acheter Kinglet », « Clé perdue ? »), et la fenêtre de Kinglet et tout son IPC ne sont créés qu'une fois la clé activée. `kinglet --mcp` refuse aussi de démarrer. La version de développement (`pnpm dev`, selftest) ne demande rien.
 
-- **Achat** : le paiement hébergé par Lemon Squeezy (vendeur officiel : TVA, factures), qui envoie la clé par e-mail.
-- **Activation** : l'app appelle directement la [License API](https://docs.lemonsqueezy.com/api/license-api) (`activate`, `validate`, `deactivate` ; pas de clé d'API, pas de serveur à nous). Chaque ordinateur est une activation, nommée `utilisateur@machine`. Une clé d'une autre boutique ou d'un autre produit est refusée (et son activation rendue).
-- **Vérification** : au démarrage (sautée si la dernière date de moins d'un jour), 30 s après, puis toutes les 6 heures. Clé refusée (remboursement, clé désactivée, activation supprimée) : Kinglet redémarre sur la fenêtre de licence. Sans connexion, la dernière vérification vaut 14 jours.
+- **Achat** : le paiement hébergé par [Polar](https://polar.sh) (vendeur officiel : TVA, factures). Le produit a l'avantage *License Keys* : la clé est dans l'e-mail de reçu et l'espace client Polar.
+- **Activation** : l'app appelle directement les [clés de licence de Polar](https://polar.sh/docs/features/benefits/license-keys) (`/v1/customer-portal/license-keys/activate`, `validate`, `deactivate` ; faits pour une app de bureau, sans jeton ni serveur à nous). Chaque ordinateur est une activation, nommée `utilisateur@machine`. La vérification passe l'ID de l'organisation et celui de l'avantage : une clé d'un autre vendeur Polar ou d'un autre produit est refusée (et son activation rendue).
+- **Vérification** : au démarrage (sautée si la dernière date de moins d'un jour), 30 s après, puis toutes les 6 heures. Clé refusée (remboursement, clé révoquée, activation supprimée) : Kinglet redémarre sur la fenêtre de licence. Sans connexion, la dernière vérification vaut 14 jours.
 - **Stockage** : `~/.config/Kinglet/license.json` (mode 600), la clé chiffrée par le trousseau du système comme les jetons Vercel et GitHub.
-- **Réglages → Licence** : à qui est la licence, ordinateurs utilisés, dernière vérification, et « Désactiver sur cet ordinateur » pour passer Kinglet sur un autre.
+- **Réglages → Licence** : à qui est la licence, nombre d'ordinateurs permis, dernière vérification, et « Désactiver sur cet ordinateur » pour passer Kinglet sur un autre (les clients peuvent aussi supprimer une activation depuis l'espace client Polar).
 
-Code : `apps/desktop/src/main/license.ts` (logique, testée dans `license.test.ts`), `license-window.ts` (fenêtre et démarrage), `src/renderer/license/` (écran).
+Code : `apps/desktop/src/main/license.ts` (logique, testée dans `license.test.ts`), `license-window.ts` (fenêtre et démarrage), `license-config.ts` (identifiants), `src/renderer/license/` (écran).
 
 À faire avant la sortie :
 
-1. Dans Lemon Squeezy : créer la boutique (validée par Lemon Squeezy), le produit Kinglet à 49 $ en paiement unique avec **Generate license keys** coché et une limite de **3 activations** (le site le dit), sans expiration. Le bouton du reçu peut mener aux [releases](https://github.com/stevenpersia/kinglet-releases/releases/latest).
-2. Mettre l'ID de la boutique et celui du produit dans `apps/desktop/src/main/license-config.ts` (tant qu'ils sont vides, l'app installée refuse toutes les clés).
-3. Mettre l'adresse du paiement dans `CHECKOUT_URL` de `apps/web/src/config.ts` : tous les « Join the list » du site deviennent « Buy Kinglet » et la FAQ change. Créer un code de remise pour l'e-mail de lancement à la liste.
+1. Dans Polar : créer l'organisation, puis dans *Benefits* un avantage **License Keys** (préfixe `KINGLET`, sans expiration, **limite d'activations à 3** — le site le dit — et « laisser les clients désactiver leurs activations » coché). Créer le produit Kinglet à 49 $ en paiement unique avec cet avantage, et un lien de paiement (*Checkout Links*) qui renvoie, une fois payé, vers les [releases](https://github.com/stevenpersia/kinglet-releases/releases/latest).
+2. Mettre l'ID de l'organisation et celui de l'avantage dans `apps/desktop/src/main/license-config.ts` (tant qu'ils sont vides, l'app installée refuse toutes les clés), et l'adresse de l'espace client (`polar.sh/<slug>/portal`) dans `ORDERS_URL`.
+3. Mettre le lien de paiement dans `CHECKOUT_URL` de `apps/web/src/config.ts` : tous les « Join the list » du site deviennent « Buy Kinglet » et la FAQ change. Créer un code de remise pour l'e-mail de lancement à la liste.
 
-Tester contre une fausse License API (version de développement uniquement, ignoré par l'app installée) : `KINGLET_LICENSE_API=http://127.0.0.1:8787 KINGLET_LICENSE_PRODUCT=<store>:<product> pnpm dev`.
+Tester (version de développement uniquement, ignoré par l'app installée), contre le bac à sable de Polar avec une organisation de test : `KINGLET_LICENSE_API=https://sandbox-api.polar.sh KINGLET_LICENSE_PRODUCT=<organisation>:<avantage> pnpm dev`.
 
 ```bash
 pnpm --filter @kinglet/web dev        # http://localhost:4173, rechargement à chaud

@@ -52,7 +52,7 @@ export function Pricing() {
               <p className="m-0 text-sm leading-relaxed text-faint">
                 {LAUNCHED ? (
                   <>
-                    One license for you, on up to 3 computers. Linux (AppImage and pacman). The key arrives by email right after paying;{' '}
+                    One license for you, on up to 3 computers. Linux (AppImage and pacman). The key is ready right after paying;{' '}
                     <a href={DOWNLOAD_URL} className="text-muted underline underline-offset-2 hover:text-fg">
                       download Kinglet
                     </a>{' '}
@@ -63,7 +63,7 @@ export function Pricing() {
                 )}
               </p>
               <GetKinglet align="stretch" />
-              <p className="m-0 text-xs text-ghost">{LAUNCHED ? 'Secure checkout by Lemon Squeezy. VAT included where it applies.' : 'One email at launch. No spam, unsubscribe in one click.'}</p>
+              <p className="m-0 text-xs text-ghost">{LAUNCHED ? 'Secure checkout by Polar. VAT included where it applies.' : 'One email at launch. No spam, unsubscribe in one click.'}</p>
             </div>
             <ul className="m-0 flex min-w-0 flex-[1_1_300px] list-none flex-col gap-3 p-0">
               {INCLUDED.map((f) => (
@@ -84,7 +84,7 @@ export function Pricing() {
 
 const FAQ: [string, string][] = [
   LAUNCHED
-    ? ['How do I get it?', 'Buy it in Pricing: Lemon Squeezy emails your license key right away. Download Kinglet, open it and enter the key. It works on up to 3 computers; moving to a new one is a click in Settings → License.']
+    ? ['How do I get it?', 'Buy it in Pricing: your license key is ready right away, in the receipt email and Polar’s customer portal. Download Kinglet, open it and enter the key. It works on up to 3 computers; moving to a new one is a click in Settings → License.']
     : ['When can I get it?', `Soon. Leave your email in Pricing: you’ll get one email at launch, with ${LAUNCH_OFFER} for people on the list.`],
   ...(LAUNCHED ? ([['Does it work offline?', 'Yes. Activating needs the internet once; after that Kinglet checks the license now and then and keeps working offline for up to 14 days at a time.']] as [string, string][]) : []),
   ['Is it a subscription?', `No. You pay ${PRICE.label} once and keep Kinglet. Updates install themselves.`],

@@ -350,23 +350,24 @@ export interface PhoneState {
   clients: { id: number; userAgent: string; since: number }[];
 }
 
-/** Kinglet's license (a Lemon Squeezy key, activated on this computer). */
+/** Kinglet's license (a Polar license key, activated on this computer). */
 export interface LicenseState {
   /**
-   * dev: development build, no license asked. active: checked with Lemon Squeezy. offline: last check
+   * dev: development build, no license asked. active: checked with Polar. offline: last check
    * failed for lack of connection, still within the grace period. none: no key on this computer.
-   * invalid: Lemon Squeezy refused the key (refunded, disabled, deactivated). expired: offline for too long.
-   * unconfigured: this build doesn't know its Lemon Squeezy store and product yet.
+   * invalid: Polar refused the key (refunded, revoked, activation removed). expired: offline for too long.
+   * unconfigured: this build doesn't know its Polar organization and benefit yet.
    */
   status: 'dev' | 'active' | 'offline' | 'none' | 'invalid' | 'expired' | 'unconfigured';
   /** The key with only its last characters visible. */
   key: string | null;
   email: string | null;
   customer: string | null;
-  /** This computer's name in Lemon Squeezy's list of activations. */
+  /** This computer's name in the key's list of activations. */
   instanceName: string | null;
-  activations: { used: number; limit: number | null } | null;
-  /** Last successful check with Lemon Squeezy. */
+  /** How many computers the key can be activated on (null: no limit). */
+  activationLimit: number | null;
+  /** Last successful check with Polar. */
   validatedAt: number | null;
   error: string | null;
 }

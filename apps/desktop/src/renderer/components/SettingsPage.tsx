@@ -90,7 +90,7 @@ function LicenseSettings() {
     [t('Licensed to', 'Licence de'), [license.customer, license.email].filter(Boolean).join(' · ') || null],
     [t('Key', 'Clé'), license.key],
     [t('This computer', 'Cet ordinateur'), license.instanceName],
-    [t('Computers', 'Ordinateurs'), license.activations ? `${license.activations.used} / ${license.activations.limit ?? '∞'}` : null],
+    [t('Computers', 'Ordinateurs'), license.activationLimit ? t(`Up to ${license.activationLimit}`, `Jusqu’à ${license.activationLimit}`) : null],
     [
       t('Last check', 'Dernière vérification'),
       license.validatedAt
@@ -112,8 +112,8 @@ function LicenseSettings() {
       </div>
       <p className="m-0 text-xs text-muted">
         {t(
-          'Kinglet checks the license with Lemon Squeezy at startup and every 6 hours. Offline, it keeps working for 14 days after the last check.',
-          'Kinglet vérifie la licence auprès de Lemon Squeezy au démarrage et toutes les 6 heures. Hors ligne, il continue de marcher 14 jours après la dernière vérification.',
+          'Kinglet checks the license with Polar at startup and every 6 hours. Offline, it keeps working for 14 days after the last check. Your activations are also listed in Polar’s customer portal.',
+          'Kinglet vérifie la licence auprès de Polar au démarrage et toutes les 6 heures. Hors ligne, il continue de marcher 14 jours après la dernière vérification. Tes activations sont aussi listées dans l’espace client Polar.',
         )}
       </p>
       <div className="flex flex-col gap-2 rounded-[10px] border border-line bg-card p-3.5">

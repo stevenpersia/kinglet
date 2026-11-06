@@ -2,7 +2,7 @@ import { Icon } from '../../../desktop/src/renderer/components/Icons';
 import { CHECKOUT_URL, PRICE } from '../config';
 import { WaitlistForm } from './Waitlist';
 
-/** Lemon Squeezy's checkout (card, PayPal, VAT handled), which emails the license key. */
+/** Polar's checkout (merchant of record: VAT handled), which hands out the license key. */
 export function BuyButton({ className = '' }: { className?: string }) {
   return (
     <a

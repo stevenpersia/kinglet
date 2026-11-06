@@ -4,9 +4,10 @@ import { t } from '@kinglet/core';
 import type { LicenseState } from '../shared/types';
 
 /**
- * Kinglet's license: a Lemon Squeezy license key, activated once per computer.
- * https://docs.lemonsqueezy.com/api/license-api — activate, validate, deactivate. These three calls
- * take the key itself, no API key, so the app talks to Lemon Squeezy directly.
+ * Kinglet's license: a Polar license key (License Keys benefit of the Kinglet product), activated
+ * once per computer. https://polar.sh/docs/features/benefits/license-keys — the customer portal's
+ * activate, validate and deactivate take the key itself, no access token, and are meant to be
+ * called from a desktop app: Kinglet talks to Polar directly.
  *
  * Without a valid license the app doesn't open at all (index.ts): only the license window, and
  * `kinglet --mcp` refuses to start. The key is checked at startup (skipped when the last check is
@@ -17,7 +18,7 @@ import type { LicenseState } from '../shared/types';
 const DAY = 24 * 60 * 60 * 1000;
 /** Without a connection, Kinglet keeps working this long after the last successful check. */
 export const GRACE_MS = 14 * DAY;
-/** A check this recent lets Kinglet start without waiting for Lemon Squeezy. */
+/** A check this recent lets Kinglet start without waiting for Polar. */
 export const FRESH_MS = DAY;
 const TIMEOUT_MS = 8000;
 
@@ -33,31 +34,40 @@ export const plainSealer: Sealer = { available: () => false, encrypt: (s) => s, 
 interface Stored {
   key: string;
   encrypted: boolean;
+  /** Polar's activation ID for this computer. */
   instanceId: string;
   instanceName: string;
   email: string | null;
   customer: string | null;
-  activations: { used: number; limit: number | null } | null;
+  activationLimit: number | null;
   validatedAt: number;
 }
 
-/** What the License API answers (only the fields Kinglet reads). */
-interface LsResponse {
-  activated?: boolean;
-  valid?: boolean;
-  deactivated?: boolean;
-  error?: string | null;
-  license_key?: { status?: string; activation_limit?: number | null; activation_usage?: number } | null;
-  instance?: { id?: string; name?: string } | null;
-  meta?: { store_id?: number; product_id?: number; customer_name?: string; customer_email?: string } | null;
+/** A Polar license key, as activate (inside `license_key`) and validate (at the top) return it. */
+interface PolarKey {
+  benefit_id?: string;
+  organization_id?: string;
+  status?: string;
+  limit_activations?: number | null;
+  customer?: { email?: string | null; name?: string | null } | null;
 }
 
-type Call = { kind: 'answer'; status: number; body: LsResponse } | { kind: 'offline'; error: string };
+interface PolarAnswer extends PolarKey {
+  /** activate: the activation's ID. */
+  id?: string;
+  license_key?: PolarKey;
+  /** validate: the activation that was checked. */
+  activation?: { id?: string } | null;
+  error?: string;
+  detail?: unknown;
+}
+
+type Call = { kind: 'answer'; status: number; body: PolarAnswer } | { kind: 'offline'; error: string };
 
 export interface LicenseOptions {
   file: string;
-  /** Store and product the key must belong to; null fields: not configured yet, every key is refused. */
-  product: { storeId: number | null; productId: number | null };
+  /** Organization and benefit the key must belong to; null fields: not configured yet, every key is refused. */
+  product: { organizationId: string | null; benefitId: string | null };
   instanceName: string;
   /** false in the development build: no license asked. */
   enforced: boolean;
@@ -69,19 +79,38 @@ export interface LicenseOptions {
 
 export const maskKey = (key: string) => (key.length > 8 ? `••••-${key.slice(-8)}` : '••••');
 
-/** Lemon Squeezy's messages are in English and terse: the common ones, explained. */
-export function explainError(raw: string | null | undefined): string {
-  const m = raw ?? '';
-  if (/activation limit/i.test(m))
-    return t(
-      'This key is already active on as many computers as it allows. Deactivate it on another one (Settings → License), then try again.',
-      'Cette clé est déjà active sur le nombre maximum d’ordinateurs. Désactive-la sur un autre (Réglages → Licence), puis réessaie.',
-    );
-  if (/license_key.*not found|key not found|invalid.*key|not.*valid/i.test(m)) return t('This key doesn’t exist. Check it in your purchase email.', 'Cette clé n’existe pas. Vérifie-la dans ton e-mail d’achat.');
-  if (/instance.*not found/i.test(m)) return t('This computer’s activation was removed. Enter your key again.', 'L’activation de cet ordinateur a été supprimée. Saisis à nouveau ta clé.');
-  if (/disabled/i.test(m)) return t('This key has been disabled (refund or support). Contact support if it’s a mistake.', 'Cette clé a été désactivée (remboursement ou support). Contacte le support si c’est une erreur.');
-  if (/expired/i.test(m)) return t('This key has expired.', 'Cette clé a expiré.');
-  return m || t('Lemon Squeezy refused this key.', 'Lemon Squeezy a refusé cette clé.');
+const detailOf = (body: PolarAnswer) => (typeof body.detail === 'string' ? body.detail : '');
+
+const MSG = {
+  limit: () =>
+    t(
+      'This key is already active on as many computers as it allows. Deactivate it on another one (Settings → License, or Polar’s customer portal), then try again.',
+      'Cette clé est déjà active sur le nombre maximum d’ordinateurs. Désactive-la sur un autre (Réglages → Licence, ou l’espace client Polar), puis réessaie.',
+    ),
+  unknown: () => t('This key doesn’t exist. Check it in your purchase email.', 'Cette clé n’existe pas. Vérifie-la dans ton e-mail d’achat.'),
+  revoked: () => t('This key has been revoked (refund or support). Contact support if it’s a mistake.', 'Cette clé a été révoquée (remboursement ou support). Contacte le support si c’est une erreur.'),
+  notKinglet: () => t('This key isn’t a Kinglet key.', 'Cette clé n’est pas une clé Kinglet.'),
+  noLonger: () =>
+    t(
+      'Polar no longer accepts this key on this computer (refunded, revoked, or this computer’s activation was removed). Enter your key again.',
+      'Polar n’accepte plus cette clé sur cet ordinateur (remboursée, révoquée, ou activation de cet ordinateur supprimée). Saisis à nouveau ta clé.',
+    ),
+};
+
+/** Polar's answer to activate, explained (403: refused, 404: unknown key, 422: not even a key). */
+export function explainActivate(status: number, body: PolarAnswer): string {
+  const detail = detailOf(body);
+  // Polar's messages: "…activation limit already reached", "License key is no longer active…",
+  // "License key has expired.", "This license key does not support activations…".
+  if (status === 403) {
+    if (/limit/i.test(detail)) return MSG.limit();
+    if (/expired/i.test(detail)) return t('This key has expired.', 'Cette clé a expiré.');
+    if (/support activations/i.test(detail))
+      return t('This key can’t be activated on a computer (the product has no activation limit). Contact support.', 'Cette clé ne peut pas être activée sur un ordinateur (le produit n’a pas de limite d’activations). Contacte le support.');
+    return MSG.revoked();
+  }
+  if (status === 404 || status === 422) return MSG.unknown();
+  return detail || t(`Polar refused this key (${status}).`, `Polar a refusé cette clé (${status}).`);
 }
 
 export class LicenseService {
@@ -89,7 +118,7 @@ export class LicenseService {
   private fetcher: typeof fetch;
   private now: () => number;
   private api: string;
-  /** Last error to show (refused key, no connection…), with the key that was refused to prefill the field. */
+  /** Last error to show (refused key, no connection…). */
   private lastError: string | null = null;
   private lastStatus: LicenseState['status'] | null = null;
 
@@ -97,11 +126,11 @@ export class LicenseService {
     this.seal = o.seal ?? plainSealer;
     this.fetcher = o.fetch ?? fetch;
     this.now = o.now ?? Date.now;
-    this.api = (o.api ?? 'https://api.lemonsqueezy.com').replace(/\/$/, '');
+    this.api = (o.api ?? 'https://api.polar.sh').replace(/\/$/, '');
   }
 
   get configured() {
-    return this.o.product.storeId != null && this.o.product.productId != null;
+    return !!this.o.product.organizationId && !!this.o.product.benefitId;
   }
 
   private load(): Stored | null {
@@ -122,7 +151,7 @@ export class LicenseService {
     }
   }
 
-  private save(s: Omit<Stored, 'encrypted' | 'key'> & { key: string }) {
+  private save(s: Omit<Stored, 'encrypted'>) {
     const encrypted = this.seal.available();
     mkdirSync(dirname(this.o.file), { recursive: true });
     const stored: Stored = { ...s, key: encrypted ? this.seal.encrypt(s.key) : s.key, encrypted };
@@ -139,21 +168,21 @@ export class LicenseService {
     return age < -DAY ? Infinity : Math.max(0, age);
   }
 
-  private belongs(meta: LsResponse['meta']) {
-    return !!meta && meta.store_id === this.o.product.storeId && meta.product_id === this.o.product.productId;
+  private belongs(key: PolarKey | undefined) {
+    return !!key && key.benefit_id === this.o.product.benefitId && (key.organization_id === undefined || key.organization_id === this.o.product.organizationId);
   }
 
   private async call(path: 'activate' | 'validate' | 'deactivate', params: Record<string, string>): Promise<Call> {
     try {
-      const res = await this.fetcher(`${this.api}/v1/licenses/${path}`, {
+      const res = await this.fetcher(`${this.api}/v1/customer-portal/license-keys/${path}`, {
         method: 'POST',
-        headers: { accept: 'application/json', 'content-type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams(params).toString(),
+        headers: { accept: 'application/json', 'content-type': 'application/json' },
+        body: JSON.stringify({ organization_id: this.o.product.organizationId, ...params }),
         signal: AbortSignal.timeout(TIMEOUT_MS),
       });
-      // Lemon Squeezy down or rate limiting: like being offline, the last check still holds.
-      if (res.status >= 500 || res.status === 429) return { kind: 'offline', error: `Lemon Squeezy ${res.status}` };
-      const body = (await res.json().catch(() => ({}))) as LsResponse;
+      // Polar down or rate limiting: like being offline, the last check still holds.
+      if (res.status >= 500 || res.status === 429) return { kind: 'offline', error: `Polar ${res.status}` };
+      const body = res.status === 204 ? {} : ((await res.json().catch(() => ({}))) as PolarAnswer);
       return { kind: 'answer', status: res.status, body };
     } catch (e) {
       return { kind: 'offline', error: (e as Error).message };
@@ -162,13 +191,14 @@ export class LicenseService {
 
   state(): LicenseState {
     const s = this.load();
+    const key = s && this.keyOf(s);
     const base: LicenseState = {
       status: 'none',
-      key: s ? (this.keyOf(s) ? maskKey(this.keyOf(s)!) : null) : null,
+      key: key ? maskKey(key) : null,
       email: s?.email ?? null,
       customer: s?.customer ?? null,
       instanceName: s?.instanceName ?? null,
-      activations: s?.activations ?? null,
+      activationLimit: s?.activationLimit ?? null,
       validatedAt: s?.validatedAt ?? null,
       error: this.lastError,
     };
@@ -176,8 +206,7 @@ export class LicenseService {
     if (!this.configured) return { ...base, status: 'unconfigured', error: t('This build of Kinglet can’t check licenses yet.', 'Cette version de Kinglet ne sait pas encore vérifier les licences.') };
     if (this.lastStatus && this.lastStatus !== 'active' && this.lastStatus !== 'offline') return { ...base, status: this.lastStatus };
     if (!s) return base;
-    const age = this.age(s);
-    if (age >= GRACE_MS) return { ...base, status: 'expired' };
+    if (this.age(s) >= GRACE_MS) return { ...base, status: 'expired' };
     return { ...base, status: this.lastStatus ?? 'active' };
   }
 
@@ -188,17 +217,20 @@ export class LicenseService {
 
   /**
    * At startup: a check less than a day old is enough (Kinglet opens at once and checks again later);
-   * otherwise asks Lemon Squeezy first.
+   * otherwise asks Polar first.
    */
   async startup(): Promise<LicenseState> {
     if (!this.o.enforced || !this.configured) return this.state();
     const s = this.load();
-    if (!s) return this.state();
-    if (this.age(s) < FRESH_MS) return this.state();
+    if (!s || this.age(s) < FRESH_MS) return this.state();
     return this.validate();
   }
 
-  /** Checks the key of this computer with Lemon Squeezy. */
+  private details(key: PolarKey | undefined): Pick<Stored, 'email' | 'customer' | 'activationLimit'> {
+    return { email: key?.customer?.email ?? null, customer: key?.customer?.name ?? null, activationLimit: key?.limit_activations ?? null };
+  }
+
+  /** Checks this computer's activation with Polar. */
   async validate(): Promise<LicenseState> {
     if (!this.o.enforced || !this.configured) return this.state();
     const s = this.load();
@@ -207,71 +239,59 @@ export class LicenseService {
       if (s) this.clear();
       return this.state();
     }
-    const res = await this.call('validate', { license_key: key, instance_id: s.instanceId });
+    // benefit_id makes Polar itself refuse a key of another product.
+    const res = await this.call('validate', { key, activation_id: s.instanceId, benefit_id: this.o.product.benefitId! });
     if (res.kind === 'offline') {
       this.lastStatus = this.age(s) < GRACE_MS ? 'offline' : 'expired';
       this.lastError =
         this.lastStatus === 'offline'
           ? null
-          : t('Kinglet couldn’t reach Lemon Squeezy for 14 days. Connect to the internet to check your license.', 'Kinglet n’a pas pu joindre Lemon Squeezy depuis 14 jours. Connecte-toi à internet pour vérifier ta licence.');
+          : t('Kinglet couldn’t reach Polar for 14 days. Connect to the internet to check your license.', 'Kinglet n’a pas pu joindre Polar depuis 14 jours. Connecte-toi à internet pour vérifier ta licence.');
       return this.state();
     }
-    const { body } = res;
-    if (body.valid && this.belongs(body.meta) && body.instance?.id === s.instanceId && body.license_key?.status !== 'disabled') {
+    const { status, body } = res;
+    if (status === 200 && body.status === 'granted' && this.belongs(body) && body.activation?.id === s.instanceId) {
       this.save({ ...s, key, ...this.details(body), validatedAt: this.now() });
       this.lastStatus = 'active';
       this.lastError = null;
       return this.state();
     }
-    // Refused (refund, key disabled, activation removed from the Lemon Squeezy dashboard…).
+    // 404: revoked (refund), disabled, expired, or the activation was removed in Polar.
     this.clear();
     this.lastStatus = 'invalid';
-    this.lastError =
-      body.valid && !this.belongs(body.meta)
-        ? t('This key isn’t a Kinglet key.', 'Cette clé n’est pas une clé Kinglet.')
-        : explainError(body.error ?? (body.license_key?.status === 'disabled' ? 'disabled' : body.instance?.id !== s.instanceId ? 'instance not found' : null));
+    this.lastError = status === 200 && !this.belongs(body) ? MSG.notKinglet() : MSG.noLonger();
     return this.state();
-  }
-
-  private details(body: LsResponse): Pick<Stored, 'email' | 'customer' | 'activations'> {
-    const lk = body.license_key;
-    return {
-      email: body.meta?.customer_email ?? null,
-      customer: body.meta?.customer_name ?? null,
-      activations: lk ? { used: lk.activation_usage ?? 0, limit: lk.activation_limit ?? null } : null,
-    };
   }
 
   /** Activates a key on this computer (one of the key's activations). */
   async activate(rawKey: string): Promise<LicenseState> {
     const key = rawKey.trim();
     if (!key) {
-      this.lastError = t('Paste your license key.', 'Colle ta clé de licence.');
       this.lastStatus = 'none';
+      this.lastError = t('Paste your license key.', 'Colle ta clé de licence.');
       return this.state();
     }
     if (!this.configured) return this.state();
-    const res = await this.call('activate', { license_key: key, instance_name: this.o.instanceName });
+    const res = await this.call('activate', { key, label: this.o.instanceName.slice(0, 100) });
     if (res.kind === 'offline') {
       this.lastStatus = 'none';
-      this.lastError = t('No connection to Lemon Squeezy. Activating needs the internet once.', 'Pas de connexion à Lemon Squeezy. L’activation demande internet une fois.');
+      this.lastError = t('No connection to Polar. Activating needs the internet once.', 'Pas de connexion à Polar. L’activation demande internet une fois.');
       return this.state();
     }
-    const { body } = res;
-    const instanceId = body.instance?.id;
-    if (!body.activated || !instanceId) {
+    const { status, body } = res;
+    if (status !== 200 || !body.id) {
       this.lastStatus = 'none';
-      this.lastError = explainError(body.error);
+      this.lastError = explainActivate(status, body);
       return this.state();
     }
-    if (!this.belongs(body.meta)) {
-      // Someone else's product: give the activation back so the key loses nothing.
-      await this.call('deactivate', { license_key: key, instance_id: instanceId });
+    if (!this.belongs(body.license_key)) {
+      // Another product of the organization: give the activation back so the key loses nothing.
+      await this.call('deactivate', { key, activation_id: body.id });
       this.lastStatus = 'none';
-      this.lastError = t('This key isn’t a Kinglet key.', 'Cette clé n’est pas une clé Kinglet.');
+      this.lastError = MSG.notKinglet();
       return this.state();
     }
-    this.save({ key, instanceId, instanceName: this.o.instanceName, ...this.details(body), validatedAt: this.now() });
+    this.save({ key, instanceId: body.id, instanceName: this.o.instanceName, ...this.details(body.license_key), validatedAt: this.now() });
     this.lastStatus = 'active';
     this.lastError = null;
     return this.state();
@@ -285,15 +305,15 @@ export class LicenseService {
       this.clear();
       return { ok: true, error: null };
     }
-    const res = await this.call('deactivate', { license_key: key, instance_id: s.instanceId });
-    if (res.kind === 'offline') return { ok: false, error: t('No connection to Lemon Squeezy: the activation can’t be freed offline.', 'Pas de connexion à Lemon Squeezy : l’activation ne peut pas être libérée hors ligne.') };
-    // Already gone on Lemon Squeezy's side counts as done.
-    if (res.body.deactivated || res.status === 404) {
+    const res = await this.call('deactivate', { key, activation_id: s.instanceId });
+    if (res.kind === 'offline') return { ok: false, error: t('No connection to Polar: the activation can’t be freed offline.', 'Pas de connexion à Polar : l’activation ne peut pas être libérée hors ligne.') };
+    // 204: done. 404: already gone on Polar's side, which counts as done.
+    if (res.status === 204 || res.status === 200 || res.status === 404) {
       this.clear();
       this.lastStatus = null;
       this.lastError = null;
       return { ok: true, error: null };
     }
-    return { ok: false, error: explainError(res.body.error) };
+    return { ok: false, error: detailOf(res.body) || t(`Polar refused (${res.status}).`, `Polar a refusé (${res.status}).`) };
   }
 }

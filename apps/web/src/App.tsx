@@ -68,7 +68,7 @@ function FinalCta() {
           you can see everything.
         </h2>
         <p className="m-0 max-w-[520px] text-base leading-relaxed text-muted">
-          {LAUNCHED ? 'Pay once, keep it. Your license key arrives by email, updates install themselves.' : 'Kinglet launches soon. Leave your email: one message at launch, with a discount for the list.'}
+          {LAUNCHED ? 'Pay once, keep it. Your license key is ready right after paying, updates install themselves.' : 'Kinglet launches soon. Leave your email: one message at launch, with a discount for the list.'}
         </p>
         <GetKinglet />
       </Reveal>

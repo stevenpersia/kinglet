@@ -79,7 +79,7 @@ function License() {
             autoComplete="off"
             value={key}
             onChange={(e) => setKey(e.target.value)}
-            placeholder="XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX"
+            placeholder="KINGLET_XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX"
             aria-invalid={!!state.error}
             aria-describedby={state.error ? 'error' : undefined}
             className="h-10 rounded-ui border border-line bg-card px-3 font-mono text-[12.5px] text-fg outline-none placeholder:text-ghost focus:border-line-strong"
@@ -105,7 +105,7 @@ function License() {
             </button>
           </span>
           <button onClick={() => api().open('orders')} className="text-xs text-faint underline-offset-2 hover:text-muted hover:underline">
-            {t('Lost your key? Find your orders on Lemon Squeezy', 'Clé perdue ? Retrouve tes commandes sur Lemon Squeezy')}
+            {t('Lost your key? Find it in Polar’s customer portal', 'Clé perdue ? Retrouve-la dans l’espace client Polar')}
           </button>
         </div>
       )}
