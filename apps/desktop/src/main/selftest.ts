@@ -633,9 +633,10 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     await sleep(600);
     const probeApi = `fetch('/api/plans?x=1').then(async (r) => r.status + ' ' + (await r.text())).catch((e) => 'failed ' + e.message)`;
     const mocked = (await Promise.all(devices.entries().map((d) => d.view.webContents.executeJavaScript(probeApi) as Promise<string>))) as string[];
-    await clickText('main button', 'simulated'); // the network menu (its button says "1 simulated")
-    await sleep(400);
-    await clickText('[role=menu] button', 'Simulated API responses');
+    await clickText('main button[aria-haspopup=dialog]', 'Emulation'); // its button sums up "1 mock"
+    await sleep(500);
+    await shot('32b-emulation');
+    await clickText('[role=dialog][aria-label=Emulation] button', 'Simulated API responses');
     await waitFor(() => js<boolean>(`!!document.querySelector('[role=dialog][aria-label="Simulated API responses"]')`), 3000);
     await settle(400);
     await shot('33-reponses-simulees');
