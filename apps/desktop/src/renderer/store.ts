@@ -16,7 +16,7 @@ export const cleanError = (e: unknown) => String((e as Error)?.message ?? e).rep
 
 export type Section = 'apercu' | 'partage' | 'comparer' | 'deploiements' | 'checks' | 'securite' | 'reglages' | 'projets' | 'changes';
 /** Panel opened next to the devices from the left bar. */
-export type Panel = 'page' | 'checks' | 'feedback';
+export type Panel = 'page' | 'checks' | 'feedback' | 'emulation';
 export type SettingsTab = 'general' | 'devices' | 'project' | 'vercel' | 'github' | 'claude' | 'mcp' | 'updates' | 'license';
 export type LoadStatus = 'idle' | 'loading' | 'loaded' | 'failed';
 
@@ -257,7 +257,6 @@ export const useStore = create<State>((set, get) => ({
     const next = on ?? !get().tabOrder;
     set({ tabOrder: next, tabInfo: {} });
     api().setTabOrder(next);
-    get().refreshFrozen();
   },
   histories: {},
   async loadHistory(projectId) {
@@ -292,7 +291,6 @@ export const useStore = create<State>((set, get) => ({
     set({ settings: { ...get().settings, ...patch } });
     const settings = await api().updateSettings(patch);
     set({ settings });
-    get().refreshFrozen();
   },
 
   async analyze(url, opts) {

@@ -1,3 +1,4 @@
+import { EmulationPanel } from './Stage';
 import { t, type Issue } from '@kinglet/core';
 import { useStore } from '../store';
 import { CheckGroups } from './Checks';
@@ -166,6 +167,7 @@ export function SidePanel() {
   const { panel, togglePanel, share, shareError, status, error, url, report, analyzing, analyze } = useStore();
   if (!panel) return null;
   if (panel === 'feedback') return <FeedbackPanel />;
+  if (panel === 'emulation') return <EmulationPanel />;
   let body;
   if (!url) body = <p className="text-faint">{t('Enter your dev server’s address at the top, or just its port (e.g. 3000).', 'Saisis l’adresse de ton serveur de dev en haut, ou juste son port (ex. 3000).')}</p>;
   else if (status === 'failed') body = <p className="text-faint">{error}</p>;
