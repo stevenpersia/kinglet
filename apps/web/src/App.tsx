@@ -1,5 +1,6 @@
 import { MotionConfig } from 'motion/react';
 import { KingletBird, Mark } from '../../desktop/src/renderer/components/Icons';
+import { BrandLogo, BRANDS } from './components/BrandLogos';
 import { Hero } from './components/Hero';
 import { Faq, Pricing } from './components/Pricing';
 import { AiWorkflow, Checks, DeviceLab, Mcp, Security, Ship } from './components/Sections';
@@ -44,16 +45,17 @@ function Nav() {
 }
 
 function WorksWith() {
-  const names = ['Claude Code', 'Vercel', 'GitHub', 'Next.js', 'Nuxt', 'Astro', 'SvelteKit', 'Vite'];
   return (
     <section aria-label="Works with" className="mx-auto max-w-[1200px] px-4 pt-20 sm:px-6">
-      <div className="flex flex-wrap items-center justify-center gap-x-11 gap-y-4 text-base font-semibold tracking-[-0.01em] text-ghost">
-        <span className="font-mono text-xs font-normal tracking-[0.08em]">WORKS WITH</span>
-        {names.map((n) => (
-          <span key={n} className="text-[#b4b4bc]">
-            {n}
-          </span>
-        ))}
+      <div className="flex flex-wrap items-center justify-center gap-x-12 gap-y-5 text-ghost">
+        <span className="font-mono text-xs tracking-[0.08em]">WORKS WITH</span>
+        <ul className="m-0 flex list-none flex-wrap items-center justify-center gap-x-11 gap-y-5 p-0 text-[#b4b4bc]">
+          {BRANDS.map((b) => (
+            <li key={b.slug} title={b.name} className="flex transition-colors hover:text-fg">
+              <BrandLogo name={b.name} path={b.path} />
+            </li>
+          ))}
+        </ul>
       </div>
     </section>
   );
