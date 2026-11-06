@@ -23,7 +23,7 @@ const readWidth = () => {
   }
 };
 
-/** Claude's column, next to the rail: unfolded by default, a thin strip when folded. */
+/** Claude's column, on the right edge of the window: unfolded by default, a thin strip when folded. */
 export function ClaudeColumn() {
   const open = useStore(claudeOpen);
   return open ? <ClaudePanel /> : <ClaudeStrip />;
@@ -47,13 +47,13 @@ function ClaudeStrip() {
       onClick={() => s.toggleClaude(true)}
       aria-label={t('Unfold Claude (Ctrl J)', 'Déplier Claude (Ctrl J)')}
       title={t('Unfold Claude (Ctrl J)', 'Déplier Claude (Ctrl J)')}
-      className="group flex w-9 shrink-0 flex-col items-center gap-3 border-r border-line-soft bg-chrome py-3 text-faint hover:bg-active/60 hover:text-fg"
+      className="group flex w-10 shrink-0 flex-col items-center gap-3 border-l border-line-soft bg-chrome py-3 text-faint hover:bg-active/60 hover:text-fg"
     >
       <span aria-hidden="true" className={`size-2 shrink-0 rounded-full ${waiting ? 'bg-warn' : 'bg-[#d97757]'} ${status === 'working' ? 'claude-dot' : ''}`} />
-      <svg width="12" height="12" viewBox="0 0 24 24" aria-hidden="true" className="rotate-180">
+      <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true">
         <path d={FOLD} stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
-      <span className={`text-[11px] [writing-mode:vertical-rl] ${waiting ? 'text-warn' : ''}`}>{label}</span>
+      <span className={`text-[12px] [writing-mode:vertical-rl] ${waiting ? 'text-warn' : ''}`}>{label}</span>
     </button>
   );
 }
@@ -194,18 +194,18 @@ function ClaudePanel() {
     }
     setCloning(false);
   };
-  // Drag the right edge to make the column wider (Claude Code likes room).
+  // Drag the left edge to make the column wider (Claude Code likes room).
   const drag = (e: React.PointerEvent) => {
     e.preventDefault();
     const x0 = e.clientX;
     const w0 = width;
     const max = Math.max(MIN_W, window.innerWidth - 420);
-    const move = (ev: PointerEvent) => setWidth(Math.min(max, Math.max(MIN_W, w0 + ev.clientX - x0)));
+    const move = (ev: PointerEvent) => setWidth(Math.min(max, Math.max(MIN_W, w0 + x0 - ev.clientX)));
     const up = (ev: PointerEvent) => {
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
       try {
-        localStorage.setItem(WIDTH_KEY, String(Math.min(max, Math.max(MIN_W, w0 + ev.clientX - x0))));
+        localStorage.setItem(WIDTH_KEY, String(Math.min(max, Math.max(MIN_W, w0 + x0 - ev.clientX))));
       } catch {
         /* not kept */
       }
@@ -265,7 +265,7 @@ function ClaudePanel() {
 
   const ready = !!project?.folder && !!cli?.found;
   return (
-    <aside aria-label="Claude" style={{ width }} className="relative flex shrink-0 flex-col border-r border-line-soft bg-chrome">
+    <aside aria-label="Claude" style={{ width }} className="relative flex shrink-0 flex-col border-l border-line-soft bg-chrome">
       <div className="flex h-11 shrink-0 items-center gap-2 border-b border-line-soft pr-2 pl-4">
         <span aria-hidden="true" className={`size-2 shrink-0 rounded-full bg-[#d97757] ${useClaudeStatus() === 'working' ? 'claude-dot' : ''}`} />
         <span className="font-medium">Claude</span>
@@ -283,7 +283,7 @@ function ClaudePanel() {
           </button>
         )}
         <button onClick={close} aria-label={t('Fold Claude', 'Replier Claude')} title={t('Fold (Ctrl J outside the terminal)', 'Replier (Ctrl J hors du terminal)')} className="flex size-7 items-center justify-center rounded-md text-faint hover:bg-active hover:text-fg">
-          <svg width="12" height="12" viewBox="0 0 24 24" aria-hidden="true">
+          <svg width="12" height="12" viewBox="0 0 24 24" aria-hidden="true" className="rotate-180">
             <path d={FOLD} stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </button>
@@ -291,7 +291,7 @@ function ClaudePanel() {
       {/* What Claude (here or in another terminal) and the build are up to. */}
       <ClaudeBanner inPanel />
       {body}
-      <div role="separator" aria-orientation="vertical" aria-label={t('Resize Claude', 'Redimensionner Claude')} onPointerDown={drag} className="absolute top-0 -right-[3px] z-10 h-full w-[6px] cursor-col-resize hover:bg-line-strong/60" />
+      <div role="separator" aria-orientation="vertical" aria-label={t('Resize Claude', 'Redimensionner Claude')} onPointerDown={drag} className="absolute top-0 -left-[3px] z-10 h-full w-[6px] cursor-col-resize hover:bg-line-strong/60" />
     </aside>
   );
 }

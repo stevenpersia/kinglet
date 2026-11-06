@@ -1,8 +1,8 @@
 import { readStructuredData, t, type PlatformFamily, type RichPreview, type ShareCard } from '@kinglet/core';
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { ShareStudio } from '../../shared/types';
 import { api, cleanError, useStore } from '../store';
-import { Dot, Icon, Kbd } from './Icons';
+import { Dot, Icon } from './Icons';
 import { CopyButton, SLASH } from './Mcp';
 
 /* ---------------- platform renderings (approximate, for comparison) ---------------- */
@@ -292,7 +292,7 @@ function FixDetails({ studio }: { studio: ShareStudio }) {
 
 /* ---------------- scenes: each preview where people see it ---------------- */
 
-const who = () => t('Camille', 'Camille');
+const who = () => 'Jessica';
 
 function Avatar({ className = '', round = true }: { className?: string; round?: boolean }) {
   return <span aria-hidden="true" className={`block size-8 shrink-0 bg-[linear-gradient(135deg,#6b8cff,#9f7bff)] ${round ? 'rounded-full' : 'rounded-md'} ${className}`} />;
@@ -348,7 +348,7 @@ function Scene({ c, rich }: { c: ShareCard; rich?: RichPreview | null }) {
               <Avatar className="size-10" />
               <div className="flex flex-col leading-tight">
                 <span className="text-[13px] font-semibold">{who()}</span>
-                <span className="text-[11.5px] opacity-60">{fb ? t('2 h · 🌐', '2 h · 🌐') : '@camille.bsky.social · 2 h'}</span>
+                <span className="text-[11.5px] opacity-60">{fb ? t('2 h · 🌐', '2 h · 🌐') : '@jessica.bsky.social · 2 h'}</span>
               </div>
             </div>
             <span className="text-[13px]">{t('Our new page is live 👇', 'Notre nouvelle page est en ligne 👇')}</span>
@@ -425,7 +425,7 @@ function Scene({ c, rich }: { c: ShareCard; rich?: RichPreview | null }) {
             <Avatar className="size-10" />
             <div className="flex min-w-0 flex-1 flex-col gap-1.5">
               <span className="text-[14px]">
-                <b className="font-semibold">{who()}</b> <span className="text-[#71767B]">@camille · 2 h</span>
+                <b className="font-semibold">{who()}</b> <span className="text-[#71767B]">@jessica · 2 h</span>
               </span>
               <span className="text-[14px]">{t('New page is live 👇', 'La nouvelle page est en ligne 👇')}</span>
               <div className="-mx-2.5 -mb-2.5">
@@ -461,23 +461,199 @@ function Scene({ c, rich }: { c: ShareCard; rich?: RichPreview | null }) {
   }
 }
 
-/* ---------------- page ---------------- */
+/* ---------------- page: every preview at a glance ---------------- */
 
 const FAMILIES = (): { id: PlatformFamily; label: string }[] => [
-  { id: 'messagerie', label: t('Messaging', 'Messageries') },
-  { id: 'reseau', label: t('Social', 'Réseaux') },
+  { id: 'messagerie', label: t('Messaging', 'Messagerie') },
+  { id: 'reseau', label: t('Social', 'Réseau') },
   { id: 'recherche', label: t('Search', 'Recherche') },
 ];
+
+type Layout = 'grid' | 'list' | 'scenes';
+const LAYOUT_KEY = 'kinglet.ogLayout';
+const readLayout = (): Layout => {
+  try {
+    const v = localStorage.getItem(LAYOUT_KEY);
+    return v === 'list' || v === 'scenes' ? v : 'grid';
+  } catch {
+    return 'grid';
+  }
+};
+
+const RANK = { error: 0, warning: 1, ok: 2 } as const;
+
+function StatusPill({ status }: { status: ShareCard['status'] }) {
+  const st = statusStyle()[status];
+  const tone = status === 'error' ? 'border-err/30 bg-err/10 text-err' : status === 'warning' ? 'border-warn/30 bg-warn/10 text-warn' : 'border-ok/25 bg-ok/10 text-ok';
+  return (
+    <span className={`flex h-[22px] shrink-0 items-center gap-1.5 rounded-full border px-2 text-[11px] font-medium ${tone}`}>
+      <Dot className={st.dot} />
+      {st.text}
+    </span>
+  );
+}
+
+function CardHead({ c }: { c: ShareCard }) {
+  const family = FAMILIES().find((f) => f.id === c.family)?.label;
+  return (
+    <div className="flex min-w-0 items-center gap-2.5">
+      <div className="flex min-w-0 flex-col leading-tight">
+        <span className="truncate text-[13.5px] font-semibold tracking-[-0.01em] text-fg">{c.label}</span>
+        <span className="truncate font-mono text-[10.5px] text-ghost">
+          {family} · {c.httpStatus ? `HTTP ${c.httpStatus}` : t('unreachable', 'injoignable')}
+        </span>
+      </div>
+      <span className="flex-1" />
+      <StatusPill status={c.status} />
+    </div>
+  );
+}
+
+function Problems({ c }: { c: ShareCard }) {
+  if (!c.problems.length)
+    return (
+      <p className="m-0 flex items-center gap-2 text-xs text-faint">
+        <Icon name="check" size={13} className="text-ok" />
+        {t('Nothing to fix.', 'Rien à corriger.')}
+      </p>
+    );
+  const dot = statusStyle()[c.status].dot;
+  return (
+    <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
+      {c.problems.map((pr) => (
+        <li key={pr} className="flex gap-2 text-xs leading-snug text-muted">
+          <Dot className={`mt-[5px] ${dot}`} />
+          {pr}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** Scales a fixed-size scene down while keeping its footprint in the flow. */
+function Scaled({ scale, children }: { scale: number; children: React.ReactNode }) {
+  const inner = useRef<HTMLDivElement>(null);
+  const [size, setSize] = useState<{ w: number; h: number } | null>(null);
+  useLayoutEffect(() => {
+    const el = inner.current;
+    if (!el) return;
+    const measure = () => setSize({ w: el.offsetWidth, h: el.offsetHeight });
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  return (
+    <div className="relative shrink-0" style={size ? { width: size.w * scale, height: size.h * scale } : { visibility: 'hidden' }}>
+      <div ref={inner} className="absolute top-0 left-0 w-max origin-top-left" style={{ transform: `scale(${scale})` }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/** Proposal A: a grid of cards, the preview as each platform draws it, its problems underneath. */
+function GridView({ cards, rich }: { cards: ShareCard[]; rich: RichPreview | null }) {
+  return (
+    <div className="grid grid-cols-[repeat(auto-fill,minmax(290px,1fr))] items-start gap-4">
+      {cards.map((c) => (
+        <article key={c.platform} aria-label={c.label} className={`flex flex-col gap-3 rounded-xl border bg-card p-3.5 ${c.status === 'error' ? 'border-err/30' : c.status === 'warning' ? 'border-warn/25' : 'border-line'}`}>
+          <CardHead c={c} />
+          <div className="pointer-events-none">
+            <Preview c={c} rich={rich} />
+          </div>
+          {c.status !== 'ok' && (
+            <div className="border-t border-line-soft pt-3">
+              <Problems c={c} />
+            </div>
+          )}
+        </article>
+      ))}
+    </div>
+  );
+}
+
+/** Proposal B: one row per platform, the preview on the left, the diagnosis on the right. */
+function ListView({ cards, rich }: { cards: ShareCard[]; rich: RichPreview | null }) {
+  return (
+    <div className="flex flex-col overflow-hidden rounded-xl border border-line bg-card">
+      {cards.map((c) => (
+        <article key={c.platform} aria-label={c.label} className="flex gap-5 border-t border-line-soft p-4 first:border-t-0">
+          <div className="pointer-events-none w-[340px] shrink-0">
+            <Preview c={c} rich={rich} />
+          </div>
+          <div className="flex min-w-0 flex-1 flex-col gap-3">
+            <CardHead c={c} />
+            <Problems c={c} />
+            <span className="mt-auto truncate font-mono text-[10.5px] text-ghost" title={c.url}>
+              {c.title ? `“${c.title}”` : t('no title', 'pas de titre')}
+              {c.image ? '' : t(' · no image', ' · pas d’image')}
+            </span>
+          </div>
+        </article>
+      ))}
+    </div>
+  );
+}
+
+/** Proposal C: each preview inside a mock of the app where people see it, scaled down. */
+function ScenesView({ cards, rich }: { cards: ShareCard[]; rich: RichPreview | null }) {
+  return (
+    <div className="flex flex-wrap items-start gap-x-6 gap-y-8">
+      {cards.map((c) => (
+        <article key={c.platform} aria-label={c.label} className="flex flex-col gap-3">
+          <div className="pointer-events-none">
+            <Scaled scale={0.58}>
+              <Scene c={c} rich={rich} />
+            </Scaled>
+          </div>
+          <CardHead c={c} />
+          {c.status !== 'ok' && (
+            <div className="max-w-[330px]">
+              <Problems c={c} />
+            </div>
+          )}
+        </article>
+      ))}
+    </div>
+  );
+}
+
+function Group({ title, tone, count, action, children }: { title: string; tone: string; count: number; action?: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <section aria-label={title} className="flex flex-col gap-3.5">
+      <div className="flex items-center gap-2.5">
+        <Dot className={tone} />
+        <h2 className="m-0 text-[13px] font-semibold tracking-[-0.01em]">{title}</h2>
+        <span className="font-mono text-[11px] text-ghost">{count}</span>
+        <span className="h-px flex-1 bg-line-soft" />
+        {action}
+      </div>
+      {children}
+    </section>
+  );
+}
 
 const cache = new Map<string, ShareStudio>();
 
 export function SharePage() {
   const url = useStore((s) => s.url);
   const status = useStore((s) => s.status);
+  const claudePanel = useStore((s) => s.settings.claudePanel);
   const [studio, setStudio] = useState<ShareStudio | null>(url ? (cache.get(url) ?? null) : null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [platform, setPlatform] = useState<ShareCard['platform'] | null>(null);
+  const [layout, setLayoutState] = useState<Layout>(readLayout);
+  const [fixOpen, setFixOpen] = useState(false);
+
+  const setLayout = (l: Layout) => {
+    setLayoutState(l);
+    try {
+      localStorage.setItem(LAYOUT_KEY, l);
+    } catch {
+      /* not kept */
+    }
+  };
 
   const load = async (force = false) => {
     if (!url) return;
@@ -500,140 +676,126 @@ export function SharePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [url, status]);
 
+  if (!url) return <main className="stage-bg flex flex-1 items-center justify-center text-faint">{t('Open a site to see its Open Graph previews.', 'Ouvre un site pour voir ses aperçus Open Graph.')}</main>;
+
   const cards = studio?.previews.cards ?? [];
   const rich = studio ? readStructuredData(studio.previews.meta.jsonLd ?? [], studio.previews.meta.jsonLdErrors ?? []).preview : null;
-  // Families in a fixed order: the list and the arrow keys follow it.
-  const ordered = FAMILIES().flatMap((f) => cards.filter((c) => c.family === f.id));
-  // Default: the first platform with a problem, else the first one.
-  const card = ordered.find((c) => c.platform === platform) ?? ordered.find((c) => c.status === 'error') ?? ordered.find((c) => c.status === 'warning') ?? ordered[0] ?? null;
+  const families = FAMILIES().map((f) => f.id);
+  // Problems first, then what needs work; inside each, messaging → social → search.
+  const sorted = [...cards].sort((a, b) => RANK[a.status] - RANK[b.status] || families.indexOf(a.family) - families.indexOf(b.family));
+  const todo = sorted.filter((c) => c.status !== 'ok');
+  const fine = sorted.filter((c) => c.status === 'ok');
+  const counts = { error: cards.filter((c) => c.status === 'error').length, warning: cards.filter((c) => c.status === 'warning').length, ok: fine.length };
+  const View = layout === 'list' ? ListView : layout === 'scenes' ? ScenesView : GridView;
+  const fix = studio?.fix;
+  const u = new URL(url);
 
-  const onKey = (e: React.KeyboardEvent) => {
-    if (!card || (e.key !== 'ArrowDown' && e.key !== 'ArrowUp')) return;
-    e.preventDefault();
-    const i = ordered.indexOf(card);
-    const next = ordered[(i + (e.key === 'ArrowDown' ? 1 : ordered.length - 1)) % ordered.length]!;
-    setPlatform(next.platform);
-    document.getElementById(`share-${next.platform}`)?.focus();
-  };
-
-  if (!url) return <main className="stage-bg flex flex-1 items-center justify-center text-faint">{t('Open a site to see its share previews.', 'Ouvre un site pour voir ses aperçus de partage.')}</main>;
-  const counts = { error: cards.filter((c) => c.status === 'error').length, warning: cards.filter((c) => c.status === 'warning').length };
-  const st = statusStyle();
+  const layouts: { id: Layout; label: string; icon: 'grid' | 'rows' | 'frames' }[] = [
+    { id: 'grid', label: t('Grid', 'Grille'), icon: 'grid' },
+    { id: 'list', label: t('List', 'Liste'), icon: 'rows' },
+    { id: 'scenes', label: t('In context', 'En situation'), icon: 'frames' },
+  ];
 
   return (
-    <div className="flex min-w-0 flex-1">
-      <nav aria-label={t('Platforms', 'Plateformes')} onKeyDown={onKey} className="flex w-[210px] shrink-0 flex-col gap-0.5 overflow-y-auto border-r border-line-soft bg-chrome px-2 py-3">
-        <div className="flex flex-col gap-1 px-2.5 pb-2">
-          <h1 className="m-0 text-[15px] font-semibold tracking-[-0.01em]">{t('Share previews', 'Aperçus de partage')}</h1>
+    <main className="stage-bg flex min-w-0 flex-1 flex-col overflow-y-auto">
+      <header className="sticky top-0 z-10 flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2.5 border-b border-line-soft bg-chrome/90 px-6 py-3.5 backdrop-blur">
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <h1 className="m-0 text-[17px] font-semibold tracking-[-0.015em]">Open Graph</h1>
           <span className="truncate font-mono text-[11px] text-faint" title={url}>
-            {new URL(url).pathname}
+            {u.host}
+            {u.pathname} · og:* · twitter:*
           </span>
         </div>
-        {FAMILIES().map((f) => {
-          const list = cards.filter((c) => c.family === f.id);
-          if (!list.length) return null;
-          return (
-            <div key={f.id} className="flex flex-col gap-0.5">
-              <span className="label px-2.5 pt-3 pb-1">{f.label}</span>
-              {list.map((c) => {
-                const on = c === card;
-                return (
-                  <button
-                    key={c.platform}
-                    id={`share-${c.platform}`}
-                    aria-current={on ? 'true' : undefined}
-                    onClick={() => setPlatform(c.platform)}
-                    className={`flex h-[34px] items-center gap-2.5 rounded-[7px] px-2.5 text-left text-[12.5px] ${on ? 'bg-active text-fg shadow-[inset_0_0_0_1px_#26262b]' : 'text-muted hover:bg-active/60 hover:text-fg'}`}
-                  >
-                    <Dot className={st[c.status].dot} />
-                    {c.label}
-                    {c.status !== 'ok' && <span className={`ml-auto text-[10.5px] ${st[c.status].color}`}>{st[c.status].text}</span>}
-                  </button>
-                );
-              })}
-            </div>
-          );
-        })}
-        <span className="flex-1" />
         {cards.length > 0 && (
-          <div className="flex flex-col gap-2 px-2.5 pt-3">
-            <span className="text-[11.5px] text-muted">
-              {t(
-                `${counts.error} problem${counts.error > 1 ? 's' : ''} · ${counts.warning} to improve`,
-                `${counts.error} problème${counts.error > 1 ? 's' : ''} · ${counts.warning} à améliorer`,
-              )}
-            </span>
-            <span className="text-[11px] text-ghost">
-              <Kbd>↑</Kbd> <Kbd>↓</Kbd> {t('to switch', 'pour changer')}
-            </span>
+          <div className="flex items-center gap-1.5">
+            {counts.error > 0 && <span className="flex h-6 items-center gap-1.5 rounded-full bg-err/10 px-2.5 text-[11.5px] font-medium text-err"><Dot className="bg-err" />{t(`${counts.error} problem${counts.error > 1 ? 's' : ''}`, `${counts.error} problème${counts.error > 1 ? 's' : ''}`)}</span>}
+            {counts.warning > 0 && <span className="flex h-6 items-center gap-1.5 rounded-full bg-warn/10 px-2.5 text-[11.5px] font-medium text-warn"><Dot className="bg-warn" />{t(`${counts.warning} to improve`, `${counts.warning} à améliorer`)}</span>}
+            <span className={`flex h-6 items-center gap-1.5 rounded-full px-2.5 text-[11.5px] font-medium ${counts.ok ? 'bg-ok/10 text-ok' : 'bg-active text-faint'}`}><Dot className={counts.ok ? 'bg-ok' : 'bg-ghost'} />{counts.ok} OK</span>
           </div>
         )}
-      </nav>
-
-      <main className="stage-bg flex min-w-0 flex-1 flex-col overflow-auto">
-        <div className="flex items-center justify-end gap-3 px-5 pt-4">
-          <span className="mr-auto text-xs text-faint">
-            {t('Read by each platform’s crawler (raw HTML, no JavaScript). Renderings are approximate.', 'Lue par le robot de chaque plateforme (HTML brut, sans JavaScript). Rendus approximatifs.')}
-          </span>
-          <button onClick={() => void load(true)} disabled={loading} className="flex h-8 shrink-0 items-center gap-2 rounded-ui border border-[#2a2a2f] bg-active px-3 font-medium hover:border-line-strong disabled:opacity-60">
-            <Icon name="reload" size={13} className={loading ? 'animate-spin' : ''} />
-            {loading ? t('Reading…', 'Lecture…') : t('Re-read', 'Relire')}
-          </button>
-        </div>
-        <div className="flex flex-1 items-center justify-center p-6">
-          {error ? (
-            <p className="m-0 text-err">
-              {t('Couldn’t read:', 'Lecture impossible :')} {error}
-            </p>
-          ) : !card ? (
-            <p className="m-0 text-faint">{t('Reading with the 10 crawlers…', 'Lecture par les 10 robots…')}</p>
-          ) : (
-            <section aria-label={t(`${card.label} preview`, `Aperçu ${card.label}`)}>
-              <Scene c={card} rich={rich} />
-            </section>
-          )}
-        </div>
-      </main>
-
-      {studio && card && (
-        <aside className="flex w-[380px] shrink-0 flex-col gap-4 overflow-y-auto border-l border-line-soft bg-chrome p-4 [&>*]:shrink-0">
-          <div className="flex flex-col gap-1">
-            <span className="flex items-center justify-between">
-              <span className="label">{card.label}</span>
-              <span className={`flex items-center gap-1.5 text-xs ${st[card.status].color}`}>
-                <Dot className={st[card.status].dot} />
-                {st[card.status].text}
-              </span>
-            </span>
-            <span className="font-mono text-[11px] text-faint">
-              {card.httpStatus ? `HTTP ${card.httpStatus}` : t('unreachable', 'injoignable')} · {card.domain}
-            </span>
-          </div>
-          {card.problems.length > 0 ? (
-            <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
-              {card.problems.map((pr) => (
-                <li key={pr} className="flex gap-2.5 rounded-[9px] border border-line bg-card px-3 py-2.5 text-xs leading-snug text-muted">
-                  <Dot className={`mt-1.5 ${st[card.status].dot}`} />
-                  {pr}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="m-0 flex items-center gap-2 text-xs text-muted">
-              <Icon name="check" size={13} className="text-ok" />
-              {t(`Nothing to fix for ${card.label}.`, `Rien à corriger pour ${card.label}.`)}
-            </p>
-          )}
-          {studio.fix.changes.length > 0 && useStore.getState().settings.claudePanel && (
-            <button onClick={() => useStore.getState().askClaude(studio.fix.prompt)} className="flex h-8 items-center justify-center gap-2 rounded-ui border border-[rgba(217,119,87,0.35)] bg-[rgba(217,119,87,0.08)] text-xs font-semibold text-[#d97757] hover:bg-[rgba(217,119,87,0.14)]">
-              <Icon name="spark" size={12} />
-              {t('Ask Claude to fix it', 'Demander à Claude de corriger')}
+        <span className="flex-1" />
+        <div role="radiogroup" aria-label={t('Layout', 'Disposition')} className="flex h-8 items-center gap-0.5 rounded-[9px] border border-line bg-bg p-0.5">
+          {layouts.map((l) => (
+            <button
+              key={l.id}
+              role="radio"
+              aria-checked={layout === l.id}
+              onClick={() => setLayout(l.id)}
+              className={`flex h-full items-center gap-1.5 rounded-[7px] px-2.5 text-xs font-medium ${layout === l.id ? 'bg-active text-fg shadow-[inset_0_0_0_1px_#2a2a2f]' : 'text-faint hover:text-fg'}`}
+            >
+              <Icon name={l.icon} size={13} />
+              {l.label}
             </button>
-          )}
-          <div className="h-px bg-line-soft" />
-          <FixDetails studio={studio} />
-        </aside>
-      )}
-    </div>
+          ))}
+        </div>
+        <button onClick={() => void load(true)} disabled={loading} className="flex h-8 shrink-0 items-center gap-2 rounded-ui border border-[#2a2a2f] bg-active px-3 text-xs font-medium hover:border-line-strong disabled:opacity-60">
+          <Icon name="reload" size={13} className={loading ? 'animate-spin' : ''} />
+          {loading ? t('Reading…', 'Lecture…') : t('Re-read', 'Relire')}
+        </button>
+      </header>
+
+      <div className="flex flex-col gap-8 px-6 pt-5 pb-10">
+        {error ? (
+          <p className="m-0 text-err">
+            {t('Couldn’t read:', 'Lecture impossible :')} {error}
+          </p>
+        ) : !studio ? (
+          <p className="m-0 py-20 text-center text-faint">{t('Reading with the 10 crawlers…', 'Lecture par les 10 robots…')}</p>
+        ) : (
+          <>
+            {/* The tags and the fix: one place for the whole page, the cards only say what each platform sees. */}
+            <div className="overflow-hidden rounded-xl border border-line bg-card">
+              <div className="flex flex-wrap items-center gap-3 px-4 py-3">
+                <span className={`flex size-8 shrink-0 items-center justify-center rounded-lg ${fix && fix.changes.length ? 'bg-warn/10 text-warn' : 'bg-ok/10 text-ok'}`}>
+                  <Icon name={fix && fix.changes.length ? 'code' : 'check'} size={15} />
+                </span>
+                <div className="flex min-w-0 flex-1 flex-col leading-tight">
+                  <span className="text-[13px] font-medium">
+                    {fix && fix.changes.length
+                      ? t(`${fix.changes.length} tag${fix.changes.length > 1 ? 's' : ''} to add`, `${fix.changes.length} balise${fix.changes.length > 1 ? 's' : ''} à ajouter`)
+                      : t('All Open Graph tags are in place', 'Toutes les balises Open Graph sont en place')}
+                  </span>
+                  <span className="truncate font-mono text-[11px] text-faint">
+                    {fix?.frameworkLabel}
+                    {fix && fix.changes.length ? ` · ${fix.file}` : ''}
+                  </span>
+                </div>
+                {fix && fix.changes.length > 0 && claudePanel && (
+                  <button onClick={() => useStore.getState().askClaude(fix.prompt)} className="flex h-8 items-center gap-2 rounded-ui border border-[rgba(217,119,87,0.35)] bg-[rgba(217,119,87,0.08)] px-3 text-xs font-semibold text-[#d97757] hover:bg-[rgba(217,119,87,0.14)]">
+                    <Icon name="spark" size={12} />
+                    {t('Ask Claude to fix it', 'Demander à Claude de corriger')}
+                  </button>
+                )}
+                <button onClick={() => setFixOpen((v) => !v)} aria-expanded={fixOpen} className="flex h-8 items-center gap-1.5 rounded-ui border border-[#2a2a2f] bg-active px-3 text-xs font-medium text-fg hover:border-line-strong">
+                  {fix && fix.changes.length ? t('Tags & fix', 'Balises & correctif') : t('Tags read', 'Balises lues')}
+                  <svg width="10" height="10" viewBox="0 0 24 24" aria-hidden="true" className={fixOpen ? 'rotate-180' : ''}>
+                    <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2.4" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+              </div>
+              {fixOpen && (
+                <div className="flex max-w-[720px] flex-col gap-3 border-t border-line-soft p-4 text-xs">
+                  <FixDetails studio={studio} />
+                </div>
+              )}
+            </div>
+
+            {todo.length > 0 && (
+              <Group title={t('Needs a look', 'À revoir')} tone={counts.error ? 'bg-err' : 'bg-warn'} count={todo.length}>
+                <View cards={todo} rich={rich} />
+              </Group>
+            )}
+            {fine.length > 0 && (
+              <Group title={t('Working', 'Fonctionnent')} tone="bg-ok" count={fine.length}>
+                <View cards={fine} rich={rich} />
+              </Group>
+            )}
+            <p className="m-0 text-[11.5px] text-ghost">
+              {t('Read by each platform’s crawler (raw HTML, no JavaScript). Renderings are approximate.', 'Lue par le robot de chaque plateforme (HTML brut, sans JavaScript). Rendus approximatifs.')}
+            </p>
+          </>
+        )}
+      </div>
+    </main>
   );
 }

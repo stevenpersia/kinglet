@@ -77,7 +77,7 @@ export function Palette() {
       go('deploiements', t('Deployments', 'Déploiements')),
       go('changes', t('Changes (git diff)', 'Modifications (git diff)')),
       go('comparer', t('Compare', 'Comparer')),
-      go('partage', t('Share', 'Partage')),
+      go('partage', 'Open Graph'),
       { id: 'console', label: t('Show or hide the console', 'Afficher ou masquer la console'), run: () => useStore.getState().toggleConsole() },
       { id: 'panel-page', label: t('Show or hide the Page panel', 'Afficher ou masquer le panneau Page'), run: () => useStore.getState().togglePanel('page') },
       { id: 'panel-checks', label: t('Show or hide the Checks panel', 'Afficher ou masquer le panneau Checks'), run: () => useStore.getState().togglePanel('checks') },

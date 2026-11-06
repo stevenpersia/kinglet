@@ -155,7 +155,7 @@ function PageBody() {
       <PageTab />
       <ShareTab />
       <button onClick={() => setSection('partage')} className="self-start text-xs text-muted hover:text-fg">
-        {t('See every share preview →', 'Voir tous les aperçus de partage →')}
+        {t('See every Open Graph preview →', 'Voir tous les aperçus Open Graph →')}
       </button>
     </div>
   );
