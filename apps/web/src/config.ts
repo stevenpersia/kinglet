@@ -5,14 +5,16 @@ export const VERSION = __APP_VERSION__;
 export const MCP_COMMAND = 'claude mcp add --scope user kinglet -- kinglet --mcp --ozone-platform=headless';
 
 /** One-time price, shown before launch too. */
-export const PRICE = { amount: 49, currency: '$', label: '$49' };
+export const PRICE = { amount: 79, currency: '$', label: '$79' };
+/** What people on the launch list pay (a Polar discount code sent in the launch email). */
+export const LAUNCH_PRICE = { amount: 59, currency: '$', label: '$59' };
 
 /**
  * Before launch there is no download: people leave their email (functions/waitlist.ts, a Resend audience)
- * and get the launch discount by email.
+ * and get the launch price by email.
  */
 export const WAITLIST_API = '/api/waitlist';
-export const LAUNCH_OFFER = 'a launch discount';
+export const LAUNCH_OFFER = `the ${LAUNCH_PRICE.label} launch price`;
 
 /**
  * Polar checkout link of the Kinglet product (Polar dashboard: Products → Checkout Links,

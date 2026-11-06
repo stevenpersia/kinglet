@@ -1,5 +1,5 @@
 import { Icon } from '../../../desktop/src/renderer/components/Icons';
-import { DOWNLOAD_URL, LAUNCH_OFFER, LAUNCHED, PRICE } from '../config';
+import { DOWNLOAD_URL, LAUNCH_OFFER, LAUNCH_PRICE, LAUNCHED, PRICE } from '../config';
 import { REFUND_DAYS } from '../publisher';
 import { Reveal } from './ui';
 import { GetKinglet } from './Get';
@@ -55,6 +55,11 @@ export function Pricing() {
                 <span className="text-[72px] leading-none font-semibold tracking-[-0.05em]">{PRICE.label}</span>
                 <span className="text-sm text-faint">once</span>
               </div>
+              {!LAUNCHED && (
+                <p className="m-0 -mt-2 font-mono text-xs text-[#e6c07b]">
+                  {LAUNCH_PRICE.label} at launch for the list
+                </p>
+              )}
               <p className="m-0 text-sm leading-relaxed text-faint">
                 {LAUNCHED ? (
                   <>

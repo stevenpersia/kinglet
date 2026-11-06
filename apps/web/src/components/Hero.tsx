@@ -1,7 +1,7 @@
 import { motion, useInView } from 'motion/react';
 import { useEffect, useRef, useState } from 'react';
 import { Icon } from '../../../desktop/src/renderer/components/Icons';
-import { MCP_COMMAND } from '../config';
+import { LAUNCH_OFFER, MCP_COMMAND } from '../config';
 import { AppWindow } from '../demo/AppWindow';
 import { Cursor, type CursorCmd } from '../demo/Cursor';
 import { type DemoState, duration, finalState, initial, SCRIPTS, type SceneId } from '../demo/scenes';
@@ -132,7 +132,7 @@ export function Hero() {
           New: catches leaked API keys and open .env files before anyone else
           <span className="transition-transform group-hover:translate-x-0.5">→</span>
         </a>
-        <p className="m-0 font-mono text-xs text-ghost">Coming soon to Linux · join the list for a launch discount</p>
+        <p className="m-0 font-mono text-xs text-ghost">Coming soon to Linux · join the list for {LAUNCH_OFFER}</p>
       </div>
 
       <div className="relative mx-auto mt-14 flex max-w-[1200px] flex-col items-center gap-3.5">
