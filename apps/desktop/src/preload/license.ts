@@ -4,7 +4,7 @@ import type { LicenseState } from '../shared/types';
 export interface LicenseApi {
   init(): Promise<{ state: LicenseState; lang: 'en' | 'fr'; version: string }>;
   activate(key: string): Promise<LicenseState>;
-  open(which: 'buy' | 'orders'): void;
+  open(which: 'buy' | 'orders' | 'terms' | 'privacy'): void;
 }
 
 const api: LicenseApi = {

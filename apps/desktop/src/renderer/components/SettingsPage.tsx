@@ -1,5 +1,6 @@
 import { locale, t } from '@kinglet/core';
 import { useEffect, useState } from 'react';
+import { PRIVACY_URL, TERMS_URL } from '../../shared/legal';
 import type { LicenseState } from '../../shared/types';
 import { activePresets, api, useStore, type SettingsTab } from '../store';
 import { Icon, type IconName } from './Icons';
@@ -114,7 +115,14 @@ function LicenseSettings() {
         {t(
           'Kinglet checks the license with Polar at startup and every 6 hours. Offline, it keeps working for 14 days after the last check. Your activations are also listed in Polar’s customer portal.',
           'Kinglet vérifie la licence auprès de Polar au démarrage et toutes les 6 heures. Hors ligne, il continue de marcher 14 jours après la dernière vérification. Tes activations sont aussi listées dans l’espace client Polar.',
-        )}
+        )}{' '}
+        <button onClick={() => api().openExternal(TERMS_URL)} className="text-fg underline-offset-2 hover:underline">
+          {t('License terms', 'Conditions de licence')}
+        </button>
+        {' · '}
+        <button onClick={() => api().openExternal(PRIVACY_URL)} className="text-fg underline-offset-2 hover:underline">
+          {t('Privacy', 'Confidentialité')}
+        </button>
       </p>
       <div className="flex flex-col gap-2 rounded-[10px] border border-line bg-card p-3.5">
         <span className="font-medium">{t('Move Kinglet to another computer', 'Passer Kinglet sur un autre ordinateur')}</span>

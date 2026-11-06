@@ -186,6 +186,10 @@ Le workflow `release.yml` refait les tests, construit, teste l'app packagée (mi
 
 Le prix (paiement unique) est dans `apps/web/src/config.ts`. Avant la sortie, il n'y a pas de téléchargement sur le site : un champ e-mail (hero, Pricing, bas de page) inscrit à la liste de lancement, et ceux qui y sont recevront une remise à la sortie. Le formulaire envoie à la fonction Vercel `apps/web/functions/waitlist.ts` (une fonction Edge, emballée par `scripts/build.mjs` au format *Build Output* de Vercel, servie sur `/api/waitlist`), qui ajoute l'adresse à une *audience* Resend (là d'où partira l'e-mail de lancement). Variables à mettre dans le projet Vercel : `RESEND_API_KEY` et `RESEND_AUDIENCE_ID`. Le formulaire marche aussi sans JavaScript, avec un champ piège contre les robots.
 
+### Pages légales
+
+`/legal` (mentions légales), `/terms` (conditions de vente et de licence : 49 $ une fois, mises à jour à vie, 3 ordinateurs, remboursement sous 14 jours) et `/privacy` (confidentialité : aucun cookie ni télémétrie, liste d'attente Resend, Polar, appels réseau de l'app) sont dans `apps/web/src/Legal.tsx`, en HTML statique sans JavaScript comme `/thanks`, et liées depuis le pied de page de chaque page, le bloc Pricing, l'écran d'activation de l'app et Réglages → Licence. L'identité de l'éditeur (statut, SIRET, TVA, adresse, e-mail de contact) est dans `apps/web/src/publisher.ts` : tant qu'un champ vaut `null`, la page affiche « [to fill in] » et le build le signale. À chaque changement de leur contenu, changer `LEGAL_UPDATED`. Ce qu'elles disent doit rester vrai : si l'app se met à envoyer d'autres données ou si la licence change, mettre à jour `/privacy` et `/terms`.
+
 ### Licence (Polar)
 
 Sans licence valide, l'app installée (AppImage ou paquet pacman) **ne s'ouvre pas** : seule une fenêtre « Activer Kinglet » s'affiche (champ pour la clé, « Acheter Kinglet », « Clé perdue ? »), et la fenêtre de Kinglet et tout son IPC ne sont créés qu'une fois la clé activée. `kinglet --mcp` refuse aussi de démarrer. La version de développement (`pnpm dev`, selftest) ne demande rien.

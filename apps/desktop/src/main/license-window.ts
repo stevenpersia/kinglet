@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { app, BrowserWindow, ipcMain, Menu, safeStorage, shell } from 'electron';
 import { resolveLanguage, setLanguage } from '@kinglet/core';
 import type { LicenseState } from '../shared/types';
-import { BUY_URL, ORDERS_URL, POLAR } from './license-config';
+import { BUY_URL, ORDERS_URL, POLAR, PRIVACY_URL, TERMS_URL } from './license-config';
 import { LicenseService, type Sealer } from './license';
 
 /** The OS keyring through Electron (KWallet, GNOME Keyring), like the Vercel and GitHub tokens. */
@@ -96,7 +96,8 @@ export async function openLicenseWindow(license: LicenseService, initial: Licens
     ],
   ];
   for (const [channel, fn] of handlers) ipcMain.handle(channel, fn as never);
-  const open = (_e: unknown, which: string) => void shell.openExternal(which === 'orders' ? ORDERS_URL : BUY_URL);
+  const urls: Record<string, string> = { buy: BUY_URL, orders: ORDERS_URL, terms: TERMS_URL, privacy: PRIVACY_URL };
+  const open = (_e: unknown, which: string) => void shell.openExternal(urls[which] ?? BUY_URL);
   ipcMain.on('license:open', open);
   const cleanup = () => {
     for (const [channel] of handlers) ipcMain.removeHandler(channel);
