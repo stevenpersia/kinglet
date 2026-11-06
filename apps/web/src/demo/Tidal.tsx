@@ -3,7 +3,7 @@
  * device's real CSS width (393 px phone, 1280 px laptop) and scaled down like Kinglet does: what you see is the
  * layout that width really gets.
  */
-export type TidalState = { inspect?: boolean; keyboard?: boolean; broken?: boolean };
+export type TidalState = { inspect?: boolean; keyboard?: boolean; keyboardFixed?: boolean; broken?: boolean; lime?: boolean; target?: string };
 
 const ink = '#0e0f0c';
 const paper = '#f6f6f1';
@@ -19,12 +19,12 @@ function Logo({ size = 17 }: { size?: number }) {
   );
 }
 
-function Cta({ inspect, label, big }: { inspect?: boolean; label: string; big?: boolean }) {
+function Cta({ inspect, label, big, lime: isLime, target }: { inspect?: boolean; label: string; big?: boolean; lime?: boolean; target?: string }) {
   return (
-    <span className="relative inline-flex">
+    <span className="relative inline-flex" data-target={target}>
       <span
-        className="inline-flex items-center justify-center rounded-full font-semibold whitespace-nowrap"
-        style={{ background: ink, color: paper, padding: big ? '14px 24px' : '13px 20px', fontSize: big ? 15 : 14, width: '100%' }}
+        className="inline-flex items-center justify-center rounded-full font-semibold whitespace-nowrap transition-colors duration-500"
+        style={{ background: isLime ? lime : ink, color: isLime ? ink : paper, padding: big ? '14px 24px' : '13px 20px', fontSize: big ? 15 : 14, width: '100%' }}
       >
         {label}
       </span>
@@ -74,10 +74,10 @@ function Card({ compact }: { compact?: boolean }) {
   );
 }
 
-export function TidalPhone({ inspect, keyboard }: TidalState) {
+export function TidalPhone({ inspect, keyboard, keyboardFixed, lime: isLime }: TidalState) {
   return (
     <div className="relative h-full overflow-hidden" style={{ background: paper, color: ink, fontFamily: 'var(--font-sans)' }}>
-      <div className="flex flex-col transition-transform duration-500" style={{ padding: '58px 22px 22px', gap: 18, transform: keyboard ? 'translateY(-250px)' : 'none' }}>
+      <div className="flex flex-col transition-transform duration-500" style={{ padding: '58px 22px 22px', gap: 18, transform: keyboard ? 'translateY(-150px)' : 'none' }}>
         <div className="flex items-center justify-between">
           <Logo />
           <span className="flex flex-col gap-[5px]">
@@ -102,11 +102,21 @@ export function TidalPhone({ inspect, keyboard }: TidalState) {
             {keyboard ? 'mia@studio.co' : 'you@email.com'}
             {keyboard && <span className="blink ml-px inline-block h-5 w-[2px]" style={{ background: ink }} />}
           </span>
-          <Cta inspect={inspect} label="Get started — free" />
+          <Cta inspect={inspect} lime={isLime} target="cta-phone" label="Get started — free" />
         </div>
         <div style={{ marginTop: 14 }}>
           <Card compact />
         </div>
+      </div>
+      {/* The sticky sign-up bar: under the keyboard until the page follows visualViewport. */}
+      <div
+        className="absolute inset-x-0 flex items-center justify-between border-t transition-[bottom] duration-500"
+        style={{ bottom: keyboard && keyboardFixed ? 336 : 0, padding: keyboard && keyboardFixed ? '12px 22px' : '14px 22px 30px', background: ink, borderColor: ink, zIndex: 1 }}
+      >
+        <span style={{ fontSize: 14, color: '#b8bbb0' }}>Free for 30 days</span>
+        <span className="rounded-full font-semibold" style={{ background: lime, color: ink, padding: '10px 18px', fontSize: 14 }}>
+          Create account
+        </span>
       </div>
       {keyboard && <IosKeyboard />}
     </div>
@@ -117,7 +127,7 @@ function IosKeyboard() {
   const rows = ['qwertyuiop', 'asdfghjkl', 'zxcvbnm'];
   const key = 'flex h-[42px] items-center justify-center rounded-[5px] bg-white text-[19px] text-black shadow-[0_1px_0_#888]';
   return (
-    <div aria-hidden="true" className="absolute inset-x-0 bottom-0 flex flex-col gap-[11px] px-[3px] pt-2 pb-9" style={{ background: '#d1d3d9', height: 336 }}>
+    <div aria-hidden="true" className="absolute inset-x-0 bottom-0 z-[2] flex flex-col gap-[11px] px-[3px] pt-2 pb-9" style={{ background: '#d1d3d9', height: 336 }}>
       <div className="flex justify-around px-2 pb-1 text-[15px] text-[#555]">
         <span>mia@studio.co</span>
         <span>@</span>
@@ -143,7 +153,7 @@ function IosKeyboard() {
   );
 }
 
-export function TidalDesktop({ inspect, broken }: TidalState) {
+export function TidalDesktop({ inspect, broken, lime: isLime }: TidalState) {
   return (
     <div className="h-full overflow-hidden" style={{ background: paper, color: ink, fontFamily: 'var(--font-sans)' }}>
       <div className="mx-auto flex max-w-[1120px] flex-col" style={{ padding: '26px 40px', gap: 72 }}>
@@ -170,7 +180,7 @@ export function TidalDesktop({ inspect, broken }: TidalState) {
             </span>
             <span style={{ fontSize: 19, lineHeight: 1.5, color: grey, maxWidth: 440 }}>Tidal sorts every payment, plans your month and tells you what’s safe to spend.</span>
             <div className="flex items-center" style={{ gap: 14, marginTop: 6 }}>
-              <Cta inspect={inspect} label="Get started — free" big />
+              <Cta inspect={inspect} lime={isLime} target="cta-laptop" label="Get started — free" big />
               <span className="font-semibold" style={{ fontSize: 15 }}>
                 See how it works →
               </span>
