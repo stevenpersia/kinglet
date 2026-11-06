@@ -27,7 +27,7 @@ export function Pricing() {
           <h2 className="m-0 text-[clamp(34px,4.8vw,60px)] leading-none font-semibold tracking-[-0.05em]">
             Pay once.
             <br />
-            <span className="text-ghost">Keep it.</span>
+            <span className="bg-[linear-gradient(92deg,#f0a07f,#e6c07b_70%)] bg-clip-text text-transparent">Keep it.</span>
           </h2>
         </Reveal>
         <Reveal delay={0.06}>

@@ -55,7 +55,7 @@ export function Thanks() {
             <p className="m-0 text-[14.5px] leading-relaxed text-muted">
               Linux: the <b className="font-medium text-fg">AppImage</b> runs on any distribution, the <b className="font-medium text-fg">pacman</b> package is for Arch and CachyOS.
             </p>
-            <a href={DOWNLOAD_URL} className={`${button} bg-fg text-ink hover:bg-white`}>
+            <a href={DOWNLOAD_URL} className={`${button} bg-[linear-gradient(100deg,#f0a07f,#e6c07b)] text-[#1a120b] hover:brightness-110`}>
               <Icon name="download" size={15} />
               Download the latest version
             </a>

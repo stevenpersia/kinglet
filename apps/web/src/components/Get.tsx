@@ -7,7 +7,7 @@ export function BuyButton({ className = '' }: { className?: string }) {
   return (
     <a
       href={CHECKOUT_URL!}
-      className={`inline-flex h-11 items-center justify-center gap-2 rounded-[10px] bg-fg px-5 text-[15px] font-semibold text-ink no-underline hover:bg-white ${className}`}
+      className={`inline-flex h-11 items-center justify-center gap-2 rounded-[10px] px-5 text-[15px] font-semibold no-underline bg-[linear-gradient(100deg,#f0a07f,#e6c07b)] text-[#1a120b] hover:brightness-110 ${className}`}
     >
       Buy Kinglet · {PRICE.label}
       <Icon name="up" size={14} className="rotate-90" />

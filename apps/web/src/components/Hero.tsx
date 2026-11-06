@@ -77,7 +77,6 @@ export function Hero() {
 
   return (
     <section id="top" className="relative px-4 pt-20 sm:px-6 sm:pt-24">
-      <div aria-hidden="true" className="hairline-grid absolute inset-0 [mask-image:radial-gradient(ellipse_65%_50%_at_50%_20%,#000_10%,transparent_75%)]" />
       <div aria-hidden="true" className="absolute top-[560px] left-1/2 h-[420px] w-[min(1000px,100%)] -translate-x-1/2 rounded-full bg-[radial-gradient(closest-side,rgba(217,119,87,0.16),rgba(138,180,248,0.08)_55%,transparent)]" />
 
       <div className="relative mx-auto flex max-w-[1240px] flex-col items-center gap-6 text-center">

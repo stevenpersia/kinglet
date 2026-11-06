@@ -30,7 +30,7 @@ export function SectionHead({ id, n, eyebrow, title, dim, children }: { id: stri
           <h2 className="m-0 text-[clamp(34px,4.8vw,60px)] leading-none font-semibold tracking-[-0.05em]">
             {title}
             <br />
-            <span className="text-ghost">{dim}</span>
+            <span className="bg-[linear-gradient(92deg,#f0a07f,#e6c07b_70%)] bg-clip-text text-transparent">{dim}</span>
           </h2>
         </Reveal>
         <Reveal delay={0.08} className="max-w-[440px]">
@@ -58,7 +58,7 @@ export function ButtonLink({ href, children, primary, className = '' }: { href: 
     <a
       href={href}
       className={`inline-flex h-12 items-center gap-2.5 rounded-[10px] px-5 font-semibold no-underline transition-colors ${
-        primary ? 'bg-fg text-ink hover:bg-white' : 'border border-[#26262c] bg-[#0f0f12] font-medium text-fg hover:border-line-strong'
+        primary ? 'bg-[linear-gradient(100deg,#f0a07f,#e6c07b)] text-[#1a120b] hover:brightness-110' : 'border border-[#26262c] bg-[#0f0f12] font-medium text-fg hover:border-line-strong'
       } ${className}`}
     >
       {children}
