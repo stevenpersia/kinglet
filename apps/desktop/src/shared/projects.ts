@@ -69,6 +69,23 @@ export function visit(s: Settings, url: string): Pick<Settings, 'projects' | 're
   return { ...patchProject(s, s.activeId, { lastUrl: url }), recentUrls };
 }
 
+/**
+ * A page reached inside the devices (a link, a client-side route): it becomes the project's last page, so coming back
+ * to its tab reopens it. Only on the same site as the last page: a late event from the previous tab's page, or the
+ * error page, must not land in this project. Null when nothing changes.
+ */
+export function rememberPage(s: Settings, url: string): Pick<Settings, 'projects'> | null {
+  if (!s.activeId || !/^https?:\/\//.test(url)) return null;
+  const p = s.projects.find((x) => x.id === s.activeId);
+  if (!p?.lastUrl || p.lastUrl === url) return null;
+  try {
+    if (new URL(p.lastUrl).origin !== new URL(url).origin) return null;
+  } catch {
+    return null;
+  }
+  return patchProject(s, p.id, { lastUrl: url });
+}
+
 /** Which project a Claude Code session belongs to: the one whose folder contains its cwd. */
 export function projectForFolder(projects: Project[], cwd: string): Project | null {
   const norm = (p: string) => p.replace(/\/+$/, '');
