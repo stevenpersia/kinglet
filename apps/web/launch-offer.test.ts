@@ -34,3 +34,14 @@ it('answers GET with a short CDN cache, and refuses other methods', async () => 
   expect(res.headers.get('cache-control')).toContain('s-maxage=30');
   expect((await handler(new Request('https://x.dev/api/launch-offer', { method: 'POST' }))).status).toBe(405);
 });
+
+it('lists every variable each Edge function reads, or Vercel leaves it empty at runtime', async () => {
+  const { readFileSync } = await import('node:fs');
+  // @ts-expect-error plain JS build scripts
+  const { FUNCTIONS } = (await import('./scripts/build.mjs')) as { FUNCTIONS: Record<string, string[]> };
+  for (const [name, vars] of Object.entries(FUNCTIONS)) {
+    const used = [...readFileSync(new URL(`./functions/${name}.ts`, import.meta.url), 'utf8').matchAll(/env\.([A-Z][A-Z0-9_]+)/g)].map((m) => m[1]);
+    expect(used.length, name).toBeGreaterThan(0);
+    for (const v of used) expect(vars, `${name} reads ${v}`).toContain(v);
+  }
+});
