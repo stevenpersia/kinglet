@@ -1,4 +1,5 @@
 import { t } from '@kinglet/core';
+import { isLocalUrl } from '../shared/projects';
 import type { ClaudeEvent, ClaudeProjectState } from '../shared/types';
 
 /** Fields of a Claude Code hook payload that Kinglet reads. */
@@ -139,4 +140,13 @@ export class ClaudeTracker {
     }
     return changed;
   }
+}
+
+/**
+ * After a finished Claude task: reload the devices to show the result without Ctrl R? Only when the setting is on,
+ * the task ended well and changed files, its project is the one on screen, and the devices show the local site
+ * (a preview or prod doesn't have the change yet). Another project's tab reloads its page when it is opened anyway.
+ */
+export function reloadAfterTask(o: { enabled: boolean; error: boolean; files: number; projectId: string; shownId: string | null; url: string | null }): boolean {
+  return o.enabled && !o.error && o.files > 0 && o.projectId === o.shownId && !!o.url && isLocalUrl(o.url);
 }

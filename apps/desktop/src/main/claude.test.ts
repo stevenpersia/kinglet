@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { setLanguage } from '@kinglet/core';
-import { ClaudeTracker, IDLE_AFTER_MS } from './claude';
+import { ClaudeTracker, IDLE_AFTER_MS, reloadAfterTask } from './claude';
 
 const P = { id: 'shop', folder: '/home/s/dev/shop' };
 
@@ -62,5 +62,21 @@ describe('ClaudeTracker', () => {
     t.ingest({ hook_event_name: 'SessionStart', session_id: 's' }, null, 1);
     expect(t.projects['']!.events[0]).toMatchObject({ kind: 'start', projectId: null });
     expect(t.ingest({ hook_event_name: 'PreCompact', session_id: 's' }, null, 2)).toBeNull();
+  });
+});
+
+describe('reloadAfterTask', () => {
+  const ok = { enabled: true, error: false, files: 2, projectId: 'shop', shownId: 'shop', url: 'http://localhost:3000/pricing' };
+  it('reloads the local site of the project on screen after a task that changed files', () => {
+    expect(reloadAfterTask(ok)).toBe(true);
+    expect(reloadAfterTask({ ...ok, url: 'http://127.0.0.1:5173/' })).toBe(true);
+  });
+  it('leaves the devices alone otherwise', () => {
+    expect(reloadAfterTask({ ...ok, enabled: false })).toBe(false);
+    expect(reloadAfterTask({ ...ok, error: true })).toBe(false);
+    expect(reloadAfterTask({ ...ok, files: 0 })).toBe(false);
+    expect(reloadAfterTask({ ...ok, shownId: 'docs' })).toBe(false);
+    expect(reloadAfterTask({ ...ok, url: 'https://shop-git-feat.vercel.app/' })).toBe(false);
+    expect(reloadAfterTask({ ...ok, url: null })).toBe(false);
   });
 });
