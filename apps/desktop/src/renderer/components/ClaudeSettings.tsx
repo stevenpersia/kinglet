@@ -44,8 +44,8 @@ export function ClaudePanelSettings() {
           <span className="font-medium">{t('Reload when Claude is done', 'Recharger quand Claude a fini')}</span>
           <span className="text-xs text-muted">
             {t(
-              'When Claude finishes a task that changed files, the devices reload on their own to show the result (local site of the project on screen). Needs Claude Code tracking, below.',
-              'Quand Claude finit une tâche qui a modifié des fichiers, les appareils se rechargent seuls pour montrer le résultat (site local du projet affiché). Demande le suivi de Claude Code, plus bas.',
+              'When Claude finishes a task, the devices showing that project’s local site reload on their own to show the result. Needs Claude Code tracking, below.',
+              'Quand Claude finit une tâche, les appareils qui montrent le site local de ce projet se rechargent seuls pour montrer le résultat. Demande le suivi de Claude Code, plus bas.',
             )}
           </span>
         </div>
