@@ -94,8 +94,15 @@ export async function build(out, site) {
   return out;
 }
 
-/** Edge functions in functions/, each served at /api/<name>: the launch list, and the launch-price counter. */
-export const FUNCTIONS = ['waitlist', 'launch-offer'];
+/**
+ * Edge functions in functions/, each served at /api/<name> (the launch list, the launch-price counter), with the
+ * project variables each one reads. Vercel only hands an Edge function the variables listed in its envVarsInUse:
+ * without them process.env is empty at runtime, even when they are set in the project settings.
+ */
+export const FUNCTIONS = {
+  waitlist: ['RESEND_API_KEY', 'RESEND_AUDIENCE_ID'],
+  'launch-offer': ['POLAR_ACCESS_TOKEN', 'POLAR_DISCOUNT_ID', 'POLAR_API'],
+};
 
 /**
  * Vercel Build Output API (.vercel/output): the static site plus the Edge functions in FUNCTIONS, at /api/<name>.
@@ -106,7 +113,7 @@ export async function vercelOutput(dist, out = join(ROOT, '.vercel/output')) {
   const { build: vite } = await import('vite');
   rmSync(out, { recursive: true, force: true });
   cpSync(dist, join(out, 'static'), { recursive: true });
-  for (const name of FUNCTIONS) {
+  for (const [name, envVarsInUse] of Object.entries(FUNCTIONS)) {
     const fn = join(out, `functions/api/${name}.func`);
     await vite({
       root: ROOT,
@@ -115,7 +122,7 @@ export async function vercelOutput(dist, out = join(ROOT, '.vercel/output')) {
       ssr: { noExternal: true },
       build: { ssr: `functions/${name}.ts`, outDir: fn, emptyOutDir: true, rollupOptions: { output: { entryFileNames: 'index.js', format: 'es' } } },
     });
-    writeFileSync(join(fn, '.vc-config.json'), JSON.stringify({ runtime: 'edge', entrypoint: 'index.js' }, null, 2));
+    writeFileSync(join(fn, '.vc-config.json'), JSON.stringify({ runtime: 'edge', entrypoint: 'index.js', envVarsInUse }, null, 2));
   }
   mkdirSync(out, { recursive: true });
   writeFileSync(join(out, 'config.json'), JSON.stringify({ version: 3, routes: [{ handle: 'filesystem' }, ...STATIC_PAGES.map((p) => ({ src: `^/${p}/?$`, dest: `/${p}/index.html` }))] }, null, 2));
@@ -128,6 +135,6 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   console.log(`dist/ built for ${site}`);
   if (process.env.VERCEL) {
     await vercelOutput(dist);
-    console.log(`.vercel/output/ written (static site + ${FUNCTIONS.map((f) => `/api/${f}`).join(', ')})`);
+    console.log(`.vercel/output/ written (static site + ${Object.keys(FUNCTIONS).map((f) => `/api/${f}`).join(', ')})`);
   }
 }
