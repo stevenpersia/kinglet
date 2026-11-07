@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { closeProject, migrateSettings, openProject, projectForFolder, projectFromUrl, PROJECT_TOOL_KEYS, toolsOf, visit, withProjectTools } from './projects';
+import { closeProject, migrateSettings, openProject, projectForFolder, projectFromUrl, PROJECT_TOOL_KEYS, rememberPage, toolsOf, visit, withProjectTools } from './projects';
 import type { Project, Settings } from './types';
 
 const base: Settings = { projects: [], openIds: [], activeId: null, recentUrls: [], active: [], scrollSync: true, landscape: false, throttle: { network: 'off', cpu: 1 }, language: 'en', startup: 'restore', defaultSection: 'apercu', autoAnalyze: true, customDevices: [], deviceOrder: [], devicesPerProject: false, media: { colorScheme: 'auto', reducedMotion: false, moreContrast: false }, offline: false, mocks: [], onboarded: true, claudePanel: true, claudeReload: true, claudeAllowCommands: false, region: { locale: null, timezone: null, geo: null }, regionPerDevice: {}, textSize: { scale: 1, zoom: 1 }, keyboard: false, reviewPublicUrl: null };
@@ -92,5 +92,20 @@ describe('withProjectTools', () => {
     expect(withProjectTools(base, { language: 'fr' }, defaults)).toEqual({ language: 'fr' });
     expect(withProjectTools(base, { keyboard: true }, defaults)).toEqual({ keyboard: true });
     expect(PROJECT_TOOL_KEYS).toContain('mocks');
+  });
+});
+
+describe('rememberPage', () => {
+  const p = (id: string, lastUrl: string | null): Project => ({ id, name: id, vercelProjectId: null, teamId: null, localOrigin: null, folder: null, lastUrl });
+  const s: Settings = { ...base, projects: [p('blog', 'http://localhost:3000/'), p('shop', 'https://shop.example/')], openIds: ['blog', 'shop'], activeId: 'blog' };
+  it('keeps the page reached by a link or a route as the project’s last page', () => {
+    expect(rememberPage(s, 'http://localhost:3000/posts/1')?.projects.find((x) => x.id === 'blog')?.lastUrl).toBe('http://localhost:3000/posts/1');
+    expect(rememberPage(s, 'http://localhost:3000/#/fiches')?.projects.find((x) => x.id === 'shop')?.lastUrl).toBe('https://shop.example/');
+  });
+  it('ignores the same page, another site (the previous tab, a link out) and error pages', () => {
+    expect(rememberPage(s, 'http://localhost:3000/')).toBeNull();
+    expect(rememberPage(s, 'https://shop.example/cart')).toBeNull();
+    expect(rememberPage(s, 'data:text/html,error')).toBeNull();
+    expect(rememberPage({ ...s, activeId: null }, 'http://localhost:3000/a')).toBeNull();
   });
 });

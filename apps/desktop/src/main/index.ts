@@ -9,7 +9,7 @@ import { HistoryStore } from './history';
 import { ReviewServer } from './review';
 import { startControlServer } from './control';
 import { mcpLaunch } from './mcp-launch';
-import { activeProject, isLocalUrl, openProject, patchProject, projectForFolder, projectFromUrl, visit } from '../shared/projects';
+import { activeProject, isLocalUrl, openProject, patchProject, projectForFolder, projectFromUrl, rememberPage, visit } from '../shared/projects';
 import { VercelService } from './vercel';
 import { defaultRoots, findVercelFolder, vercelLinkOf } from './folders';
 import { cloneRepo, pushToGitHub } from './clone';
@@ -125,6 +125,14 @@ async function createWindow(license: LicenseService) {
       lan.notify(u.pathname + u.search);
     }
     if (!win.isDestroyed()) win.webContents.send('app:event', e);
+    // A link or a route followed in the devices: the project's last page, reopened when coming back to its tab.
+    if (e.type === 'loaded' || e.type === 'navigated') {
+      const patch = rememberPage(settings.value, e.url);
+      if (patch) {
+        settings.update(patch);
+        if (!win.isDestroyed()) win.webContents.send('app:event', { type: 'settings', settings: settings.value } satisfies PreviewEvent);
+      }
+    }
   };
   /** Set once the history is ready: measure the local site after a finished Claude task. */
   let onClaudeDone: (projectId: string, prompt: string | null) => void = () => undefined;
