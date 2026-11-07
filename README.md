@@ -240,7 +240,7 @@ Prix de lancement (59 $ pour les 100 premiers), où on en est :
 - [x] Dans Polar, *Products → Checkout Links* : poser la réduction de 20 $ (100 utilisations maximum, une par client, sans date de fin) comme réduction par défaut du lien de paiement. Le site n'envoie aucun code : c'est le lien qui porte la réduction.
 - [x] Ouvrir le lien de paiement dans le navigateur : il doit afficher **59 $**. S'il affiche 79 $, la réduction n'est pas posée sur le lien.
 - [x] Ouvrir `https://getkinglet.com/api/launch-offer` (la fonction est déjà en ligne, même avant la sortie) : il doit répondre `{"offer":{"left":100,"total":100}}`. `{"offer":null}` veut dire qu'une variable manque, que le jeton n'a pas le bon scope ou que l'ID n'est pas le bon (le détail est dans les logs de la fonction sur Vercel).
-- [ ] Remplir l'identité de l'éditeur dans `apps/web/src/publisher.ts` (le build signale les champs vides).
+- [x] Remplir l’identité de l’éditeur dans `apps/web/src/publisher.ts` (le build signale les champs vides).
 - [ ] Release prête : mettre le lien de paiement dans `CHECKOUT_URL` (étape 3 ci-dessus). La liste d'attente disparaît, le bouton d'achat et le compteur s'affichent.
 
 Tester (version de développement uniquement, ignoré par l'app installée), contre le bac à sable de Polar avec une organisation de test : `KINGLET_LICENSE_API=https://sandbox-api.polar.sh KINGLET_LICENSE_PRODUCT=<organisation>:<avantage> pnpm dev`.
