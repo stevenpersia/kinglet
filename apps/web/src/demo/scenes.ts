@@ -2,7 +2,7 @@
  * The hero's scripted demos. Each scene is a timeline: the cursor moves to a target (an element with
  * data-target="…" in the app window), clicks, presses a key, and the window's state changes.
  */
-export type SceneId = 'inspect' | 'console' | 'devices' | 'phone' | 'share' | 'checks' | 'journeys' | 'deploy';
+export type SceneId = 'inspect' | 'console' | 'devices' | 'phone' | 'share' | 'checks' | 'journeys' | 'projects' | 'deploy';
 export type Env = 'local' | 'preview' | 'prod';
 
 export type DemoState = {
@@ -39,6 +39,10 @@ export type DemoState = {
   journeyStep: number;
   /** A cookie banner covers the sign-up button on the phone. */
   banner: boolean;
+  // Projects: the tab on screen; Claude keeps working on saltmint while docs is shown.
+  project: 'saltmint' | 'docs';
+  /** The system notification "Claude finished on saltmint". */
+  notice: boolean;
   // Claude
   draft: boolean;
   sent: boolean;
@@ -71,6 +75,8 @@ export const initial = (scene: SceneId): DemoState => ({
   journeysOpen: false,
   journeyStep: -1,
   banner: false,
+  project: 'saltmint',
+  notice: false,
   draft: false,
   sent: false,
   shown: 0,
@@ -139,6 +145,16 @@ export const CLAUDE: Partial<Record<SceneId, Conversation>> = {
       { k: 'edit', text: 'Update(components/CookieBanner.tsx)', note: '+6 −3', ok: true },
       { k: 'tool', text: 'Journey “Sign up” played again', note: 'iPhone 16 ✓ · Laptop ✓', ok: true },
       { k: 'say', text: 'The banner no longer covers the form: the journey passes on both devices.' },
+    ],
+  },
+  projects: {
+    prompt: 'Make the sign-up button mint, on every page',
+    lines: [
+      { k: 'tool', text: 'Grep("Get started")', note: '4 files' },
+      { k: 'edit', text: 'Update(components/Hero.tsx)', note: '+2 −2', ok: true },
+      { k: 'edit', text: 'Update(components/Pricing.tsx)', note: '+2 −2', ok: true },
+      { k: 'tool', text: 'kinglet - run_checks', note: 'contrast ✓ 53/53', ok: true },
+      { k: 'say', text: 'Done on every page, checked on both devices.' },
     ],
   },
   deploy: {
@@ -235,6 +251,25 @@ export const SCRIPTS: Record<SceneId, Step[]> = {
     { at: 3800, set: { journeyStep: 3 } },
     { at: 4300, set: { journeyStep: 4 } },
     ...ask('journeys', 'ask-journey', 5000, { fixed: true, banner: false }),
+  ],
+  projects: [
+    // A task for Claude on saltmint…
+    { at: 300, to: 'claude-input' },
+    { at: 1000, click: true, set: { draft: true } },
+    { at: 1700, key: 'Enter', set: { sent: true } },
+    { at: 2400, set: { shown: 1 } },
+    // …then on to docs while it works: its tab keeps saying "working".
+    { at: 2600, to: 'tab-docs' },
+    { at: 3300, click: true, set: { project: 'docs' } },
+    { at: 3900, set: { shown: 2 } },
+    { at: 4200, to: 'btn-inspect' },
+    { at: 4800, click: true, set: { inspecting: true } },
+    { at: 5300, to: 'docs-title', set: { hover: true, shown: 3 } },
+    { at: 6400, to: 'docs-code', set: { shown: 4 } },
+    { at: 7300, set: { shown: 5, notice: true } },
+    // The notification brings you back to saltmint, where the change is waiting.
+    { at: 7900, to: 'notice' },
+    { at: 8600, click: true, set: { project: 'saltmint', notice: false, inspecting: false, hover: false, accent: true } },
   ],
   deploy: [
     { at: 300, to: 'claude-input' },

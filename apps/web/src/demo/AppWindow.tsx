@@ -8,12 +8,15 @@ import { AnimatePresence, motion } from 'motion/react';
 import { forwardRef, type ReactNode } from 'react';
 import { Dot, Icon, type IconName, Mark } from '../../../desktop/src/renderer/components/Icons';
 import { CLAUDE, type DemoState, type Env } from './scenes';
+import { DocsDesktop, DocsPhone } from './Docs';
 import { ShareImage, SiteDesktop, SitePhone } from './Saltmint';
 
 const PHONE = { w: 393, h: 852, radius: 36, pad: 6 };
 const LAPTOP = { w: 1280, h: 800, pad: 8 };
 const EASE = 'cubic-bezier(.2,.8,.2,1)';
 const URL: Record<Env, string> = { local: 'http://localhost:3000/', preview: 'https://saltmint-git-feat-budgets.vercel.app/', prod: 'https://saltmint.app/' };
+/** The address of the tab on screen: the docs project has its own dev server. */
+const urlOf = (s: DemoState) => (s.project === 'docs' ? 'http://localhost:5173/' : URL[s.env]);
 
 const fade = { initial: { opacity: 0, y: 6 }, animate: { opacity: 1, y: 0 }, exit: { opacity: 0, y: 4 }, transition: { duration: 0.25 } };
 const pop = { initial: { opacity: 0, y: -6, scale: 0.98 }, animate: { opacity: 1, y: 0, scale: 1 }, exit: { opacity: 0, y: -4 }, transition: { duration: 0.2 } };
@@ -46,8 +49,8 @@ function TitleBar({ s }: { s: DemoState }) {
         <Mark />
       </span>
       <div className="flex min-w-0 flex-1 items-stretch overflow-hidden">
-        <Tab name="saltmint" color="#a6f0c6" on status={status} />
-        <Tab name="docs" color="#8ab4f8" status={{ color: '#e6c07b', label: 'building' }} />
+        <Tab name="saltmint" color="#a6f0c6" on={s.project === 'saltmint'} status={status} target="tab-saltmint" />
+        <Tab name="docs" color="#8ab4f8" on={s.project === 'docs'} status={s.scene === 'projects' ? undefined : { color: '#e6c07b', label: 'building' }} target="tab-docs" />
         <Tab name="portfolio" color="#a78bfa" />
         <span className="flex w-[42px] shrink-0 items-center justify-center border-r border-line-soft text-lg leading-none text-faint">+</span>
       </div>
@@ -72,9 +75,9 @@ function TitleBar({ s }: { s: DemoState }) {
   );
 }
 
-function Tab({ name, color, on, status }: { name: string; color: string; on?: boolean; status?: { color: string; label: string; pulse?: boolean } }) {
+function Tab({ name, color, on, status, target }: { name: string; color: string; on?: boolean; status?: { color: string; label: string; pulse?: boolean }; target?: string }) {
   return (
-    <div className={`relative flex max-w-[236px] min-w-[120px] flex-1 items-center gap-2 border-r border-line-soft pr-3 pl-3 text-[12.5px] ${on ? 'bg-raised text-fg' : 'text-faint'}`}>
+    <div data-target={target} className={`relative flex max-w-[236px] min-w-[120px] flex-1 items-center gap-2 border-r border-line-soft pr-3 pl-3 text-[12.5px] ${on ? 'bg-raised text-fg' : 'text-faint'}`}>
       <span className="flex size-4 shrink-0 items-center justify-center rounded-[5px]" style={{ background: color }} />
       <span className="min-w-0 flex-1 truncate">{name}</span>
       {status && (
@@ -109,7 +112,7 @@ function EnvBar({ s }: { s: DemoState }) {
       </div>
       <div className="flex h-[30px] min-w-[150px] flex-1 items-center gap-2 rounded-ui border border-line bg-bg pr-1 pl-2.5">
         <Dot className={s.env === 'preview' ? 'bg-preview' : s.env === 'prod' ? 'bg-prod' : 'bg-local'} />
-        <span className="min-w-0 flex-1 truncate font-mono text-xs text-fg">{URL[s.env]}</span>
+        <span className="min-w-0 flex-1 truncate font-mono text-xs text-fg">{urlOf(s)}</span>
         <span className="flex h-6 items-center gap-1.5 rounded-md px-1.5 text-[11.5px] whitespace-nowrap text-faint">
           Pages <span className="font-mono text-[10.5px] text-ghost">14</span>
           <Icon name="chevrons" size={11} />
@@ -337,7 +340,13 @@ function Device({ kind, s }: { kind: 'phone' | 'laptop'; s: DemoState }) {
       <div className="bg-black shadow-[0_0_0_1px_#2e2e33,0_30px_60px_rgba(0,0,0,0.65)]" style={{ padding: d.pad, borderRadius: kind === 'laptop' ? 8 : radius + d.pad, transition: `border-radius .5s ${EASE}` }}>
         <div className="relative overflow-hidden bg-card" style={{ width: w, height: h, borderRadius: radius, transition: `width .5s ${EASE}, height .5s ${EASE}, border-radius .5s ${EASE}` }}>
           <div className="origin-top-left" style={{ width: d.w, height: d.h, transform: `scale(${scale})`, transition: `transform .5s ${EASE}` }}>
-            {kind === 'phone' ? (
+            {s.project === 'docs' ? (
+              kind === 'phone' ? (
+                <DocsPhone inspect={highlight} />
+              ) : (
+                <DocsDesktop inspect={highlight} />
+              )
+            ) : kind === 'phone' ? (
               <SitePhone inspect={highlight} keyboard={s.keyboard} keyboardFixed={s.keyboardFixed} accent={s.accent} banner={s.banner} />
             ) : (
               <SiteDesktop inspect={highlight} broken={s.scene === 'console' && !s.fixed} accent={s.accent} />
@@ -889,15 +898,17 @@ function RealPhone({ accent }: { accent: boolean }) {
 }
 
 function ClaudePanel({ s }: { s: DemoState }) {
-  const conv = CLAUDE[s.scene];
-  const st = claudeStatus(s);
+  // Each project has its own Claude: on the docs tab it's idle, while saltmint's keeps working in the background.
+  const other = s.project === 'docs';
+  const conv = other ? undefined : CLAUDE[s.scene];
+  const st = other ? 'idle' : claudeStatus(s);
   return (
     <aside aria-hidden="true" className="flex w-[300px] shrink-0 flex-col border-l border-line-soft bg-chrome">
       <div className="flex h-11 shrink-0 items-center justify-between border-b border-line-soft pr-3 pl-4">
         <span className="flex items-center gap-2 text-[13px] font-medium">
           <span className={`size-2 shrink-0 rounded-full bg-[#d97757] ${st === 'working' ? 'claude-dot' : ''}`} />
           Claude
-          <span className="font-mono text-[10.5px] font-normal text-ghost">~/dev/saltmint</span>
+          <span className="font-mono text-[10.5px] font-normal text-ghost">~/dev/{s.project}</span>
         </span>
         <span className={`flex items-center gap-1.5 font-mono text-[11px] ${st === 'working' ? 'text-[#d97757]' : st === 'done' ? 'text-ok' : 'text-ghost'}`}>
           <span className={`size-1.5 rounded-full ${st === 'working' ? 'claude-dot bg-[#d97757]' : st === 'done' ? 'bg-ok' : 'bg-ghost'}`} />
@@ -905,7 +916,8 @@ function ClaudePanel({ s }: { s: DemoState }) {
         </span>
       </div>
       <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-hidden px-4 py-3 font-mono text-[11.5px] leading-[1.55] text-muted">
-        {!s.sent && <span className="text-ghost">Claude Code · Opus · MCP kinglet ✓</span>}
+        {(!s.sent || other) && <span className="text-ghost">Claude Code · Opus · MCP kinglet ✓</span>}
+        {other && claudeStatus(s) === 'working' && <span className="text-faint">saltmint’s Claude is still working in its tab.</span>}
         {s.sent && conv && (
           <motion.div {...fade} className="rounded-md bg-active px-2.5 py-2 text-fg">
             <span className="text-faint">&gt; </span>
@@ -940,7 +952,7 @@ function ClaudePanel({ s }: { s: DemoState }) {
         }`}
       >
         <span className="min-w-0 flex-1">
-          {s.draft && !s.sent && conv ? (
+          {s.draft && !s.sent && conv && !other ? (
             <>
               {conv.note && <span className="block font-mono text-[10.5px] text-local">{conv.note}</span>}
               {conv.prompt}
@@ -959,12 +971,33 @@ function ClaudePanel({ s }: { s: DemoState }) {
   );
 }
 
+/** The system notification Kinglet sends when Claude finishes a task in another tab. */
+function Notice() {
+  return (
+    <motion.div
+      {...pop}
+      data-target="notice"
+      className="absolute top-[52px] right-3 z-50 flex w-[300px] items-start gap-3 rounded-xl border border-line bg-[#1b1b20] p-3 shadow-[0_20px_50px_rgba(0,0,0,0.6)]"
+    >
+      <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-[#2a1a14] text-[#d97757]">
+        <Mark />
+      </span>
+      <span className="flex min-w-0 flex-col gap-0.5">
+        <span className="flex items-center justify-between text-[12.5px] font-medium text-fg">
+          Claude finished · saltmint <span className="font-mono text-[10.5px] font-normal text-ghost">now</span>
+        </span>
+        <span className="text-xs text-muted">Sign-up button mint on every page · checks 53/53</span>
+      </span>
+    </motion.div>
+  );
+}
+
 function StatusBar({ s }: { s: DemoState }) {
   return (
     <footer className="flex h-[26px] shrink-0 items-center gap-[18px] border-t border-line-soft bg-chrome px-3.5 font-mono text-[11px] text-faint">
       <span className="flex items-center gap-1.5">
         <Dot className="bg-ok" />
-        {URL[s.env].replace(/\/$/, '')}
+        {urlOf(s).replace(/\/$/, '')}
       </span>
       <span className="flex items-center gap-1.5">
         <Dot className="bg-ok" />
@@ -1017,6 +1050,7 @@ export const AppWindow = forwardRef<HTMLDivElement, { s: DemoState; children?: R
         <AnimatePresence>{s.phoneLive && <RealPhone accent={s.accent} />}</AnimatePresence>
       </div>
       <StatusBar s={s} />
+      <AnimatePresence>{s.notice && <Notice key="notice" />}</AnimatePresence>
       {children}
     </div>
   );

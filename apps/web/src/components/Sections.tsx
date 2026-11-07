@@ -1,5 +1,5 @@
-import { motion } from 'motion/react';
-import type { ReactNode } from 'react';
+import { AnimatePresence, motion, useInView } from 'motion/react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { Dot, Icon, type IconName } from '../../../desktop/src/renderer/components/Icons';
 import { MCP_COMMAND } from '../config';
 import { LAB, LabTile } from './LabTiles';
@@ -42,27 +42,7 @@ export function AiWorkflow() {
           </Card>
         </Reveal>
         <Reveal delay={0.12}>
-          <Card className="flex h-full min-h-[380px] flex-col gap-3.5 p-7">
-            <Tag color={CLAY}>Claude, tracked</Tag>
-            <h3 className="m-0 text-[22px] font-semibold tracking-[-0.03em]">Know what Claude is doing, everywhere.</h3>
-            <p className="m-0 text-[14.5px] leading-relaxed text-faint">Each project tab says working, waiting for you or done. A notification when a task ends, and your site is measured again right after.</p>
-            <div className="mt-auto flex flex-col gap-2">
-              {[
-                ['saltmint', '#a6f0c6', 'working', CLAY, true],
-                ['docs', '#8ab4f8', 'waiting for you', '#e6c07b', false],
-                ['portfolio', '#a78bfa', 'to review', '#7dd3a8', false],
-              ].map(([name, color, label, tone, pulse]) => (
-                <div key={name as string} className="flex items-center gap-2.5 rounded-[10px] border border-line-soft bg-[#0f0f12] px-3 py-2.5 text-[13px]">
-                  <span className="size-3 rounded-[4px]" style={{ background: color as string }} />
-                  {name as string}
-                  <span className="ml-auto flex items-center gap-1.5 font-mono text-[11px]" style={{ color: tone as string }}>
-                    <span className={`size-1.5 rounded-full ${pulse ? 'claude-dot' : ''}`} style={{ background: tone as string }} />
-                    {label as string}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </Card>
+          <Projects />
         </Reveal>
       </div>
       <Reveal className="mt-4">
@@ -100,6 +80,62 @@ export function AiWorkflow() {
         <Journeys />
       </Reveal>
     </section>
+  );
+}
+
+/**
+ * Several projects at once: Claude works on saltmint while you're on docs, then saltmint's tab turns to
+ * "to review" and the notification slides in.
+ */
+function Projects() {
+  const ref = useRef<HTMLDivElement>(null);
+  const inView = useInView(ref, { once: true, margin: '-20%' });
+  const [done, setDone] = useState(false);
+  useEffect(() => {
+    if (!inView) return;
+    const t = setTimeout(() => setDone(true), 2600);
+    return () => clearTimeout(t);
+  }, [inView]);
+  const rows: [string, string, string, string, boolean, boolean][] = [
+    ['saltmint', '#a6f0c6', done ? 'to review' : 'Claude working', done ? '#7dd3a8' : CLAY, !done, false],
+    ['docs', '#8ab4f8', 'you’re here', '#c4c4cc', false, true],
+    ['portfolio', '#a78bfa', 'waiting for you', '#e6c07b', false, false],
+  ];
+  return (
+    <Card className="flex h-full min-h-[380px] flex-col gap-3.5 p-7">
+      <Tag color={CLAY}>Several projects at once</Tag>
+      <h3 className="m-0 text-[22px] font-semibold tracking-[-0.03em]">Claude on one project. You on the next.</h3>
+      <p className="m-0 text-[14.5px] leading-relaxed text-faint">Each project has its tab, its dev server and its own Claude, still working when you switch. A notification when a task ends, and the site is measured again.</p>
+      <div ref={ref} className="mt-auto flex flex-col gap-2">
+        <div className="h-[38px]">
+          <AnimatePresence>
+            {done && (
+              <motion.div
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+                className="flex h-full items-center gap-2.5 rounded-xl border border-line bg-[#1b1b20] px-3 shadow-[0_16px_40px_rgba(0,0,0,0.55)]"
+              >
+                <span className="size-2 shrink-0 rounded-full bg-ok" />
+                <span className="min-w-0 truncate text-[12.5px] text-fg">
+                  Claude finished · saltmint <span className="text-faint">· checks 53/53</span>
+                </span>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+        {rows.map(([name, color, label, tone, pulse, here]) => (
+          <div key={name} className={`flex items-center gap-2.5 rounded-[10px] border px-3 py-2.5 text-[13px] transition-colors ${here ? 'border-[#3a3a42] bg-[#17171b]' : 'border-line-soft bg-[#0f0f12]'}`}>
+            <span className="size-3 rounded-[4px]" style={{ background: color }} />
+            {name}
+            <motion.span key={label} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="ml-auto flex items-center gap-1.5 font-mono text-[11px]" style={{ color: tone }}>
+              <span className={`size-1.5 rounded-full ${pulse ? 'claude-dot' : ''}`} style={{ background: tone }} />
+              {label}
+            </motion.span>
+          </div>
+        ))}
+      </div>
+    </Card>
   );
 }
 
