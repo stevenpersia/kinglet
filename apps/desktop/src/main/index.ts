@@ -372,9 +372,17 @@ async function createWindow(license: LicenseService) {
     return job;
   };
 
-  async function analyzePage(url: string, opts: { refreshSite?: boolean } = {}): Promise<AnalyzeReport> {
+  /**
+   * Off screen, on the history's phone: the rendered page of a project that isn't on screen (its Claude asked),
+   * without moving the devices the person is looking at.
+   */
+  const renderedOffscreen = async (url: string) => {
+    const snap = await devices.snapshot(url, historyDevice());
+    return { devices: snap.measured ? [snap.measured] : [], links: [] as string[] };
+  };
+  async function analyzePage(url: string, opts: { refreshSite?: boolean; projectId?: string } = {}): Promise<AnalyzeReport> {
     const headers = bypassHeaders(url);
-    const [meta, rendered, privacy] = await Promise.all([readPageMeta(url, { headers }), devices.measure(), privacyOf(url, opts.refreshSite)]);
+    const [meta, rendered, privacy] = await Promise.all([readPageMeta(url, { headers }), opts.projectId ? renderedOffscreen(url) : devices.measure(), privacyOf(url, opts.refreshSite)]);
     const [image, hreflang] = await Promise.all([meta.ogImageUrl ? probeImage(meta.ogImageUrl, { headers: bypassHeaders(meta.ogImageUrl) }) : Promise.resolve(null), hreflangOf(meta, opts.refreshSite)]);
     const key = origin(meta.finalUrl);
     if (opts.refreshSite || !siteCache.has(key)) siteCache.set(key, readSiteFiles(meta.finalUrl, { manifest: meta.manifest, favicon: meta.icons[0] ?? null }, { headers }));
@@ -391,7 +399,7 @@ async function createWindow(license: LicenseService) {
     const order = { critical: 0, serious: 1, moderate: 2, minor: 3 } as const;
     const focus = rendered.devices.filter((r) => r.focusMissing).sort((a, b) => b.focusMissing!.count - a.focusMissing!.count)[0]?.focusMissing ?? null;
     const a11y = rendered.devices.some((r) => r.axe || r.focusMissing) ? { violations: [...byRule.values()].sort((a, b) => order[a.impact] - order[b.impact] || b.nodes - a.nodes), focus } : null;
-    const project = activeProject(settings.value);
+    const project = opts.projectId ? settings.value.projects.find((p) => p.id === opts.projectId) : activeProject(settings.value);
     const budgets = project?.budgets?.length ? evaluateBudgets(project.budgets, new URL(meta.finalUrl).pathname, budgetMeasures(vitals)) : [];
     return { url, share: { meta, image, issues: checkShare(meta, image) }, site, checks, score: score(checks), vitals, a11y, structured: readStructuredData(meta.jsonLd, meta.jsonLdErrors, locale()), hreflang, budgets, privacy };
   }
@@ -856,7 +864,16 @@ ${shots.map((sh) => `<section><header><h1>${esc(title)}</h1><span>${esc(sh.label
     devices,
     version: app.getVersion(),
     userData: app.getPath('userData'),
-    analyze: (url) => analyzePage(url),
+    analyze: (url, projectId) => analyzePage(url, { projectId }),
+    background: (cwd) => {
+      const p = projectForFolder(settings.value.projects, cwd);
+      if (!p || p.id === settings.value.activeId) return null;
+      return { id: p.id, name: p.name, url: p.lastUrl ?? (p.localOrigin ? `${p.localOrigin}/` : null) };
+    },
+    remember: (projectId, url) => {
+      settings.update(patchProject(settings.value, projectId, { lastUrl: url }));
+      emit({ type: 'settings', settings: settings.value });
+    },
     navigate: async (url) => {
       await navigate(url);
       await new Promise((r) => setTimeout(r, 500)); // late scripts, console errors
@@ -868,8 +885,8 @@ ${shots.map((sh) => `<section><header><h1>${esc(title)}</h1><span>${esc(sh.label
       applyDevices();
       emit({ type: 'settings', settings: next });
     },
-    deployments: () => {
-      const id = activeProject(settings.value)?.vercelProjectId;
+    deployments: (projectId) => {
+      const id = (projectId ? settings.value.projects.find((p) => p.id === projectId) : activeProject(settings.value))?.vercelProjectId;
       return { project: vercel.state.projects.find((p) => p.id === id) ?? null, deployments: id ? (vercel.state.deployments[id] ?? []) : [] };
     },
     logs: () => ({ url: devices.currentUrl, throttle: devices.throttling, logs: devices.allLogs() }),

@@ -2,7 +2,7 @@ import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { join } from 'node:path';
-import { CONTROL_FILE, type AppShot, type AppStatus, type ControlFile } from '@kinglet/mcp';
+import { CONTROL_FILE, CWD_HEADER, type AppShot, type AppStatus, type ControlFile } from '@kinglet/mcp';
 import { t } from '@kinglet/core';
 import type { McpActivity } from '../shared/types';
 import type { DeviceManager } from './devices';
@@ -11,11 +11,19 @@ interface Deps {
   devices: DeviceManager;
   version: string;
   userData: string;
-  analyze(url: string): Promise<unknown>;
+  /** Analysis of a page; with `projectId`, of a project not on screen: rendered off screen, the devices don't move. */
+  analyze(url: string, projectId?: string): Promise<unknown>;
+  /**
+   * The project of a Claude session (from the folder it runs in) when it is not the one on screen: its MCP calls must
+   * not move the devices the person is looking at. Null for the project on screen, or a folder outside every project.
+   */
+  background?(cwd: string): { id: string; name: string; url: string | null } | null;
+  /** Remember the page of a project not on screen (open_url from its Claude). */
+  remember?(projectId: string, url: string): void;
   setActive(ids: string[]): void;
   navigate(url: string): Promise<void>;
   onActivity(a: McpActivity): void;
-  deployments(): { project: unknown; deployments: unknown[] };
+  deployments(projectId?: string): { project: unknown; deployments: unknown[] };
   logs(): unknown;
   /** A Claude Code hook event (see claude-hooks.ts). */
   onClaudeEvent?(payload: Record<string, unknown>): void;
@@ -73,13 +81,30 @@ export function startControlServer(deps: Deps) {
 
     try {
       const body = req.method === 'POST' ? await readBody(req) : {};
+      // A Claude working on another project than the one on screen: never touch the visible devices for it.
+      const rawCwd = req.headers[CWD_HEADER];
+      let cwd: string | null = null;
+      try {
+        cwd = typeof rawCwd === 'string' && rawCwd ? decodeURIComponent(rawCwd) : null;
+      } catch {
+        /* malformed: treated as unknown */
+      }
+      const bg = cwd ? (deps.background?.(cwd) ?? null) : null;
+      const bgStatus = (): AppStatus => ({ ...status(), url: bg!.url, background: bg!.name });
       switch (`${req.method} ${req.url}`) {
         case 'GET /status':
-          return send(res, 200, status());
+          return send(res, 200, bg ? bgStatus() : status());
         case 'GET /logs':
+          if (bg)
+            return send(res, 409, {
+              error: t(
+                `The “${bg.name}” project isn’t on screen in Kinglet: its console isn’t captured. Ask the person to open its tab, or check the page with run_checks.`,
+                `Le projet « ${bg.name} » n’est pas affiché dans Kinglet : sa console n’est pas capturée. Demande à la personne d’ouvrir son onglet, ou vérifie la page avec run_checks.`,
+              ),
+            });
           return send(res, 200, deps.logs());
         case 'GET /deployments':
-          return send(res, 200, deps.deployments());
+          return send(res, 200, deps.deployments(bg?.id));
         case 'POST /activity': {
           // Reported by the MCP server once per tool or prompt call.
           deps.onActivity({ at: Date.now(), tool: String(body.tool ?? '?'), ok: body.ok !== false, detail: String(body.detail ?? ''), ms: Number(body.ms ?? 0) });
@@ -97,6 +122,11 @@ export function startControlServer(deps: Deps) {
         case 'POST /navigate': {
           const url = String(body.url ?? '');
           if (!/^https?:\/\//.test(url)) return send(res, 400, { error: t('invalid url', 'url invalide') });
+          if (bg) {
+            deps.remember?.(bg.id, url);
+            bg.url = url;
+            return send(res, 200, bgStatus());
+          }
           await deps.navigate(url);
           return send(res, 200, status());
         }
@@ -106,6 +136,11 @@ export function startControlServer(deps: Deps) {
           return send(res, 200, status());
         }
         case 'POST /analyze': {
+          if (bg) {
+            const url = typeof body.url === 'string' && body.url ? body.url : bg.url;
+            if (!url) return send(res, 400, { error: t('no page open', 'aucune page ouverte') });
+            return send(res, 200, await deps.analyze(url, bg.id));
+          }
           const url = typeof body.url === 'string' && body.url ? body.url : deps.devices.currentUrl;
           if (!url) return send(res, 400, { error: t('no page open', 'aucune page ouverte') });
           // Rendered measures come from the devices: they must show the page analysed.
@@ -119,6 +154,18 @@ export function startControlServer(deps: Deps) {
           const y = typeof body.scrollY === 'number' ? body.scrollY : undefined;
           const shots: AppShot[] = [];
           const missing: string[] = [];
+          if (bg) {
+            // Off screen, at the device's size: scrolling to an element isn't available there.
+            if (!bg.url) return send(res, 400, { error: t('no page open', 'aucune page ouverte') });
+            for (const d of deps.devices.entries()) {
+              if (only && d.preset.id !== only) continue;
+              if (selector || y !== undefined) missing.push(d.preset.label);
+              const snap = await deps.devices.snapshot(bg.url, d.preset.id);
+              const data = snap.image?.replace(/^data:image\/png;base64,/, '');
+              if (data) shots.push({ id: d.preset.id, label: d.preset.label, mime: 'image/png', data, ...deps.devices.viewport(d.preset) });
+            }
+            return send(res, 200, { shots, missing });
+          }
           for (const d of deps.devices.entries()) {
             if (only && d.preset.id !== only) continue;
             if ((selector || y !== undefined) && !(await deps.devices.scrollTo(d.preset.id, { selector, y }))) missing.push(d.preset.label);

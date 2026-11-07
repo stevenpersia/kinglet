@@ -163,6 +163,13 @@ export function createKingletServer(opts: Options = {}) {
       const control = await app();
       if (!control) return fail(appClosed());
       const s = await control.navigate(url);
+      if (s.background)
+        return text(
+          t(
+            `Opened in the “${s.background}” project: ${s.url}. Its tab isn’t on screen in Kinglet, so the devices the person is looking at don’t move; screenshots and checks of this page are made off screen.`,
+            `Ouvert dans le projet « ${s.background} » : ${s.url}. Son onglet n’est pas affiché dans Kinglet, donc les appareils que la personne regarde ne bougent pas ; les captures et les checks de cette page sont faits hors écran.`,
+          ),
+        );
       return text(t(`Opened on ${s.devices.map((d) => d.label).join(', ')}: ${s.url}`, `Ouvert sur ${s.devices.map((d) => d.label).join(', ')} : ${s.url}`));
     },
   );

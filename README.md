@@ -171,6 +171,8 @@ Outils exposés : `status`, `open_url`, `set_devices`, `screenshot`, `get_page_m
 
 Le serveur MCP marche app fermée, sur une URL donnée. Avec l'app ouverte, il utilise la page affichée et les appareils émulés : captures, débordement horizontal, erreurs JavaScript. Il parle à l'app par un serveur local (`127.0.0.1`, jeton aléatoire dans `~/.config/Kinglet/mcp.json`), et chaque appel de Claude apparaît dans **Réglages → Serveur MCP** et dans la barre d'état.
 
+Chaque Claude travaille sur son projet : le serveur MCP dit à l'app dans quel dossier tourne la session, et si ce projet n'est pas l'onglet affiché, ses outils travaillent hors écran (`open_url` retient la page du projet sans bouger les appareils, `screenshot` et les checks rendent la page hors écran, `get_console` demande d'ouvrir l'onglet). Les appareils que tu regardes ne bougent que pour le Claude du projet affiché, ou un Claude lancé hors de tout projet.
+
 ## Installer l'app (Arch / CachyOS)
 
 Télécharge le paquet pacman (ou l'AppImage) de la [dernière release](https://github.com/stevenpersia/kinglet-releases/releases/latest), puis :

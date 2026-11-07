@@ -22,8 +22,16 @@ export interface AppDevice {
   kind: string;
 }
 
+/** Header carrying the folder of the Claude session calling (URI-encoded). */
+export const CWD_HEADER = 'x-kinglet-cwd';
+
 export interface AppStatus {
   url: string | null;
+  /**
+   * The Claude session calling belongs to a project open in Kinglet but not on screen (its name): the page is that
+   * project's, and captures and checks are made off screen, without touching the devices the person is looking at.
+   */
+  background?: string | null;
   devices: AppDevice[];
   version: string;
 }
@@ -102,7 +110,8 @@ export class AppControl {
   private async call<T>(method: 'GET' | 'POST', path: string, body?: unknown, timeoutMs = 30_000): Promise<T> {
     const res = await fetch(`http://127.0.0.1:${this.file.port}${path}`, {
       method,
-      headers: { authorization: `Bearer ${this.file.token}`, 'content-type': 'application/json' },
+      // The folder Claude runs in (the MCP server inherits it): the app works on that project, not on the tab on screen.
+      headers: { authorization: `Bearer ${this.file.token}`, 'content-type': 'application/json', [CWD_HEADER]: encodeURIComponent(process.cwd()) },
       body: body === undefined ? undefined : JSON.stringify(body),
       signal: AbortSignal.timeout(timeoutMs),
     });
