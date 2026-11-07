@@ -24,7 +24,7 @@ const base: Settings = {
   offline: false,
   mocks: [],
   onboarded: true,
-  claudePanel: true,
+  claudePanel: true, claudeReload: true,
   claudeAllowCommands: false,
   region: { locale: null, timezone: null, geo: null },
   regionPerDevice: {},

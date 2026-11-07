@@ -39,6 +39,18 @@ export function ClaudePanelSettings() {
         </div>
         <Switch label={t('Claude panel', 'Panneau Claude')} on={settings.claudePanel} onChange={(claudePanel) => void updateSettings({ claudePanel })} />
       </div>
+      <div className={row}>
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="font-medium">{t('Reload when Claude is done', 'Recharger quand Claude a fini')}</span>
+          <span className="text-xs text-muted">
+            {t(
+              'When Claude finishes a task that changed files, the devices reload on their own to show the result (local site of the project on screen). Needs Claude Code tracking, below.',
+              'Quand Claude finit une tâche qui a modifié des fichiers, les appareils se rechargent seuls pour montrer le résultat (site local du projet affiché). Demande le suivi de Claude Code, plus bas.',
+            )}
+          </span>
+        </div>
+        <Switch label={t('Reload when Claude is done', 'Recharger quand Claude a fini')} on={settings.claudeReload} onChange={(claudeReload) => void updateSettings({ claudeReload })} />
+      </div>
     </div>
   );
 }

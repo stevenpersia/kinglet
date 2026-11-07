@@ -111,6 +111,8 @@ export interface Settings {
   onboarded: boolean;
   /** Claude panel in the left bar. */
   claudePanel: boolean;
+  /** Reload the devices when Claude finishes a task that changed files on the project shown (local site only). */
+  claudeReload: boolean;
   /** No longer used: Claude asks in its own terminal (kept so older settings still read). */
   claudeAllowCommands: boolean;
   /** Language, time zone and position the devices pretend to have (all of them). */

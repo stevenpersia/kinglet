@@ -26,6 +26,7 @@ export const DEFAULTS: Settings = {
   mocks: [],
   onboarded: false,
   claudePanel: true,
+  claudeReload: true,
   claudeAllowCommands: false,
   region: { locale: null, timezone: null, geo: null },
   regionPerDevice: {},
