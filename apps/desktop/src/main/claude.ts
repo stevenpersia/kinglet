@@ -143,10 +143,17 @@ export class ClaudeTracker {
 }
 
 /**
- * After a finished Claude task: reload the devices to show the result without Ctrl R? Only when the setting is on,
- * the task ended well and changed files, its project is the one on screen, and the devices show the local site
- * (a preview or prod doesn't have the change yet). Another project's tab reloads its page when it is opened anyway.
+ * After a finished Claude task: reload the devices to show the result without Ctrl R? When the setting is on, the task
+ * didn't fail, and the devices show the local site of that project: the tab on screen is it, or shows its dev server
+ * (the same folder can be linked to two projects). Every finished task counts, edit tools or not: Claude also changes
+ * files through Bash (sed, scripts, generators). A preview or prod doesn't have the change yet: left alone.
  */
-export function reloadAfterTask(o: { enabled: boolean; error: boolean; files: number; projectId: string; shownId: string | null; url: string | null }): boolean {
-  return o.enabled && !o.error && o.files > 0 && o.projectId === o.shownId && !!o.url && isLocalUrl(o.url);
+export function reloadAfterTask(o: { enabled: boolean; error: boolean; projectId: string; shownId: string | null; localOrigin: string | null; url: string | null }): boolean {
+  if (!o.enabled || o.error || !o.url || !isLocalUrl(o.url)) return false;
+  if (o.projectId === o.shownId) return true;
+  try {
+    return !!o.localOrigin && new URL(o.url).origin === new URL(o.localOrigin).origin;
+  } catch {
+    return false;
+  }
 }

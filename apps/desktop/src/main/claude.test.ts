@@ -66,16 +66,17 @@ describe('ClaudeTracker', () => {
 });
 
 describe('reloadAfterTask', () => {
-  const ok = { enabled: true, error: false, files: 2, projectId: 'shop', shownId: 'shop', url: 'http://localhost:3000/pricing' };
-  it('reloads the local site of the project on screen after a task that changed files', () => {
+  const ok = { enabled: true, error: false, projectId: 'shop', shownId: 'shop', localOrigin: 'http://localhost:3000', url: 'http://localhost:3000/pricing' };
+  it('reloads the local site of the project that finished, edit tools or not', () => {
     expect(reloadAfterTask(ok)).toBe(true);
-    expect(reloadAfterTask({ ...ok, url: 'http://127.0.0.1:5173/' })).toBe(true);
+    expect(reloadAfterTask({ ...ok, url: 'http://127.0.0.1:5173/', localOrigin: null })).toBe(true);
+    // The same folder linked to another project: the devices show its dev server.
+    expect(reloadAfterTask({ ...ok, shownId: 'shop-local' })).toBe(true);
   });
   it('leaves the devices alone otherwise', () => {
     expect(reloadAfterTask({ ...ok, enabled: false })).toBe(false);
     expect(reloadAfterTask({ ...ok, error: true })).toBe(false);
-    expect(reloadAfterTask({ ...ok, files: 0 })).toBe(false);
-    expect(reloadAfterTask({ ...ok, shownId: 'docs' })).toBe(false);
+    expect(reloadAfterTask({ ...ok, shownId: 'docs', url: 'http://localhost:5173/' })).toBe(false);
     expect(reloadAfterTask({ ...ok, url: 'https://shop-git-feat.vercel.app/' })).toBe(false);
     expect(reloadAfterTask({ ...ok, url: null })).toBe(false);
   });

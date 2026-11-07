@@ -853,7 +853,7 @@ ${shots.map((sh) => `<section><header><h1>${esc(title)}</h1><span>${esc(sh.label
       if (r.event.kind !== 'error') onClaudeDone(project.id, st.prompt);
       const n = st.files.length;
       // The result on screen without Ctrl R (hot reload doesn't catch everything: server code, config, env).
-      if (reloadAfterTask({ enabled: settings.value.claudeReload, error: r.event.kind === 'error', files: n, projectId: project.id, shownId: activeProject(settings.value)?.id ?? null, url: devices.currentUrl })) devices.reload();
+      if (reloadAfterTask({ enabled: settings.value.claudeReload, error: r.event.kind === 'error', projectId: project.id, shownId: activeProject(settings.value)?.id ?? null, localOrigin: project.localOrigin, url: devices.currentUrl })) devices.reload();
       notify(
         project.id,
         t(`Claude is done · ${project.name}`, `Claude a terminé · ${project.name}`),
