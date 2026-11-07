@@ -8,7 +8,6 @@ import { GetKinglet } from './Get';
 const INCLUDED = [
   '10 emulated devices and your real phone',
   'Claude Code panel, inspector and console',
-  'Several projects in tabs, one Claude each',
   'MCP server: 14 tools, 6 slash commands',
   'Vercel and GitHub: previews, prod, PRs, CI',
   '53 checks: SEO, content, privacy, speed…',

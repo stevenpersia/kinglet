@@ -23,6 +23,8 @@ const pop = { initial: { opacity: 0, y: -6, scale: 0.98 }, animate: { opacity: 1
 
 /** One scale for every device, as in the app (lib/layout.ts); it shrinks when a drawer or a panel takes room. */
 function scaleOf(s: DemoState) {
+  // Device tools shows the phone alone, bigger, so the keyboard fix reads clearly.
+  if (s.scene === 'devices') return s.emuMenu ? 0.42 : 0.5;
   if (s.consoleOpen) return 0.28;
   if (s.checksOpen) return 0.27;
   if (s.picked) return 0.35;
@@ -232,7 +234,7 @@ function DeviceToolbar({ s }: { s: DemoState }) {
         <span className="mx-0.5 h-4 w-px bg-line" />
         {chip('tablet', 'iPad Air', 820, false)}
         <span className="mx-0.5 h-4 w-px bg-line" />
-        {chip('laptop', 'Laptop', 1280, true)}
+        {chip('laptop', 'Laptop', 1280, s.scene !== 'devices')}
       </div>
       <span className="h-5 w-px bg-line" />
       <div className="flex items-center gap-0.5">
@@ -309,7 +311,7 @@ function EmulationPanel({ s }: { s: DemoState }) {
           <span className="text-[12.5px] font-semibold">Emulation</span>
           <span className="flex items-center gap-1 text-[10.5px] text-faint">
             <span className="size-1.5 rounded-full bg-ok" />
-            Live on 2 devices
+            Live on {s.scene === 'devices' ? '1 device' : '2 devices'}
           </span>
         </span>
       </div>
@@ -1003,7 +1005,7 @@ function StatusBar({ s }: { s: DemoState }) {
         <Dot className="bg-ok" />
         pnpm dev
       </span>
-      <span>2 devices</span>
+      <span>{s.scene === 'devices' ? '1 device' : '2 devices'}</span>
       {s.wifi && <span className="text-ok">Phone · 1 connected</span>}
       <span className="flex items-center gap-1.5">
         <Dot className="bg-ok" />
@@ -1034,7 +1036,7 @@ export const AppWindow = forwardRef<HTMLDivElement, { s: DemoState; children?: R
               <div className="flex min-h-0 flex-1">
                 <div data-target="stage" className="flex min-h-0 min-w-0 flex-1 items-center justify-center gap-11 overflow-hidden px-6 pt-2 pb-4">
                   <Device kind="phone" s={s} />
-                  <Device kind="laptop" s={s} />
+                  {s.scene !== 'devices' && <Device kind="laptop" s={s} />}
                 </div>
                 <AnimatePresence>{s.checksOpen && <ChecksPanel s={s} />}</AnimatePresence>
               </div>
