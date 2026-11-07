@@ -234,6 +234,15 @@ Code : `apps/desktop/src/main/license.ts` (logique, testée dans `license.test.t
 2. Mettre l'ID de l'organisation et celui de l'avantage dans `apps/desktop/src/main/license-config.ts` (tant qu'ils sont vides, l'app installée refuse toutes les clés), et l'adresse de l'espace client (`polar.sh/<slug>/portal`) dans `ORDERS_URL`.
 3. Mettre le lien de paiement dans `CHECKOUT_URL` de `apps/web/src/config.ts` : tous les « Join the list » du site deviennent « Buy Kinglet », la FAQ change et le compteur du prix de lancement s'affiche. Avant, vérifier le compteur contre le bac à sable de Polar (`POLAR_API=https://sandbox-api.polar.sh`) : il lit les champs `max_redemptions` et `redemptions_count` de la réduction ; si l'un manque ou change de nom, le site affiche simplement 79 $ sans compteur. Le cache de 30 s fait qu'un visiteur qui voit « 1 left » peut payer 79 $ si la 100e vient de partir : Polar lui montre le vrai prix avant de payer.
 
+Prix de lancement (59 $ pour les 100 premiers), où on en est :
+
+- [x] Variables `POLAR_ACCESS_TOKEN` (scope `discounts:read`) et `POLAR_DISCOUNT_ID` dans le projet Vercel.
+- [ ] Dans Polar, *Products → Checkout Links* : poser la réduction de 20 $ (100 utilisations maximum, une par client, sans date de fin) comme réduction par défaut du lien de paiement. Le site n'envoie aucun code : c'est le lien qui porte la réduction.
+- [ ] Ouvrir le lien de paiement dans le navigateur : il doit afficher **59 $**. S'il affiche 79 $, la réduction n'est pas posée sur le lien.
+- [ ] Ouvrir `https://getkinglet.com/api/launch-offer` (la fonction est déjà en ligne, même avant la sortie) : il doit répondre `{"offer":{"left":100,"total":100}}`. `{"offer":null}` veut dire qu'une variable manque, que le jeton n'a pas le bon scope ou que l'ID n'est pas le bon (le détail est dans les logs de la fonction sur Vercel).
+- [ ] Remplir l'identité de l'éditeur dans `apps/web/src/publisher.ts` (le build signale les champs vides).
+- [ ] Release prête : mettre le lien de paiement dans `CHECKOUT_URL` (étape 3 ci-dessus). La liste d'attente disparaît, le bouton d'achat et le compteur s'affichent.
+
 Tester (version de développement uniquement, ignoré par l'app installée), contre le bac à sable de Polar avec une organisation de test : `KINGLET_LICENSE_API=https://sandbox-api.polar.sh KINGLET_LICENSE_PRODUCT=<organisation>:<avantage> pnpm dev`.
 
 ```bash
