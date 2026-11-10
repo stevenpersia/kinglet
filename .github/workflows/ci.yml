@@ -1,8 +1,16 @@
 name: CI
 
+# Actions minutes are counted (private repository): each change is built once per push to a PR and once on main,
+# never twice. Branches without a PR (ccr-*, claude/*, work in progress) are not built until a PR is opened.
 on:
   push:
+    branches: [main]
   pull_request:
+
+# A new push on the same branch or PR cancels the run still going (its result would be outdated anyway).
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   linux:
@@ -29,14 +37,19 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
 
-      # Without captures here: the packaged run below takes them (it clears selftest-output/ first).
+      # On main, without captures here: the packaged run below takes them (it clears selftest-output/ first).
+      # On a PR, this is the only run, so it takes them.
       - name: Acceptance test (dev build)
-        run: KINGLET_SELFTEST_SHOTS=0 pnpm selftest
+        run: KINGLET_SELFTEST_SHOTS=${{ github.event_name == 'push' && '0' || '1' }} pnpm selftest
 
+      # Packaging and its acceptance test, the slowest part: on main only (release.yml does both again before
+      # publishing). A PR is checked on the dev build above.
       - name: Package AppImage + pacman
+        if: github.event_name == 'push'
         run: pnpm dist
 
       - name: Acceptance test (packaged app)
+        if: github.event_name == 'push'
         working-directory: apps/desktop
         run: KINGLET_BIN=dist/linux-unpacked/kinglet node scripts/selftest.mjs
 
@@ -46,10 +59,14 @@ jobs:
           name: selftest-screenshots
           path: apps/desktop/selftest-output/*.png
           if-no-files-found: ignore
+          retention-days: 7
 
+      # Storage is counted too: the build of main is kept 3 days (releases live in kinglet-releases).
       - uses: actions/upload-artifact@v7
+        if: github.event_name == 'push'
         with:
           name: kinglet-linux
+          retention-days: 3
           path: |
             apps/desktop/dist/*.AppImage
             apps/desktop/dist/*.pacman
