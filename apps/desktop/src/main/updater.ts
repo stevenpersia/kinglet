@@ -39,7 +39,7 @@ export class Updater {
     autoUpdater.autoDownload = true;
     autoUpdater.autoInstallOnAppQuit = false;
     autoUpdater.logger = null;
-    // Releases come from the public stevenpersia/kinglet-releases (electron-builder.yml); tests point the updater at a local server.
+    // Releases come from stevenpersia/kinglet (electron-builder.yml); tests point the updater at a local server.
     if (process.env.KINGLET_UPDATE_URL) autoUpdater.setFeedURL({ provider: 'generic', url: process.env.KINGLET_UPDATE_URL });
 
     autoUpdater.on('checking-for-update', () => this.set({ status: 'checking', error: null }));

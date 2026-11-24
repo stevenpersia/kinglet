@@ -26,7 +26,7 @@ export const MEDIATOR = {
 };
 
 /** Date of the current version of the legal pages. Change it with every change to their content. */
-export const LEGAL_UPDATED = 'November 6, 2026';
+export const LEGAL_UPDATED = 'November 24, 2026';
 
 /** Days during which a purchase is refunded on request, no questions asked. */
 export const REFUND_DAYS = 14;

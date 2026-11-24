@@ -5,7 +5,7 @@ import { REFUND_DAYS } from '../publisher';
 import { Reveal } from './ui';
 import { GetKinglet } from './Get';
 
-const INCLUDED = [
+export const INCLUDED = [
   '10 emulated devices and your real phone',
   'Claude Code panel, inspector and console',
   'MCP server: 14 tools, 6 slash commands',
@@ -35,6 +35,7 @@ function LaunchMeter({ offer }: { offer: LaunchOffer }) {
   );
 }
 
+/** The paid offer, hidden while Kinglet is free (config.ts FREE): App renders Download instead. */
 export function Pricing() {
   const offer = useLaunchOffer();
   return (
@@ -119,44 +120,6 @@ export function Pricing() {
           </div>
         </div>
       </Reveal>
-    </section>
-  );
-}
-
-const FAQ: [string, string][] = [
-  ['Does it check security?', 'Yes, in its own section. Kinglet looks for API keys and tokens shipped in your HTML and JavaScript, .env, .git and source maps left reachable (tried on your own sites only), security headers, cookie flags, HTTPS, mixed content and third-party scripts. Each problem comes with the fix, and Claude can apply it.'],
-  LAUNCHED
-    ? ['How do I get it?', 'Buy it in Pricing: your license key is ready right away, in the receipt email and Polar’s customer portal. Download Kinglet, open it and enter the key. It works on up to 3 computers; moving to a new one is a click in Settings → License.']
-    : ['When can I get it?', `Soon. Leave your email in Pricing: you’ll get one email at launch. The first ${LAUNCH_SEATS} buyers pay ${LAUNCH_PRICE.label} instead of ${PRICE.label}.`],
-  ...(LAUNCHED ? ([['Does it work offline?', 'Yes. Activating needs the internet once; after that Kinglet checks the license now and then and keeps working offline for up to 14 days at a time.']] as [string, string][]) : []),
-  ['Is it a subscription?', 'No. You pay once and keep Kinglet. Updates install themselves.'],
-  ['Can I get a refund?', `Yes, within ${REFUND_DAYS} days of buying, no questions asked: from Polar’s customer portal or by email. See the Terms.`],
-  ['Which systems does it run on?', 'Linux today: AppImage for any distribution, and a pacman package for Arch and CachyOS.'],
-  ['Do I need Claude Code?', 'No. Devices, checks, Open Graph previews and Vercel work on their own. With Claude Code installed, Kinglet opens it in your project with the MCP server already plugged in.'],
-  ['Do I need Vercel or GitHub?', 'No. Any local address works (localhost:3000, 5173…). Connect Vercel and GitHub for previews, production, pull requests and publishing.'],
-  ['Which frameworks?', 'Anything that runs in a browser. Fixes are written for Next.js, Nuxt, Astro, SvelteKit and Vite.'],
-  ['Where do my tokens go?', 'Into your system keyring (KWallet, GNOME Keyring). Kinglet talks to Vercel and GitHub from your computer only.'],
-];
-
-export function Faq() {
-  return (
-    <section className="mx-auto max-w-[880px] px-4 pt-32 sm:px-6">
-      <Reveal>
-        <h2 id="faq" className="m-0 text-center text-[clamp(28px,3.4vw,40px)] font-semibold tracking-[-0.04em]">Questions</h2>
-      </Reveal>
-      <div className="mt-10 flex flex-col">
-        {FAQ.map(([q, a]) => (
-          <details key={q} className="group border-b border-line-soft py-5 [&_summary::-webkit-details-marker]:hidden">
-            <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-[17px] font-medium">
-              {q}
-              <span className="text-ghost transition-transform group-open:rotate-45">
-                <Icon name="plus" size={16} />
-              </span>
-            </summary>
-            <p className="m-0 mt-3 text-[15px] leading-relaxed text-muted">{a}</p>
-          </details>
-        ))}
-      </div>
     </section>
   );
 }

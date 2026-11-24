@@ -58,7 +58,7 @@ it('has a thanks page for after paying, out of search results and without JavaSc
 });
 
 it('has the legal pages, linked from every page, without JavaScript', async () => {
-  for (const [path, title] of [['legal', 'Legal notice'], ['terms', 'Terms of sale and license'], ['privacy', 'Privacy policy']]) {
+  for (const [path, title] of [['legal', 'Legal notice'], ['terms', 'Terms of use'], ['privacy', 'Privacy policy']]) {
     const res = await fetch(`${site}/${path}/`);
     expect(res.status).toBe(200);
     const html = await res.text();
@@ -67,9 +67,8 @@ it('has the legal pages, linked from every page, without JavaScript', async () =
     expect(html).not.toMatch(/<script/);
   }
   const terms = (await (await fetch(`${site}/terms/`)).text()).replaceAll('<!-- -->', '');
-  expect(terms).toContain('$79, paid once');
-  expect(terms).toContain('up to 3 computers');
-  expect(terms).toContain('14 days');
+  expect(terms).toContain('Kinglet is free');
+  expect(terms).not.toContain('refund');
   for (const page of ['/', '/thanks/', '/privacy/']) {
     const html = await (await fetch(`${site}${page}`)).text();
     for (const link of ['/terms/', '/privacy/', '/legal/']) expect(html, `${page} links to ${link}`).toContain(`href="${link}"`);
@@ -87,4 +86,12 @@ it('names the publisher and the consumer mediator, with nothing left to fill in'
   const terms = (await (await fetch(`${site}/terms/`)).text()).replaceAll('<!-- -->', '');
   expect(terms).not.toContain('to fill in');
   expect(terms).toContain('La Médiation Professionnelle');
+});
+
+it('offers the free download from the Kinglet repository, with no price or checkout', async () => {
+  const html = (await (await fetch(`${site}/`)).text()).replaceAll('<!-- -->', '');
+  expect(html).toContain('href="https://github.com/stevenpersia/kinglet/releases/latest"');
+  expect(html).toContain('id="download"');
+  expect(html).not.toContain('kinglet-releases');
+  expect(html).not.toMatch(/\$79|\$59|Buy Kinglet|Join the list|polar\.sh/);
 });

@@ -2,12 +2,13 @@ import { MotionConfig } from 'motion/react';
 import { KingletBird, Mark } from '../../desktop/src/renderer/components/Icons';
 import { BrandLogo, BRANDS } from './components/BrandLogos';
 import { Hero } from './components/Hero';
-import { Faq, Pricing } from './components/Pricing';
+import { Download, Faq } from './components/Download';
 import { AiWorkflow, Checks, DeviceLab, Mcp, Security, Ship } from './components/Sections';
 import { Reveal } from './components/ui';
 import { GetKinglet } from './components/Get';
 import { SiteFooter } from './components/Shell';
-import { LAUNCH_OFFER, LAUNCHED } from './config';
+import { FREE, LAUNCH_OFFER, LAUNCHED } from './config';
+import { Pricing } from './components/Pricing';
 
 function Nav() {
   const links: [string, string][] = [
@@ -16,7 +17,7 @@ function Nav() {
     ['#ship', 'Vercel & GitHub'],
     ['#checks', 'Checks'],
     ['#security', 'Security'],
-    ['#pricing', 'Pricing'],
+    FREE ? ['#download', 'Download'] : ['#pricing', 'Pricing'],
   ];
   return (
     <header className="sticky top-0 z-30 border-b border-[#141418] bg-[rgba(8,8,10,0.75)] backdrop-blur-xl">
@@ -35,8 +36,8 @@ function Nav() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <a href="#waitlist" className="inline-flex h-9 items-center rounded-lg px-3.5 text-[13px] font-semibold no-underline bg-[linear-gradient(100deg,#f0a07f,#e6c07b)] text-[#1a120b] hover:brightness-110">
-            {LAUNCHED ? 'Buy Kinglet' : 'Join the list'}
+          <a href={FREE ? '#download' : '#waitlist'} className="inline-flex h-9 items-center rounded-lg px-3.5 text-[13px] font-semibold no-underline bg-[linear-gradient(100deg,#f0a07f,#e6c07b)] text-[#1a120b] hover:brightness-110">
+            {FREE ? 'Download' : LAUNCHED ? 'Buy Kinglet' : 'Join the list'}
           </a>
         </div>
       </nav>
@@ -72,7 +73,7 @@ function FinalCta() {
           you can see everything.
         </h2>
         <p className="m-0 max-w-[520px] text-base leading-relaxed text-muted">
-          {LAUNCHED ? 'Pay once, keep it. Your license key is ready right after paying, updates install themselves.' : `Kinglet launches soon, at ${LAUNCH_OFFER}. Leave your email: one message at launch.`}
+          {FREE ? 'Free, for Linux. No account, no license key: download it, open it, updates install themselves.' : LAUNCHED ? 'Pay once, keep it. Your license key is ready right after paying, updates install themselves.' : `Kinglet launches soon, at ${LAUNCH_OFFER}. Leave your email: one message at launch.`}
         </p>
         <GetKinglet />
       </Reveal>
@@ -96,11 +97,11 @@ export function App() {
         <Checks />
         <Security />
         <Mcp />
-        <Pricing />
+        {FREE ? <Download /> : <Pricing />}
         <Faq />
         <FinalCta />
       </main>
-      <SiteFooter links={[['#faq', 'FAQ'], ['#waitlist', LAUNCHED ? 'Buy Kinglet' : 'Join the list']]} />
+      <SiteFooter links={[['#faq', 'FAQ'], FREE ? ['#download', 'Download'] : ['#waitlist', LAUNCHED ? 'Buy Kinglet' : 'Join the list']]} />
     </MotionConfig>
   );
 }

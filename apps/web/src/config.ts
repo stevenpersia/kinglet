@@ -4,7 +4,13 @@ declare const __APP_VERSION__: string;
 export const VERSION = __APP_VERSION__;
 export const MCP_COMMAND = 'claude mcp add --scope user kinglet -- kinglet --mcp --ozone-platform=headless';
 
-/** One-time price, shown before launch too. */
+/**
+ * Kinglet is free: the site offers the download, the paid parts (Pricing, checkout, launch list) are hidden.
+ * Their code stays (components/Pricing.tsx, Get.tsx's BuyButton, Waitlist.tsx) for a paid offer later.
+ */
+export const FREE = true;
+
+/** One-time price (paid offer, hidden while FREE). */
 export const PRICE = { amount: 79, currency: '$', label: '$79' };
 /**
  * Launch price for the first LAUNCH_SEATS buyers: a Polar discount (79 → 59, at most LAUNCH_SEATS redemptions)
@@ -26,9 +32,9 @@ export const LAUNCH_OFFER = `${LAUNCH_PRICE.label} for the first ${LAUNCH_SEATS}
  * the app asks for on first launch.
  */
 export const CHECKOUT_URL: string | null = null;
-export const LAUNCHED = CHECKOUT_URL !== null;
-/** Where buyers download the app (public releases). */
-export const DOWNLOAD_URL = 'https://github.com/stevenpersia/kinglet-releases/releases/latest';
+export const LAUNCHED = !FREE && CHECKOUT_URL !== null;
+/** Where everyone downloads the app: the latest GitHub release of the Kinglet repository (AppImage, pacman). */
+export const DOWNLOAD_URL = 'https://github.com/stevenpersia/kinglet/releases/latest';
 /** Polar's customer portal: buyers find their order and license key there, from their email. */
 export const PORTAL_URL = 'https://polar.sh/kinglet/portal';
 // Polar checkout link (Products → Checkout Links): Success URL https://getkinglet.com/thanks?checkout_id={CHECKOUT_ID}

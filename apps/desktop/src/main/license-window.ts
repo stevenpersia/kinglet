@@ -5,6 +5,7 @@ import { app, BrowserWindow, ipcMain, Menu, safeStorage, shell } from 'electron'
 import { resolveLanguage, setLanguage } from '@kinglet/core';
 import type { LicenseState } from '../shared/types';
 import { BUY_URL, ORDERS_URL, POLAR, PRIVACY_URL, TERMS_URL } from './license-config';
+import { LICENSE_REQUIRED } from '../shared/legal';
 import { LicenseService, type Sealer } from './license';
 
 /** The OS keyring through Electron (KWallet, GNOME Keyring), like the Vercel and GitHub tokens. */
@@ -37,7 +38,7 @@ export function createLicense() {
     instanceName: name,
     // The acceptance run (KINGLET_SELFTEST) drives the app through its scenario, then quits: it
     // doesn't stop on the license window. Its `kinglet --mcp` is licensed by the run (selftest.ts).
-    enforced: (app.isPackaged && !process.env.KINGLET_SELFTEST) || test,
+    enforced: (LICENSE_REQUIRED && app.isPackaged && !process.env.KINGLET_SELFTEST) || test,
     seal: keyring,
     api: test ? process.env.KINGLET_LICENSE_API : undefined,
   });

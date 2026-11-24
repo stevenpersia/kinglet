@@ -1,6 +1,6 @@
 import { locale, t } from '@kinglet/core';
 import { useEffect, useState } from 'react';
-import { PRIVACY_URL, TERMS_URL } from '../../shared/legal';
+import { LICENSE_REQUIRED, PRIVACY_URL, TERMS_URL } from '../../shared/legal';
 import type { LicenseState } from '../../shared/types';
 import { activePresets, api, useStore, type SettingsTab } from '../store';
 import { Icon, type IconName } from './Icons';
@@ -249,7 +249,7 @@ const NAV = (): { group: string; items: { id: SettingsTab; label: string; icon: 
       items: [
         { id: 'general', label: t('General', 'Général'), icon: 'globe' },
         { id: 'devices', label: t('Devices', 'Appareils'), icon: 'phone' },
-        { id: 'license', label: t('License', 'Licence'), icon: 'checkCircle' },
+        ...(LICENSE_REQUIRED ? [{ id: 'license' as const, label: t('License', 'Licence'), icon: 'checkCircle' as const }] : []),
       ],
     },
     { group: project ? `${t('Project', 'Projet')} · ${project.name}` : t('Project', 'Projet'), items: [{ id: 'project', label: t('Active project', 'Projet actif'), icon: 'folder' }] },
