@@ -43,19 +43,16 @@ export default defineConfig({
         input: {
           ui: resolve(__dirname, 'src/preload/ui.ts'),
           device: resolve(__dirname, 'src/preload/device.ts'),
-          license: resolve(__dirname, 'src/preload/license.ts'),
         },
       },
     },
   },
   renderer: {
     plugins: [react(), tailwindcss(), csp()],
-    // Kinglet's window, and the license window shown instead of it until a key is activated.
     build: {
       rollupOptions: {
         input: {
           index: resolve(__dirname, 'src/renderer/index.html'),
-          license: resolve(__dirname, 'src/renderer/license/index.html'),
         },
       },
     },

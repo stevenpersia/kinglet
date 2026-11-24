@@ -1,12 +1,11 @@
 import { motion, useInView } from 'motion/react';
 import { useEffect, useRef, useState } from 'react';
 import { Icon } from '../../../desktop/src/renderer/components/Icons';
-import { FREE, LAUNCH_OFFER, LAUNCH_PRICE, LAUNCHED, MCP_COMMAND, VERSION } from '../config';
-import { useLaunchOffer } from '../launchOffer';
+import { MCP_COMMAND, VERSION } from '../config';
 import { AppWindow } from '../demo/AppWindow';
 import { Cursor, type CursorCmd } from '../demo/Cursor';
 import { type DemoState, duration, finalState, initial, SCRIPTS, type SceneId } from '../demo/scenes';
-import { GetKinglet } from './Get';
+import { DownloadButton } from './Get';
 
 const SCENES: { id: SceneId; label: string; color: string; caption: string }[] = [
   { id: 'inspect', label: 'Inspect', color: '#8ab4f8', caption: 'Turn on the inspector, hover an element: it lights up on every device. Keep it, “Ask Claude”, press Enter.' },
@@ -36,11 +35,9 @@ function useFit() {
   return { ref, scale };
 }
 
-/** Under the hero's buttons: free and where it runs; once paid, the launch offer. */
+/** Under the hero's buttons: the version, where it runs, the price. */
 function HeroNote() {
-  const offer = useLaunchOffer();
-  const text = FREE ? `v${VERSION} · Linux · AppImage and pacman · free` : !LAUNCHED ? `Coming soon to Linux · ${LAUNCH_OFFER}` : offer ? `Linux · ${LAUNCH_PRICE.label} for the first ${offer.total} buyers · ${offer.left} left` : 'Linux · pay once, keep it';
-  return <p className="m-0 font-mono text-xs text-ghost">{text}</p>;
+  return <p className="m-0 font-mono text-xs text-ghost">v{VERSION} · Linux · AppImage and pacman · free</p>;
 }
 
 export function Hero() {
@@ -123,7 +120,7 @@ export function Hero() {
           Build with Claude, watch it land on 10 devices at once, point at what’s wrong and let Claude fix it. Then ship through GitHub and Vercel with 53 checks watching your back.
         </motion.p>
         <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.15 }} className="flex w-full flex-col items-center gap-3">
-          <GetKinglet />
+          <DownloadButton />
           <button
             type="button"
             onClick={copy}

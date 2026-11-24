@@ -262,10 +262,6 @@ export async function runSelftest(win: BrowserWindow, devices: DeviceManager, ou
     await devices.navigate('http://localhost:5173/');
     await sleep(1500);
     const { exe, args } = mcpLaunch();
-    // The packaged `kinglet --mcp` asks for a license: one checked just now, as after an activation.
-    const licenseFile = join(app.getPath('userData'), 'license.json');
-    if (!existsSync(licenseFile))
-      writeFileSync(licenseFile, JSON.stringify({ key: 'KINGLET_SELFTEST', encrypted: false, instanceId: 'selftest', instanceName: 'selftest', email: null, customer: null, activationLimit: 3, validatedAt: Date.now() }), { mode: 0o600 });
     const transport = new StdioClientTransport({
       command: exe,
       args: [...args, ...(process.getuid?.() === 0 ? ['--no-sandbox'] : [])],

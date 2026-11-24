@@ -68,10 +68,6 @@ const api: KingletApi = {
   security: {
     run: (url, opts) => ipcRenderer.invoke('security:run', url, opts ?? {}),
   },
-  license: {
-    state: () => ipcRenderer.invoke('license:state'),
-    deactivate: () => ipcRenderer.invoke('license:deactivate'),
-  },
   update: {
     state: () => ipcRenderer.invoke('update:state'),
     check: () => ipcRenderer.invoke('update:check'),

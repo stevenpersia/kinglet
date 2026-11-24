@@ -1,5 +1,5 @@
 /**
- * Who publishes and sells Kinglet, for the legal pages (/legal, /terms, /privacy).
+ * Who publishes Kinglet, for the legal pages (/legal, /terms, /privacy).
  * A null field shows as "[to fill in]" on the page and the build warns about it: fill them all in before launch
  * (French law asks for the publisher's identity, address, registration number and a way to reach them).
  */
@@ -13,7 +13,7 @@ export const PUBLISHER = {
   vat: 'Not applicable (art. 293 B of the French tax code)' as string | null,
   /** Postal address (a domiciliation address is fine). */
   address: '7 place de la Mairie, 23220 Linard-Malval' as string | null,
-  /** Contact address shown on every legal page (support, refunds, privacy requests). */
+  /** Contact address shown on every legal page (support, privacy requests). */
   email: 'contact@getkinglet.com' as string | null,
   country: 'France',
 };
@@ -27,9 +27,6 @@ export const MEDIATOR = {
 
 /** Date of the current version of the legal pages. Change it with every change to their content. */
 export const LEGAL_UPDATED = 'November 24, 2026';
-
-/** Days during which a purchase is refunded on request, no questions asked. */
-export const REFUND_DAYS = 14;
 
 export const LEGAL_LINKS: [string, string][] = [
   ['/terms/', 'Terms'],

@@ -14,8 +14,8 @@ export const TITLE = 'Kinglet — the dev environment for vibe coding';
 export const DESCRIPTION =
   'Build with Claude, see it on 10 devices at once, point at what’s wrong and let Claude fix it. Ship through Vercel and GitHub with 37 checks.';
 
-/** The static pages besides the landing page, each at /<path>/ (src/Thanks.tsx, src/Legal.tsx). */
-export const STATIC_PAGES = ['thanks', 'legal', 'terms', 'privacy'];
+/** The static pages besides the landing page, each at /<path>/ (src/Legal.tsx). */
+export const STATIC_PAGES = ['legal', 'terms', 'privacy'];
 
 export function siteUrl(argv = process.argv, env = process.env) {
   const i = argv.indexOf('--site');
@@ -45,7 +45,7 @@ export function head(site) {
   ].join('\n  ');
 }
 
-/** Head of a static page (thanks, legal): its own title and canonical, out of search results if `noindex`. */
+/** Head of a static page (legal): its own title and canonical, out of search results if `noindex`. */
 export function pageHead(site, { path, title, description, noindex = false }) {
   return [
     `<title>${title} — Kinglet</title>`,
@@ -58,8 +58,6 @@ export function pageHead(site, { path, title, description, noindex = false }) {
   ].join('\n  ');
 }
 
-export const thanksHead = (site) => pageHead(site, { path: 'thanks', title: 'Thanks', description: 'Your Kinglet license: get the key, download the app, activate it.', noindex: true });
-
 export async function build(out, site) {
   const { build: vite } = await import('vite');
   const ssr = mkdtempSync(join(tmpdir(), 'kinglet-web-ssr-'));
@@ -67,12 +65,12 @@ export async function build(out, site) {
   try {
     await vite({ root: ROOT, logLevel: 'warn', build: { outDir: out, emptyOutDir: true } });
     await vite({ root: ROOT, logLevel: 'warn', ssr: { noExternal: true }, build: { ssr: 'src/entry-server.tsx', outDir: ssr, emptyOutDir: true, rollupOptions: { output: { entryFileNames: 'entry-server.mjs' } } } });
-    const { render, renderThanks, legalPages, missingPublisherFields } = await import(pathToFileURL(join(ssr, 'entry-server.mjs')).href);
+    const { render, legalPages, missingPublisherFields } = await import(pathToFileURL(join(ssr, 'entry-server.mjs')).href);
     const template = readFileSync(join(out, 'index.html'), 'utf8');
     writeFileSync(join(out, 'index.html'), template.replace('<!--head-->', head(site)).replace('<!--app-->', render()));
-    // /thanks (after paying) and the legal pages: same styles, no JavaScript (the landing page's script would hydrate the wrong page).
+    // The legal pages: same styles, no JavaScript (the landing page's script would hydrate the wrong page).
     const bare = template.replace(/<script type="module"[^>]*><\/script>\s*/g, '').replace(/<link rel="modulepreload"[^>]*>\s*/g, '');
-    const pages = [{ path: 'thanks', head: thanksHead(site), html: renderThanks() }, ...legalPages.map((p) => ({ path: p.path, head: pageHead(site, p), html: p.html() }))];
+    const pages = [...legalPages.map((p) => ({ path: p.path, head: pageHead(site, p), html: p.html() }))];
     for (const page of pages) {
       mkdirSync(join(out, page.path), { recursive: true });
       writeFileSync(join(out, page.path, 'index.html'), bare.replace('<!--head-->', page.head).replace('<!--app-->', page.html));
@@ -93,36 +91,12 @@ export async function build(out, site) {
 }
 
 /**
- * Edge functions in functions/, each served at /api/<name> (the launch list, the launch-price counter), with the
- * project variables each one reads. Vercel only hands an Edge function the variables listed in its envVarsInUse:
- * without them process.env is empty at runtime, even when they are set in the project settings.
+ * Vercel Build Output API (.vercel/output): the static site, with each static page also served without its
+ * trailing slash. Writing it here keeps Vercel from re-installing the whole monorepo, Electron included.
  */
-export const FUNCTIONS = {
-  waitlist: ['RESEND_API_KEY', 'RESEND_AUDIENCE_ID'],
-  'launch-offer': ['POLAR_ACCESS_TOKEN', 'POLAR_DISCOUNT_ID', 'POLAR_API'],
-};
-
-/**
- * Vercel Build Output API (.vercel/output): the static site plus the Edge functions in FUNCTIONS, at /api/<name>.
- * Packaging the function here (rather than an api/ folder) keeps Vercel from re-installing the whole
- * monorepo, Electron included, just to build it.
- */
-export async function vercelOutput(dist, out = join(ROOT, '.vercel/output')) {
-  const { build: vite } = await import('vite');
+export function vercelOutput(dist, out = join(ROOT, '.vercel/output')) {
   rmSync(out, { recursive: true, force: true });
   cpSync(dist, join(out, 'static'), { recursive: true });
-  for (const [name, envVarsInUse] of Object.entries(FUNCTIONS)) {
-    const fn = join(out, `functions/api/${name}.func`);
-    await vite({
-      root: ROOT,
-      logLevel: 'warn',
-      publicDir: false,
-      ssr: { noExternal: true },
-      build: { ssr: `functions/${name}.ts`, outDir: fn, emptyOutDir: true, rollupOptions: { output: { entryFileNames: 'index.js', format: 'es' } } },
-    });
-    writeFileSync(join(fn, '.vc-config.json'), JSON.stringify({ runtime: 'edge', entrypoint: 'index.js', envVarsInUse }, null, 2));
-  }
-  mkdirSync(out, { recursive: true });
   writeFileSync(join(out, 'config.json'), JSON.stringify({ version: 3, routes: [{ handle: 'filesystem' }, ...STATIC_PAGES.map((p) => ({ src: `^/${p}/?$`, dest: `/${p}/index.html` }))] }, null, 2));
   return out;
 }
@@ -132,7 +106,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const dist = await build(join(ROOT, 'dist'), site);
   console.log(`dist/ built for ${site}`);
   if (process.env.VERCEL) {
-    await vercelOutput(dist);
-    console.log(`.vercel/output/ written (static site + ${Object.keys(FUNCTIONS).map((f) => `/api/${f}`).join(', ')})`);
+    vercelOutput(dist);
+    console.log('.vercel/output/ written');
   }
 }

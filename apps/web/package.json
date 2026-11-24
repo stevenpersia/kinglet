@@ -1,5 +1,6 @@
 {
   "name": "@kinglet/web",
+  "license": "MIT",
   "private": true,
   "type": "module",
   "description": "Website (React + Motion, prerendered to static HTML). Deployed on Vercel with apps/web as root directory.",

@@ -1,6 +1,7 @@
 {
   "name": "@kinglet/mcp",
   "version": "0.0.1",
+  "license": "MIT",
   "private": true,
   "type": "module",
   "description": "MCP server: lets Claude Code read Kinglet's previews, share cards and checks",

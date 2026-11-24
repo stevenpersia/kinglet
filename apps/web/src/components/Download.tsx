@@ -1,8 +1,22 @@
 import { Icon } from '../../../desktop/src/renderer/components/Icons';
 import { DOWNLOAD_URL, MCP_COMMAND, VERSION } from '../config';
 import { DownloadButton } from './Get';
-import { INCLUDED } from './Pricing';
 import { Reveal } from './ui';
+
+const INCLUDED = [
+  '10 emulated devices and your real phone',
+  'Claude Code panel, inspector and console',
+  'MCP server: 14 tools, 6 slash commands',
+  'Vercel and GitHub: previews, prod, PRs, CI',
+  '53 checks: SEO, content, privacy, speed…',
+  'Site audit, budgets, deploy history',
+  'Security: leaked keys, open files, headers',
+  'Open Graph on 10 platforms, share image maker',
+  'Feedback to GitHub, Linear and Slack',
+  'Recorded journeys, replayed and exported to Playwright',
+  'Region, keyboards, forms, mocks, export',
+  'Automatic updates',
+];
 
 /** The two packages of each release, and what to type once downloaded. */
 const PACKAGES: { name: string; file: string; run: string }[] = [
@@ -10,7 +24,7 @@ const PACKAGES: { name: string; file: string; run: string }[] = [
   { name: 'pacman (Arch, CachyOS)', file: `Kinglet-${VERSION}-x64.pacman`, run: 'sudo pacman -U Kinglet-*.pacman' },
 ];
 
-/** Free download, where Pricing was: the same card, with the packages instead of the price. */
+/** The free download: the packages, how to install them, and what's inside. */
 export function Download() {
   return (
     <section className="mx-auto max-w-[1200px] px-4 pt-36 sm:px-6">
@@ -89,7 +103,8 @@ export function Download() {
 }
 
 const FAQ: [string, string][] = [
-  ['Is it really free?', 'Yes. Every feature, no account, no license key, no time limit, for personal and commercial work. Paid extras may come later; what is free today stays free.'],
+  ['Is it really free?', 'Yes, and open source under the MIT License. Every feature, no account, no license key, no time limit, for personal and commercial work. Paid extras may come later; what is free today stays free.'],
+  ['Where is the code?', 'On GitHub, at stevenpersia/kinglet, under the MIT License: the app, this site and the releases. Issues, ideas and pull requests are welcome there.'],
   ['Does it check security?', 'Yes, in its own section. Kinglet looks for API keys and tokens shipped in your HTML and JavaScript, .env, .git and source maps left reachable (tried on your own sites only), security headers, cookie flags, HTTPS, mixed content and third-party scripts. Each problem comes with the fix, and Claude can apply it.'],
   ['How do I install it?', 'Download the AppImage (any distribution: make it executable and run it) or the pacman package (Arch, CachyOS: sudo pacman -U) from the latest GitHub release. Kinglet then updates itself.'],
   ['Which systems does it run on?', 'Linux today: AppImage for any distribution, and a pacman package for Arch and CachyOS.'],
