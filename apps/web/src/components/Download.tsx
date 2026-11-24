@@ -103,8 +103,8 @@ export function Download() {
 }
 
 const FAQ: [string, string][] = [
-  ['Is it really free?', 'Yes. Every feature, no account, no license key, no time limit, for personal and commercial work. Paid extras may come later; what is free today stays free.'],
-  ['Where is the code?', 'On GitHub, at stevenpersia/kinglet: the app, this site and the releases. Issues and ideas are welcome there.'],
+  ['Is it really free?', 'Yes, and open source under the MIT License. Every feature, no account, no license key, no time limit, for personal and commercial work. Paid extras may come later; what is free today stays free.'],
+  ['Where is the code?', 'On GitHub, at stevenpersia/kinglet, under the MIT License: the app, this site and the releases. Issues, ideas and pull requests are welcome there.'],
   ['Does it check security?', 'Yes, in its own section. Kinglet looks for API keys and tokens shipped in your HTML and JavaScript, .env, .git and source maps left reachable (tried on your own sites only), security headers, cookie flags, HTTPS, mixed content and third-party scripts. Each problem comes with the fix, and Claude can apply it.'],
   ['How do I install it?', 'Download the AppImage (any distribution: make it executable and run it) or the pacman package (Arch, CachyOS: sudo pacman -U) from the latest GitHub release. Kinglet then updates itself.'],
   ['Which systems does it run on?', 'Linux today: AppImage for any distribution, and a pacman package for Arch and CachyOS.'],

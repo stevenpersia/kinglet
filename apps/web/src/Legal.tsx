@@ -71,7 +71,7 @@ export function LegalNotice() {
 
       <H2>Intellectual property</H2>
       <p>
-        Kinglet, its name, its logo, the app and the content of this site belong to {PUBLISHER.name}. Copying or reusing them without permission is not allowed, except where the law allows it. The typefaces are Geist and Geist Mono
+        The Kinglet app’s code is published under the MIT License (<a href="https://github.com/stevenpersia/kinglet">github.com/stevenpersia/kinglet</a>). The Kinglet name and logo belong to {PUBLISHER.name}. The typefaces are Geist and Geist Mono
         (Vercel) and Young Serif (Bryan Kirschen), under the SIL Open Font License.
       </p>
       <p>
@@ -93,7 +93,7 @@ export function Terms() {
       title="Terms of use"
       intro={
         <>
-          These terms apply to the use of the Kinglet app. In short: Kinglet is free, for personal and commercial work, with every update included. There is nothing to buy and no license key to enter.
+          These terms apply to the use of the Kinglet app. In short: Kinglet is free and open source (MIT), for personal and commercial work, with every update included. There is nothing to buy and no license key to enter.
         </>
       }
     >
@@ -112,19 +112,17 @@ export function Terms() {
         and we are not responsible for them or for what they change.
       </p>
 
-      <H2 id="license">3. Free to use</H2>
-      <p>Kinglet is free. We grant you a personal, worldwide, non-exclusive license to use it, with no time limit and on as many computers as you like:</p>
+      <H2 id="license">3. Free and open source</H2>
+      <p>
+        Kinglet is free and open source. Its code is on <a href="https://github.com/stevenpersia/kinglet">GitHub</a> under the <a href="https://github.com/stevenpersia/kinglet/blob/main/LICENSE">MIT License</a>: you may use,
+        copy, modify and redistribute it, for personal and commercial work, as long as the copyright notice and the license come with it.
+      </p>
       <ul>
-        <li>for personal and commercial work: the sites you build, test and ship with Kinglet are yours, for you or your clients;</li>
-        <li>the link to the review page you send your clients doesn’t need them to install anything.</li>
+        <li>the sites you build, test and ship with Kinglet are yours, for you or your clients;</li>
+        <li>the link to the review page you send your clients doesn’t need them to install anything;</li>
+        <li>don’t use Kinglet to break the law or to access sites and accounts you are not allowed to.</li>
       </ul>
-      <p>You may not:</p>
-      <ul>
-        <li>sell Kinglet, or pass off a copy of it as your own;</li>
-        <li>redistribute Kinglet or its code, modified or not, except to the extent the law or a license published with the code allows it;</li>
-        <li>use Kinglet to break the law or to access sites and accounts you are not allowed to.</li>
-      </ul>
-      <p>Kinglet’s code is public on <a href="https://github.com/stevenpersia/kinglet">GitHub</a>, so you can read it; Kinglet, its name and its code stay ours. We may offer paid features or plans later: they will be optional, announced on this site, and what is free today stays usable.</p>
+      <p>The MIT License covers the code, not the Kinglet name and logo: a modified version should go by another name. We may offer paid features or plans later: they will be optional, announced on this site, and what is free today stays usable.</p>
 
       <H2 id="updates">4. Updates</H2>
       <p>
@@ -142,7 +140,7 @@ export function Terms() {
       </p>
 
       <H2 id="end">6. Stopping</H2>
-      <p>You can stop using Kinglet at any time: uninstall it and delete its folder. Section 3 (what you may not do) and section 5 still apply after that.</p>
+      <p>You can stop using Kinglet at any time: uninstall it and delete its folder. Section 5 still applies after that.</p>
 
       <H2 id="law">7. Changes, law and disputes</H2>
       <p>
@@ -228,6 +226,6 @@ export function Privacy() {
 /** The legal pages, for the build (scripts/build.mjs) and the tests. */
 export const LEGAL_PAGES = [
   { path: 'legal', title: 'Legal notice', description: 'Publisher and hosting of Kinglet.', Page: LegalNotice },
-  { path: 'terms', title: 'Terms of use', description: 'Kinglet’s terms of use: free, for personal and commercial work, updates included.', Page: Terms },
+  { path: 'terms', title: 'Terms of use', description: 'Kinglet’s terms of use: free and open source (MIT), updates included.', Page: Terms },
   { path: 'privacy', title: 'Privacy policy', description: 'What getkinglet.com and the Kinglet app collect: no tracking, no telemetry.', Page: Privacy },
 ];

@@ -1,6 +1,7 @@
 {
   "name": "@kinglet/desktop",
   "version": "0.4.0",
+  "license": "MIT",
   "private": true,
   "description": "Kinglet — preview your site on every screen",
   "main": "out/main/index.js",

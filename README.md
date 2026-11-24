@@ -14,7 +14,7 @@
 
 <p align="center">
   <a href="https://github.com/stevenpersia/kinglet/releases/latest"><img src="https://img.shields.io/badge/download-latest%20release-e6c07b" alt="Download"></a>
-  <img src="https://img.shields.io/badge/price-free-7dd3a8" alt="Free">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-7dd3a8" alt="MIT License"></a>
   <img src="https://img.shields.io/badge/platform-Linux-8ab4f8" alt="Linux">
   <a href="https://getkinglet.com"><img src="https://img.shields.io/badge/site-getkinglet.com-f0a07f" alt="getkinglet.com"></a>
 </p>
@@ -45,7 +45,7 @@
 
 ## Download
 
-Kinglet is **free**: no account, no license key. Linux for now.
+Kinglet is **free and open source**: no account, no license key. Linux for now.
 
 Grab the [latest release](https://github.com/stevenpersia/kinglet/releases/latest), then:
 
@@ -78,5 +78,9 @@ pnpm --filter @kinglet/web dev     # the website, getkinglet.com
 ```
 
 To publish a version, bump `apps/desktop/package.json` and run **Actions → Release**: it tests, builds and publishes the AppImage and pacman package here.
+
+## License
+
+[MIT](LICENSE)
 
 <p align="center"><sub>Made for sites built with Claude · <a href="https://getkinglet.com">getkinglet.com</a></sub></p>
