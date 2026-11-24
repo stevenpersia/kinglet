@@ -198,6 +198,7 @@ function Rail({ s }: { s: DemoState }) {
       {button('devices', s.section === 'devices' && !s.checksOpen)}
       {button('deploy', false)}
       {button('branch', false)}
+      {button('artifact', s.section === 'artifacts', 'rail-artifacts')}
       <span className="my-1 h-px w-7 shrink-0 bg-line" />
       {button('doc', false)}
       {button('graph', s.section === 'share', 'rail-og', ogFixed ? null : { n: 1, tone: 'err' })}
@@ -837,6 +838,127 @@ function OpenGraphPage({ s }: { s: DemoState }) {
   );
 }
 
+/** The page Claude published, as the artifact shows it: saltmint's pricing, with a working monthly / annual switch. */
+function PricingArtifact({ s }: { s: DemoState }) {
+  const plan = (name: string, price: string, lines: string[], dark = false, target?: string) => (
+    <div className={`flex w-[150px] flex-col gap-2 rounded-xl p-3.5 ${dark ? 'bg-[#11241c] text-[#f6f5f0]' : 'border border-[#e3e1d8] bg-white text-[#11241c]'}`}>
+      <span className="text-[12px] font-semibold">{name}</span>
+      <span className="text-[20px] font-semibold tracking-[-0.02em]">
+        {price}
+        {price !== 'Free' && <span className={`text-[10px] font-normal ${dark ? 'text-[#b9cfc3]' : 'text-[#5d6660]'}`}> / mo</span>}
+      </span>
+      <span className={`flex flex-col gap-0.5 text-[10.5px] ${dark ? 'text-[#b9cfc3]' : 'text-[#5d6660]'}`}>
+        {lines.map((l) => (
+          <span key={l}>{l}</span>
+        ))}
+      </span>
+      <span
+        data-target={target}
+        className={`mt-1 rounded-lg py-1.5 text-center text-[11px] font-semibold transition-shadow ${dark ? 'bg-[#a6f0c6] text-[#11241c]' : 'border border-[#11241c]'} ${target && (s.artifactPicked || s.artifactPoint) ? 'shadow-[0_0_0_2px_#fff,0_0_0_4px_#5b8def]' : ''}`}
+      >
+        {dark ? 'Choose Duo' : 'Start'}
+      </span>
+    </div>
+  );
+  const pill = (label: string, on: boolean, target?: string) => (
+    <span data-target={target} className={`rounded-full px-3 py-1 text-[11px] font-medium transition-colors ${on ? 'bg-white text-[#11241c] shadow-sm' : 'text-[#5d6660]'}`}>
+      {label}
+    </span>
+  );
+  return (
+    <div className="flex flex-col items-center gap-3.5 bg-[#f6f5f0] px-6 pt-5 pb-7 text-[#11241c]">
+      <span className="flex items-center gap-1.5 self-start text-[11px] font-semibold">
+        <span className="size-3 rounded-[3px] bg-[#11241c]" />
+        saltmint
+      </span>
+      <span className="rounded-full bg-[#dcf5e6] px-2 text-[10px] leading-5 font-medium">Pricing</span>
+      <span className="text-[24px] leading-none font-semibold tracking-[-0.03em]">A plan for every budget.</span>
+      <span className="flex gap-0.5 rounded-full bg-[#e8e5dc] p-[3px]">
+        {pill('Monthly', !s.annual)}
+        {pill('Annual · −20 %', s.annual, 'artifact-annual')}
+      </span>
+      <div className="flex gap-3">
+        {plan('Solo', 'Free', ['Auto-sort', 'One budget'])}
+        {plan('Duo', s.annual ? '$3.20' : '$4', ['Shared budgets', 'Rent split'], true, 'artifact-cta')}
+        {plan('Family', s.annual ? '$6.40' : '$8', ['Up to 5 people', 'Pocket money'])}
+      </div>
+    </div>
+  );
+}
+
+/** The Artifacts page (ArtifactsPage.tsx): what Claude published, live, with "On the devices" and "Point". */
+function ArtifactsPage({ s }: { s: DemoState }) {
+  const item = (title: string, meta: string, on: boolean, fresh = false, icon: IconName = 'artifact') => (
+    <div className={`flex items-start gap-2.5 rounded-lg border p-2.5 ${on ? 'border-line-strong bg-active' : 'border-transparent'}`}>
+      <span className="flex size-7 shrink-0 items-center justify-center rounded-md border border-line-strong bg-raised text-faint">
+        <Icon name={icon} size={13} />
+      </span>
+      <span className="flex min-w-0 flex-col gap-0.5">
+        <span className="flex items-center gap-1.5 text-[12.5px] font-medium">
+          {title}
+          {fresh && <span className="size-1.5 rounded-full bg-[#d97757]" />}
+        </span>
+        <span className="font-mono text-[10.5px] text-faint">{meta}</span>
+      </span>
+    </div>
+  );
+  const tool = (icon: IconName, label: string, on = false, target?: string) => (
+    <span data-target={target} className={`flex h-7 items-center gap-1.5 rounded-ui border px-2.5 text-xs transition-colors ${on ? 'border-local bg-local/10 text-local' : 'border-line text-muted'}`}>
+      <Icon name={icon} size={13} />
+      {label}
+    </span>
+  );
+  return (
+    <motion.div {...fade} className="flex min-h-0 flex-1 overflow-hidden">
+      <div className="flex w-[210px] shrink-0 flex-col gap-1 border-r border-line-soft bg-chrome p-2">
+        <div className="flex flex-col gap-0.5 px-2 pt-2 pb-1.5">
+          <span className="text-[14px] font-semibold tracking-[-0.01em]">Artifacts</span>
+          <span className="text-[11px] text-faint">Published by Claude here</span>
+        </div>
+        {item('Pricing page', 'v1 · just now', true)}
+        {item('Sign-up flow', 'v2 · 25 min ago', false)}
+        {item('Launch deck', 'v1 · yesterday · claude.ai', false, false, 'globe')}
+      </div>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <div className="flex h-11 shrink-0 items-center gap-2 border-b border-line-soft bg-chrome/90 px-3.5">
+          <span className="text-[13px] font-semibold">Pricing page</span>
+          <span className="rounded-full border border-line-strong px-1.5 font-mono text-[10px] text-muted">v1</span>
+          <span className="flex-1" />
+          {tool('devices', 'On the devices')}
+          {tool('target', 'Point', s.artifactPoint, 'artifact-point')}
+          {tool('link', 'claude.ai')}
+        </div>
+        <div className="flex min-h-0 flex-1 justify-center overflow-hidden px-5 pt-4">
+          <div className="flex w-full max-w-[560px] flex-col self-start overflow-hidden rounded-[10px] border border-line-strong shadow-[0_20px_60px_rgba(0,0,0,0.45)]">
+            <div className="flex h-6 items-center gap-2 border-b border-line bg-active px-2.5 font-mono text-[10px] text-faint">
+              <Dot className="bg-line-strong" />
+              pricing.html
+              <span className="ml-auto">local · interactive</span>
+            </div>
+            <PricingArtifact s={s} />
+          </div>
+        </div>
+        <AnimatePresence mode="popLayout">
+          {s.artifactPicked ? (
+            <motion.div key="picked" {...fade} className="flex shrink-0 items-center gap-2.5 border-t border-line-soft bg-chrome px-3.5 py-2.5">
+              <Icon name="target" size={12} className="text-local" />
+              <span className="font-mono text-[11.5px] text-fg">button</span>
+              <span className="text-[11.5px] text-muted">« Choose Duo »</span>
+              <span className="font-mono text-[10px] text-ghost">.plans › .duo › .cta</span>
+              <span className="h-7 min-w-0 flex-1 rounded-ui border border-line-strong bg-card px-2.5 text-[11.5px] leading-7 text-faint">Tell Claude what to change here…</span>
+              <span className="h-7 rounded-ui border border-[rgba(217,119,87,0.35)] bg-[rgba(217,119,87,0.08)] px-2.5 text-xs leading-7 font-semibold text-[#d97757]">Ask Claude</span>
+            </motion.div>
+          ) : (
+            <motion.p key="hint" {...fade} className="m-0 shrink-0 border-t border-line-soft bg-chrome px-3.5 py-2.5 text-[11.5px] text-faint">
+              {s.artifactPoint ? 'Click an element of the artifact.' : '“Point”, then click an element of the artifact, to talk about it with Claude.'}
+            </motion.p>
+          )}
+        </AnimatePresence>
+      </div>
+    </motion.div>
+  );
+}
+
 function PhoneDialog({ s }: { s: DemoState }) {
   const qr = Array.from({ length: 121 }, (_, i) => {
     const x = i % 11;
@@ -1024,12 +1146,14 @@ export const AppWindow = forwardRef<HTMLDivElement, { s: DemoState; children?: R
       <EnvBar s={s} />
       <div className="relative flex min-h-0 flex-1">
         <Rail s={s} />
-        <AnimatePresence>{s.section !== 'share' && s.emuMenu && <EmulationPanel key="emu" s={s} />}</AnimatePresence>
-        <AnimatePresence>{s.section !== 'share' && s.journeysOpen && <JourneysPanel key="journeys" s={s} />}</AnimatePresence>
-        {s.section !== 'share' && <ToolTabs s={s} />}
+        <AnimatePresence>{s.section === 'devices' && s.emuMenu && <EmulationPanel key="emu" s={s} />}</AnimatePresence>
+        <AnimatePresence>{s.section === 'devices' && s.journeysOpen && <JourneysPanel key="journeys" s={s} />}</AnimatePresence>
+        {s.section === 'devices' && <ToolTabs s={s} />}
         <main className="stage-bg relative flex min-w-0 flex-1 flex-col">
           {s.section === 'share' ? (
             <OpenGraphPage s={s} />
+          ) : s.section === 'artifacts' ? (
+            <ArtifactsPage s={s} />
           ) : (
             <>
               <DeviceToolbar s={s} />

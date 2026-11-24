@@ -2,7 +2,7 @@
  * The hero's scripted demos. Each scene is a timeline: the cursor moves to a target (an element with
  * data-target="…" in the app window), clicks, presses a key, and the window's state changes.
  */
-export type SceneId = 'inspect' | 'console' | 'devices' | 'phone' | 'share' | 'checks' | 'journeys' | 'projects' | 'deploy';
+export type SceneId = 'inspect' | 'console' | 'devices' | 'phone' | 'share' | 'checks' | 'journeys' | 'artifacts' | 'projects' | 'deploy';
 export type Env = 'local' | 'preview' | 'prod';
 
 export type DemoState = {
@@ -28,7 +28,7 @@ export type DemoState = {
   env: Env;
   // Panels and sections
   checksOpen: boolean;
-  section: 'devices' | 'share';
+  section: 'devices' | 'share' | 'artifacts';
   ogCard: boolean;
   phoneDialog: boolean;
   wifi: boolean;
@@ -39,6 +39,13 @@ export type DemoState = {
   journeyStep: number;
   /** A cookie banner covers the sign-up button on the phone. */
   banner: boolean;
+  // Artifacts: the page Claude published, shown in Kinglet as soon as it is out.
+  /** The artifact's monthly / annual switch is on annual. */
+  annual: boolean;
+  /** "Point" is on in the artifact viewer. */
+  artifactPoint: boolean;
+  /** An element of the artifact is picked: the bar to tell Claude is open. */
+  artifactPicked: boolean;
   // Projects: the tab on screen; Claude keeps working on saltmint while docs is shown.
   project: 'saltmint' | 'docs';
   /** The system notification "Claude finished on saltmint". */
@@ -75,6 +82,9 @@ export const initial = (scene: SceneId): DemoState => ({
   journeysOpen: false,
   journeyStep: -1,
   banner: false,
+  annual: false,
+  artifactPoint: false,
+  artifactPicked: false,
   project: 'saltmint',
   notice: false,
   draft: false,
@@ -145,6 +155,14 @@ export const CLAUDE: Partial<Record<SceneId, Conversation>> = {
       { k: 'edit', text: 'Update(components/CookieBanner.tsx)', note: '+6 −3', ok: true },
       { k: 'tool', text: 'Journey “Sign up” played again', note: 'iPhone 16 ✓ · Laptop ✓', ok: true },
       { k: 'say', text: 'The banner no longer covers the form: the journey passes on both devices.' },
+    ],
+  },
+  artifacts: {
+    prompt: 'Mock up the pricing page as an artifact',
+    lines: [
+      { k: 'edit', text: 'Write(pricing.html)', note: '214 lines', ok: true },
+      { k: 'tool', text: 'Artifact(pricing.html)', note: 'published · open in Kinglet', ok: true },
+      { k: 'say', text: 'Here it is: try the monthly / annual switch.' },
     ],
   },
   projects: {
@@ -251,6 +269,21 @@ export const SCRIPTS: Record<SceneId, Step[]> = {
     { at: 3800, set: { journeyStep: 3 } },
     { at: 4300, set: { journeyStep: 4 } },
     ...ask('journeys', 'ask-journey', 5000, { fixed: true, banner: false }),
+  ],
+  artifacts: [
+    { at: 300, to: 'claude-input' },
+    { at: 1000, click: true, set: { draft: true } },
+    { at: 1700, key: 'Enter', set: { sent: true } },
+    { at: 2400, set: { shown: 1 } },
+    // Published: Kinglet opens it on its own, ready to use.
+    { at: 3100, set: { shown: 2, section: 'artifacts' } },
+    { at: 3700, set: { shown: 3 } },
+    { at: 3900, to: 'artifact-annual' },
+    { at: 4600, click: true, set: { annual: true } },
+    { at: 5300, to: 'artifact-point' },
+    { at: 6000, click: true, set: { artifactPoint: true } },
+    { at: 6600, to: 'artifact-cta' },
+    { at: 7300, click: true, set: { artifactPoint: false, artifactPicked: true } },
   ],
   projects: [
     // A task for Claude on saltmint…

@@ -17,6 +17,7 @@ import { createProject, frameworkOf, githubRepoOf, slugify } from './scaffold';
 import { DevServers } from './devserver';
 import { ClaudeTracker, reloadAfterTask, type HookPayload } from './claude';
 import { ClaudeHooks } from './claude-hooks';
+import { ArtifactServer, ArtifactStore, artifactFromHook } from './artifacts';
 import { lanAddresses, LanProxy } from './lan';
 import { Updater } from './updater';
 import { detectLocalServer, detectLocalServers } from './detect';
@@ -836,8 +837,26 @@ ${shots.map((sh) => `<section><header><h1>${esc(title)}</h1><span>${esc(sh.label
     clearInterval(expireTimer);
     claudeHooks.unpublish();
   });
+  // Pages Claude publishes with its Artifact tool: listed per project, served locally to view and use them.
+  const artifacts = new ArtifactStore(app.getPath('userData'));
+  const artifactServer = new ArtifactServer((id) => artifacts.find(id));
+  app.on('will-quit', () => artifactServer.stop());
+  ipcMain.handle('artifacts:list', () => artifacts.value);
+  ipcMain.handle('artifacts:url', (_e, id: string) => artifactServer.urlOf(id));
+  ipcMain.on('artifacts:seen', (_e, projectId: string, id: string) => artifacts.seen(projectId, id) && emit({ type: 'artifacts', artifacts: artifacts.value }));
+  ipcMain.handle('artifacts:remove', (_e, projectId: string, id: string) => {
+    artifacts.remove(projectId, id);
+    return artifacts.value;
+  });
+
   const onClaudeEvent = (payload: HookPayload) => {
     const project = payload.cwd ? projectForFolder(settings.value.projects, payload.cwd) : null;
+    const published = project ? artifactFromHook(payload) : null;
+    if (published && project) {
+      const entry = artifacts.add(project.id, published);
+      emit({ type: 'artifacts', artifacts: artifacts.value, published: { projectId: project.id, id: entry.id } });
+      notify(project.id, t(`New artifact · ${project.name}`, `Nouvel artifact · ${project.name}`), entry.title);
+    }
     const r = tracker.ingest(payload, project);
     if (!r) return;
     emitClaude();

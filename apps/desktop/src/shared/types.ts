@@ -113,6 +113,8 @@ export interface Settings {
   claudePanel: boolean;
   /** Reload the devices when Claude finishes a task that changed files on the project shown (local site only). */
   claudeReload: boolean;
+  /** Show an artifact as soon as Claude publishes it (Artifacts section, on the project shown). */
+  artifactsAutoOpen: boolean;
   /** No longer used: Claude asks in its own terminal (kept so older settings still read). */
   claudeAllowCommands: boolean;
   /** Language, time zone and position the devices pretend to have (all of them). */
@@ -346,6 +348,22 @@ export interface ClaudeProjectState {
   events: ClaudeEvent[];
 }
 
+/** A page Claude published with its Artifact tool, seen through the hooks. */
+export interface ArtifactEntry {
+  id: string;
+  title: string;
+  /** The local page Claude published (null: an artifact made from a type, only on claude.ai). */
+  file: string | null;
+  /** Its claude.ai link, when known. */
+  url: string | null;
+  /** Number of publishes seen (the page itself is the latest one). */
+  version: number;
+  /** Last publish. */
+  at: number;
+  /** The user opened it since its last publish. */
+  seen: boolean;
+}
+
 export interface ClaudeHookState {
   installed: boolean;
   /** Claude Code settings file the hooks live in. */
@@ -474,6 +492,7 @@ export type PreviewEvent =
   | { type: 'phone'; state: PhoneState }
   | { type: 'update'; state: UpdateState }
   | { type: 'claude'; projects: Record<string, ClaudeProjectState> }
+  | { type: 'artifacts'; artifacts: Record<string, ArtifactEntry[]>; published?: { projectId: string; id: string } }
   | { type: 'logs'; entries: DeviceLog[]; cleared: string[] }
   | { type: 'perf'; perf: DevicePerf }
   | { type: 'favicon'; url: string; pageUrl: string }
@@ -733,6 +752,14 @@ export interface KingletApi {
     uninstall(): Promise<ClaudeHookState>;
     /** The user looked at the result of the last task on this project. */
     markSeen(projectId: string): void;
+  };
+  artifacts: {
+    /** Artifacts Claude published, per project. */
+    list(): Promise<Record<string, ArtifactEntry[]>>;
+    /** Where the artifact's page is served locally, for the viewer and the devices (null: no local page). */
+    url(id: string): Promise<string | null>;
+    seen(projectId: string, id: string): void;
+    remove(projectId: string, id: string): Promise<Record<string, ArtifactEntry[]>>;
   };
   projects: {
     /** Folder picker; also reads the folder's Vercel link (.vercel/project.json). */

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { JourneyRun, JourneyStep } from '@kinglet/core';
-import type { SecurityRun, FormFill, HistoryEntry, ReviewState, SiteAudit, TabOrderInfo, ChatAttachment, FeedbackPin, GitHubState, LinearState, SlackState, InspectState, ClaudeProjectState, AnalyzeReport, CrawledPage, DevicePreset, EnvId, InitState, McpActivity, McpInfo, KingletApi, PhoneState, Project, Settings, ShareReport, UpdateState, VercelState, VercelTeamProject } from '../shared/types';
+import type { ArtifactEntry, SecurityRun, FormFill, HistoryEntry, ReviewState, SiteAudit, TabOrderInfo, ChatAttachment, FeedbackPin, GitHubState, LinearState, SlackState, InspectState, ClaudeProjectState, AnalyzeReport, CrawledPage, DevicePreset, EnvId, InitState, McpActivity, McpInfo, KingletApi, PhoneState, Project, Settings, ShareReport, UpdateState, VercelState, VercelTeamProject } from '../shared/types';
 import { activeProject, closeProject as closeTab, openProject, patchProject, projectFromUrl } from '../shared/projects';
 import { envOf, envTargets, urlOnEnv, type ProjectVercel } from './lib/env';
 import { activeIds, allPresets, listedIds } from '../shared/devices';
@@ -15,7 +15,7 @@ export const api = (): KingletApi => window.kinglet;
 /** "Error invoking remote method 'x': Error: why" → "why". */
 export const cleanError = (e: unknown) => String((e as Error)?.message ?? e).replace(/^Error invoking remote method '[^']+': (?:\w*Error: )?/, '');
 
-export type Section = 'apercu' | 'page' | 'partage' | 'comparer' | 'deploiements' | 'checks' | 'securite' | 'reglages' | 'projets' | 'changes';
+export type Section = 'apercu' | 'page' | 'partage' | 'comparer' | 'deploiements' | 'checks' | 'securite' | 'reglages' | 'projets' | 'changes' | 'artifacts';
 /** Panel opened next to the devices from the left bar. */
 export type Panel = 'feedback' | 'emulation' | 'forms' | 'export' | 'journeys';
 export type SettingsTab = 'general' | 'devices' | 'project' | 'vercel' | 'github' | 'linear' | 'slack' | 'claude' | 'mcp' | 'updates';
@@ -93,6 +93,12 @@ interface State {
   dev: Record<string, import('../shared/types').DevServerState>;
   /** Claude Code activity per project id. */
   claude: Record<string, ClaudeProjectState>;
+  /** Artifacts Claude published, per project (through the hooks). */
+  artifacts: Record<string, ArtifactEntry[]>;
+  /** Artifact shown in the Artifacts section, per project. */
+  artifactSel: Record<string, string>;
+  /** Open an artifact in the Artifacts section. */
+  openArtifact(projectId: string, id: string): void;
   /** Console and network log of the devices (since each one's last page load). */
   logs: import('../shared/types').DeviceLog[];
   /** Load time and weight of the page, per device. */
@@ -167,7 +173,7 @@ let overlays = 0;
 export const useStore = create<State>((set, get) => ({
   ready: false,
   presets: [],
-  settings: { projects: [], openIds: [], activeId: null, recentUrls: [], active: [], scrollSync: true, landscape: false, throttle: { network: 'off', cpu: 1 }, language: 'en', startup: 'restore', defaultSection: 'apercu', autoAnalyze: true, customDevices: [], deviceOrder: [], devicesPerProject: false, media: { colorScheme: 'auto', reducedMotion: false, moreContrast: false }, offline: false, mocks: [], onboarded: true, claudePanel: true, claudeReload: true, claudeAllowCommands: false, region: { locale: null, timezone: null, geo: null }, regionPerDevice: {}, textSize: { scale: 1, zoom: 1 }, keyboard: false, reviewPublicUrl: null },
+  settings: { projects: [], openIds: [], activeId: null, recentUrls: [], active: [], scrollSync: true, landscape: false, throttle: { network: 'off', cpu: 1 }, language: 'en', startup: 'restore', defaultSection: 'apercu', autoAnalyze: true, customDevices: [], deviceOrder: [], devicesPerProject: false, media: { colorScheme: 'auto', reducedMotion: false, moreContrast: false }, offline: false, mocks: [], onboarded: true, claudePanel: true, claudeReload: true, artifactsAutoOpen: true, claudeAllowCommands: false, region: { locale: null, timezone: null, geo: null }, regionPerDevice: {}, textSize: { scale: 1, zoom: 1 }, keyboard: false, reviewPublicUrl: null },
   platform: null,
   url: null,
   detectedFrom: null,
@@ -217,6 +223,8 @@ export const useStore = create<State>((set, get) => ({
   newProject: null,
   dev: {},
   claude: {},
+  artifacts: {},
+  artifactSel: {},
   thumbs: {},
   logs: [],
   perf: {},
@@ -427,6 +435,11 @@ export const useStore = create<State>((set, get) => ({
       s.setSection('apercu');
       set({ panel: p });
     } else set({ panel: s.panel === p ? null : p });
+  },
+
+  openArtifact(projectId, id) {
+    set((st) => ({ artifactSel: { ...st.artifactSel, [projectId]: id } }));
+    if (get().section !== 'artifacts') get().setSection('artifacts');
   },
 
   askClaude(text, attachments = []) {

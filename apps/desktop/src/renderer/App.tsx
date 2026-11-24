@@ -1,3 +1,4 @@
+import { ArtifactsPage } from './components/ArtifactsPage';
 import { ChangesPage } from './components/ChangesPage';
 import { useEffect } from 'react';
 import { SidePanel } from './components/Inspector';
@@ -93,6 +94,11 @@ export function App() {
         case 'claude':
           useStore.setState({ claude: e.projects });
           break;
+        case 'artifacts':
+          useStore.setState({ artifacts: e.artifacts });
+          // Claude just published one on the project shown: show it (unless turned off, or a page is being set up).
+          if (e.published && e.published.projectId === s.settings.activeId && s.settings.artifactsAutoOpen && s.section !== 'reglages' && s.section !== 'projets') s.openArtifact(e.published.projectId, e.published.id);
+          break;
         case 'github':
           useStore.setState({ github: e.state });
           break;
@@ -161,7 +167,7 @@ export function App() {
       await store.loadMcp();
       const claude = await api().claude.state();
       useStore.setState({ logs: await api().logs() });
-      useStore.setState({ vercel: await api().vercel.state(), update: await api().update.state(), claude: claude.projects, claudeHooks: claude.hooks, github: await api().github.state(), linear: await api().linear.state(), slack: await api().slack.state(), review: await api().review.state(), dev: await api().dev.all() });
+      useStore.setState({ vercel: await api().vercel.state(), update: await api().update.state(), claude: claude.projects, claudeHooks: claude.hooks, artifacts: await api().artifacts.list(), github: await api().github.state(), linear: await api().linear.state(), slack: await api().slack.state(), review: await api().review.state(), dev: await api().dev.all() });
     });
     return off;
   }, []);
@@ -196,6 +202,8 @@ export function App() {
           <DeploymentsPage />
         ) : section === 'changes' ? (
           <ChangesPage />
+        ) : section === 'artifacts' ? (
+          <ArtifactsPage />
         ) : (
           <ComparePage />
         )}
