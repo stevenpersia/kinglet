@@ -5,10 +5,9 @@ import { Hero } from './components/Hero';
 import { Download, Faq } from './components/Download';
 import { AiWorkflow, Checks, DeviceLab, Mcp, Security, Ship } from './components/Sections';
 import { Reveal } from './components/ui';
-import { GetKinglet } from './components/Get';
+import { DownloadButton } from './components/Get';
 import { SiteFooter } from './components/Shell';
-import { FREE, LAUNCH_OFFER, LAUNCHED } from './config';
-import { Pricing } from './components/Pricing';
+import { REPO_URL } from './config';
 
 function Nav() {
   const links: [string, string][] = [
@@ -17,7 +16,7 @@ function Nav() {
     ['#ship', 'Vercel & GitHub'],
     ['#checks', 'Checks'],
     ['#security', 'Security'],
-    FREE ? ['#download', 'Download'] : ['#pricing', 'Pricing'],
+    ['#download', 'Download'],
   ];
   return (
     <header className="sticky top-0 z-30 border-b border-[#141418] bg-[rgba(8,8,10,0.75)] backdrop-blur-xl">
@@ -36,8 +35,8 @@ function Nav() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <a href={FREE ? '#download' : '#waitlist'} className="inline-flex h-9 items-center rounded-lg px-3.5 text-[13px] font-semibold no-underline bg-[linear-gradient(100deg,#f0a07f,#e6c07b)] text-[#1a120b] hover:brightness-110">
-            {FREE ? 'Download' : LAUNCHED ? 'Buy Kinglet' : 'Join the list'}
+          <a href="#download" className="inline-flex h-9 items-center rounded-lg px-3.5 text-[13px] font-semibold no-underline bg-[linear-gradient(100deg,#f0a07f,#e6c07b)] text-[#1a120b] hover:brightness-110">
+            Download
           </a>
         </div>
       </nav>
@@ -73,9 +72,9 @@ function FinalCta() {
           you can see everything.
         </h2>
         <p className="m-0 max-w-[520px] text-base leading-relaxed text-muted">
-          {FREE ? 'Free, for Linux. No account, no license key: download it, open it, updates install themselves.' : LAUNCHED ? 'Pay once, keep it. Your license key is ready right after paying, updates install themselves.' : `Kinglet launches soon, at ${LAUNCH_OFFER}. Leave your email: one message at launch.`}
+          Free and open on GitHub, for Linux. No account, no license key: download it, open it, updates install themselves.
         </p>
-        <GetKinglet />
+        <DownloadButton />
       </Reveal>
     </section>
   );
@@ -97,11 +96,11 @@ export function App() {
         <Checks />
         <Security />
         <Mcp />
-        {FREE ? <Download /> : <Pricing />}
+        <Download />
         <Faq />
         <FinalCta />
       </main>
-      <SiteFooter links={[['#faq', 'FAQ'], FREE ? ['#download', 'Download'] : ['#waitlist', LAUNCHED ? 'Buy Kinglet' : 'Join the list']]} />
+      <SiteFooter links={[['#faq', 'FAQ'], ['#download', 'Download'], [REPO_URL, 'GitHub']]} />
     </MotionConfig>
   );
 }

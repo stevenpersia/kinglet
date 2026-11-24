@@ -45,18 +45,6 @@ it('looks right when shared, on all 10 platforms', async () => {
   expect(previews.cards.map((c) => `${c.platform}:${c.status}${c.problems.length ? ` (${c.problems.join('; ')})` : ''}`)).toEqual(previews.cards.map((c) => `${c.platform}:ok`));
 });
 
-it('has a thanks page for after paying, out of search results and without JavaScript', async () => {
-  const res = await fetch(`${site}/thanks/`);
-  expect(res.status).toBe(200);
-  const html = await res.text();
-  expect(html).toContain('Thanks, Kinglet is yours.');
-  expect(html).toContain('noindex');
-  expect(html).toContain('https://polar.sh/kinglet/portal');
-  expect(html).toContain('/releases/latest');
-  expect(html).not.toMatch(/<script/);
-  expect(html).toMatch(/<link rel="stylesheet"/);
-});
-
 it('has the legal pages, linked from every page, without JavaScript', async () => {
   for (const [path, title] of [['legal', 'Legal notice'], ['terms', 'Terms of use'], ['privacy', 'Privacy policy']]) {
     const res = await fetch(`${site}/${path}/`);
@@ -69,13 +57,12 @@ it('has the legal pages, linked from every page, without JavaScript', async () =
   const terms = (await (await fetch(`${site}/terms/`)).text()).replaceAll('<!-- -->', '');
   expect(terms).toContain('Kinglet is free');
   expect(terms).not.toContain('refund');
-  for (const page of ['/', '/thanks/', '/privacy/']) {
+  for (const page of ['/', '/privacy/']) {
     const html = await (await fetch(`${site}${page}`)).text();
     for (const link of ['/terms/', '/privacy/', '/legal/']) expect(html, `${page} links to ${link}`).toContain(`href="${link}"`);
   }
   const sitemap = await (await fetch(`${site}/sitemap.xml`)).text();
   expect(sitemap).toContain(`${site}/terms/`);
-  expect(sitemap).not.toContain('/thanks');
 });
 
 it('names the publisher and the consumer mediator, with nothing left to fill in', async () => {
@@ -94,4 +81,5 @@ it('offers the free download from the Kinglet repository, with no price or check
   expect(html).toContain('id="download"');
   expect(html).not.toContain('kinglet-releases');
   expect(html).not.toMatch(/\$79|\$59|Buy Kinglet|Join the list|polar\.sh/);
+  expect((await fetch(`${site}/thanks/`)).status).toBe(404);
 });

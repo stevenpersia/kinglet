@@ -1,7 +1,7 @@
 import { Mark } from '../../../desktop/src/renderer/components/Icons';
 import { LEGAL_LINKS } from '../publisher';
 
-/** Links at the bottom of every page: the legal pages, plus the page's own (FAQ, buy…). */
+/** Links at the bottom of every page: the legal pages, plus the page's own (FAQ, download…). */
 export function SiteFooter({ links = [] }: { links?: [string, string][] }) {
   return (
     <footer className="mx-auto flex w-full max-w-[1200px] flex-wrap justify-between gap-6 border-t border-[#141418] px-4 pt-7 pb-10 text-[13px] text-ghost sm:px-6">
@@ -20,7 +20,7 @@ export function SiteFooter({ links = [] }: { links?: [string, string][] }) {
   );
 }
 
-/** The frame of the static pages (thanks, legal): the logo back home, the content, the footer. */
+/** The frame of the static pages (legal): the logo back home, the content, the footer. */
 export function PageShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen flex-col">

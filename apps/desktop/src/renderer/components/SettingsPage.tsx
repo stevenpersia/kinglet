@@ -1,7 +1,5 @@
 import { locale, t } from '@kinglet/core';
-import { useEffect, useState } from 'react';
-import { LICENSE_REQUIRED, PRIVACY_URL, TERMS_URL } from '../../shared/legal';
-import type { LicenseState } from '../../shared/types';
+import { useState } from 'react';
 import { activePresets, api, useStore, type SettingsTab } from '../store';
 import { Icon, type IconName } from './Icons';
 import { DeviceSettings, GeneralSettings } from './GeneralSettings';
@@ -77,91 +75,6 @@ function UpdateSettings() {
         )
       )}
     </div>
-  );
-}
-
-function LicenseSettings() {
-  const [license, setLicense] = useState<LicenseState | null>(null);
-  const [confirming, setConfirming] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  useEffect(() => void api().license.state().then(setLicense), []);
-  if (!license) return null;
-  if (license.status === 'dev')
-    return <p className="m-0 text-muted">{t('Development build: no license is asked. The installed app (AppImage or pacman package) asks for one.', 'Version de développement : aucune licence demandée. L’app installée (AppImage ou paquet pacman) en demande une.')}</p>;
-  const rows: [string, string | null][] = [
-    [t('Licensed to', 'Licence de'), [license.customer, license.email].filter(Boolean).join(' · ') || null],
-    [t('Key', 'Clé'), license.key],
-    [t('This computer', 'Cet ordinateur'), license.instanceName],
-    [t('Computers', 'Ordinateurs'), license.activationLimit ? t(`Up to ${license.activationLimit}`, `Jusqu’à ${license.activationLimit}`) : null],
-    [
-      t('Last check', 'Dernière vérification'),
-      license.validatedAt
-        ? `${new Date(license.validatedAt).toLocaleString(locale())}${license.status === 'offline' ? t(' (offline since)', ' (hors ligne depuis)') : ''}`
-        : null,
-    ],
-  ];
-  return (
-    <>
-      <div className="overflow-hidden rounded-[10px] border border-line bg-card">
-        {rows
-          .filter(([, v]) => v)
-          .map(([k, v]) => (
-            <div key={k} className="flex gap-3 border-b border-line-soft px-3.5 py-2.5 last:border-b-0">
-              <span className="w-40 shrink-0 text-muted">{k}</span>
-              <span className="min-w-0 flex-1 truncate font-mono text-xs leading-5">{v}</span>
-            </div>
-          ))}
-      </div>
-      <p className="m-0 text-xs text-muted">
-        {t(
-          'Kinglet checks the license with Polar at startup and every 6 hours. Offline, it keeps working for 14 days after the last check. Your activations are also listed in Polar’s customer portal.',
-          'Kinglet vérifie la licence auprès de Polar au démarrage et toutes les 6 heures. Hors ligne, il continue de marcher 14 jours après la dernière vérification. Tes activations sont aussi listées dans l’espace client Polar.',
-        )}{' '}
-        <button onClick={() => api().openExternal(TERMS_URL)} className="text-fg underline-offset-2 hover:underline">
-          {t('License terms', 'Conditions de licence')}
-        </button>
-        {' · '}
-        <button onClick={() => api().openExternal(PRIVACY_URL)} className="text-fg underline-offset-2 hover:underline">
-          {t('Privacy', 'Confidentialité')}
-        </button>
-      </p>
-      <div className="flex flex-col gap-2 rounded-[10px] border border-line bg-card p-3.5">
-        <span className="font-medium">{t('Move Kinglet to another computer', 'Passer Kinglet sur un autre ordinateur')}</span>
-        <span className="text-xs text-muted">
-          {t(
-            'Frees this computer’s activation so the key can be used elsewhere. Kinglet then restarts on the license screen.',
-            'Libère l’activation de cet ordinateur pour utiliser la clé ailleurs. Kinglet redémarre ensuite sur l’écran de licence.',
-          )}
-        </span>
-        {error && <span className="text-xs text-err">{error}</span>}
-        <div className="flex gap-2 pt-1">
-          {confirming ? (
-            <>
-              <button
-                disabled={busy}
-                onClick={async () => {
-                  setBusy(true);
-                  const r = await api().license.deactivate();
-                  setBusy(false);
-                  if (!r.ok) setError(r.error), setConfirming(false);
-                }}
-                className="h-8 rounded-ui bg-err px-3 font-semibold text-bg disabled:opacity-60"
-              >
-                {busy ? t('Deactivating…', 'Désactivation…') : t('Deactivate and restart', 'Désactiver et redémarrer')}
-              </button>
-              <button onClick={() => setConfirming(false)} className="h-8 rounded-ui px-3 text-muted hover:text-fg">
-                {t('Cancel', 'Annuler')}
-              </button>
-            </>
-          ) : (
-            <button onClick={() => (setConfirming(true), setError(null))} className="h-8 rounded-ui border border-[#2a2a2f] bg-active px-3 font-medium text-fg hover:border-line-strong">
-              {t('Deactivate on this computer', 'Désactiver sur cet ordinateur')}
-            </button>
-          )}
-        </div>
-      </div>
-    </>
   );
 }
 
@@ -249,7 +162,6 @@ const NAV = (): { group: string; items: { id: SettingsTab; label: string; icon: 
       items: [
         { id: 'general', label: t('General', 'Général'), icon: 'globe' },
         { id: 'devices', label: t('Devices', 'Appareils'), icon: 'phone' },
-        ...(LICENSE_REQUIRED ? [{ id: 'license' as const, label: t('License', 'Licence'), icon: 'checkCircle' as const }] : []),
       ],
     },
     { group: project ? `${t('Project', 'Projet')} · ${project.name}` : t('Project', 'Projet'), items: [{ id: 'project', label: t('Active project', 'Projet actif'), icon: 'folder' }] },
@@ -334,8 +246,6 @@ export function SettingsPage() {
               <span className="label">{t('Follow terminal sessions', 'Suivre les sessions du terminal')}</span>
               <ClaudeSettings />
             </>
-          ) : settingsTab === 'license' ? (
-            <LicenseSettings />
           ) : (
             <UpdateSettings />
           )}

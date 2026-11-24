@@ -36,8 +36,6 @@ import { runSelftest } from './selftest';
 import { ogImageDraft, previewOgImage, saveOgImage } from './ogimage';
 import { SettingsStore } from './settings';
 import { moveOldUserData, oldHookScript } from './rename';
-import { createLicense, openLicenseWindow } from './license-window';
-import type { LicenseService } from './license';
 
 /** `kinglet --mcp`: run as the MCP server Claude Code launches (stdio, no window). */
 const MCP_MODE = process.argv.includes('--mcp');
@@ -70,13 +68,8 @@ const BYPASS_HOSTS = (process.env.KINGLET_BYPASS_HOSTS ?? '*.vercel.app').split(
 /** Bots (tag reading, checks, compare): the secret only. Devices (real browsers) also get the cookie header. */
 const bypassHeaders = (url: string, browser = false) => vercelBypassHeaders(url, { secret: bypassSecret(url), hosts: BYPASS_HOSTS, browser });
 
-/** Restart Kinglet (an AppImage restarts from its file: the mounted copy goes away when it quits). */
-function relaunch() {
-  app.relaunch(process.env.APPIMAGE ? { execPath: process.env.APPIMAGE, args: process.argv.slice(1) } : undefined);
-  app.exit(0);
-}
 
-async function createWindow(license: LicenseService) {
+async function createWindow() {
   const settings = new SettingsStore();
   const applyLanguage = () => setLanguage(resolveLanguage(settings.value.language, app.getLocale()));
   applyLanguage();
@@ -1103,24 +1096,6 @@ ${shots.map((sh) => `<section><header><h1>${esc(title)}</h1><span>${esc(sh.label
   const updater = new Updater((state) => emit({ type: 'update', state }));
   updater.start(process.env.KINGLET_UPDATE_URL ? 1500 : 10_000);
   app.on('will-quit', () => updater.stop());
-  // License: checked again 30 s after opening, then every 6 hours. Refused (refund, key disabled) or
-  // offline for more than 14 days: Kinglet restarts on the license window.
-  ipcMain.handle('license:state', () => license.state());
-  ipcMain.handle('license:deactivate', async () => {
-    const r = await license.deactivate();
-    if (r.ok) setTimeout(() => (settings.flush(), relaunch()), 300);
-    return r;
-  });
-  const recheck = async () => {
-    const state = await license.validate();
-    if (!license.allowed(state)) {
-      settings.flush();
-      relaunch();
-    }
-  };
-  const licenseFirst = setTimeout(() => void recheck(), 30_000);
-  const licenseTimer = setInterval(() => void recheck(), 6 * 60 * 60 * 1000);
-  app.on('will-quit', () => (clearTimeout(licenseFirst), clearInterval(licenseTimer)));
 
   ipcMain.handle('update:state', () => updater.state);
   ipcMain.handle('update:check', () => updater.check());
@@ -1250,16 +1225,9 @@ ${shots.map((sh) => `<section><header><h1>${esc(title)}</h1><span>${esc(sh.label
 }
 
 if (MCP_MODE) {
-  // stdout belongs to the MCP protocol: no window, no app lifecycle. No license, no server either.
+  // stdout belongs to the MCP protocol: no window, no app lifecycle.
   void (async () => {
     await app.whenReady();
-    const license = createLicense();
-    const state = await license.startup();
-    if (!license.allowed(state)) {
-      process.stderr.write(`kinglet --mcp: ${t('Kinglet isn’t activated on this computer. Open Kinglet and enter your license key.', 'Kinglet n’est pas activé sur cet ordinateur. Ouvre Kinglet et saisis ta clé de licence.')}${state.error ? ` (${state.error})` : ''}\n`);
-      app.exit(1);
-      return;
-    }
     await startStdio(app.getVersion());
   })().catch((e) => {
     process.stderr.write(`kinglet --mcp: ${(e as Error).stack}\n`);
@@ -1267,15 +1235,8 @@ if (MCP_MODE) {
   });
   process.stdin.on('end', () => app.exit(0));
 } else {
-  // Without a valid license, only the license window opens: Kinglet's window and its IPC come after.
-  app.whenReady().then(async () => {
-    const license = createLicense();
-    const state = await license.startup();
-    if (license.allowed(state)) await createWindow(license);
-    else await openLicenseWindow(license, state, () => void createWindow(license));
-  });
+  app.whenReady().then(() => createWindow());
   app.on('window-all-closed', () => {
-    // The license window closes itself right after opening Kinglet's.
     if (BrowserWindow.getAllWindows().length === 0) app.quit();
   });
 }

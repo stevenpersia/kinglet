@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/stevenpersia/kinglet/releases/latest"><img src="https://img.shields.io/github/v/release/stevenpersia/kinglet?label=download&color=e6c07b" alt="Latest release"></a>
+  <a href="https://github.com/stevenpersia/kinglet/releases/latest"><img src="https://img.shields.io/badge/download-latest%20release-e6c07b" alt="Download"></a>
   <img src="https://img.shields.io/badge/price-free-7dd3a8" alt="Free">
   <img src="https://img.shields.io/badge/platform-Linux-8ab4f8" alt="Linux">
   <a href="https://getkinglet.com"><img src="https://img.shields.io/badge/site-getkinglet.com-f0a07f" alt="getkinglet.com"></a>
@@ -69,6 +69,14 @@ claude mcp add --scope user kinglet -- kinglet --mcp --ozone-platform=headless
 pnpm install && pnpm dev
 ```
 
-Architecture, tests, releases and the website: see [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) (in French).
+```bash
+pnpm test                          # unit tests
+```
+
+```bash
+pnpm --filter @kinglet/web dev     # the website, getkinglet.com
+```
+
+To publish a version, bump `apps/desktop/package.json` and run **Actions → Release**: it tests, builds and publishes the AppImage and pacman package here.
 
 <p align="center"><sub>Made for sites built with Claude · <a href="https://getkinglet.com">getkinglet.com</a></sub></p>

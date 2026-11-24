@@ -3,9 +3,8 @@ import { DOWNLOAD_URL } from './config';
 import { LEGAL_UPDATED, MEDIATOR, PUBLISHER } from './publisher';
 
 /**
- * The legal pages (/legal, /terms, /privacy): static HTML without JavaScript, like /thanks.
- * What they say must match what Kinglet does: free, no license key (LICENSE_REQUIRED in
- * apps/desktop/src/shared/legal.ts), the network calls of the app. Change LEGAL_UPDATED with every change here.
+ * The legal pages (/legal, /terms, /privacy): static HTML without JavaScript.
+ * What they say must match what Kinglet does: free, no license key, the network calls of the app. Change LEGAL_UPDATED with every change here.
  */
 
 const Fill = ({ what }: { what: string }) => <span className="rounded bg-[rgba(240,160,127,0.14)] px-1 font-mono text-[0.9em] text-[#f0a07f]">[to fill in: {what}]</span>;
@@ -122,10 +121,10 @@ export function Terms() {
       <p>You may not:</p>
       <ul>
         <li>sell Kinglet, or pass off a copy of it as your own;</li>
-        <li>copy, decompile or modify Kinglet, except to the extent the law allows it (for example for interoperability);</li>
+        <li>redistribute Kinglet or its code, modified or not, except to the extent the law or a license published with the code allows it;</li>
         <li>use Kinglet to break the law or to access sites and accounts you are not allowed to.</li>
       </ul>
-      <p>Kinglet, its name and its code stay ours. We may offer paid features or plans later: they will be optional, announced on this site, and what is free today stays usable.</p>
+      <p>Kinglet’s code is public on <a href="https://github.com/stevenpersia/kinglet">GitHub</a>, so you can read it; Kinglet, its name and its code stay ours. We may offer paid features or plans later: they will be optional, announced on this site, and what is free today stays usable.</p>
 
       <H2 id="updates">4. Updates</H2>
       <p>
