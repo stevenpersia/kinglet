@@ -27,6 +27,7 @@ export const DEFAULTS: Settings = {
   onboarded: false,
   claudePanel: true,
   claudeReload: true,
+  artifactsAutoOpen: true,
   claudeAllowCommands: false,
   region: { locale: null, timezone: null, geo: null },
   regionPerDevice: {},

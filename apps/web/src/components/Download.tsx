@@ -109,6 +109,7 @@ const FAQ: [string, string][] = [
   ['How do I install it?', 'Download the AppImage (any distribution: make it executable and run it) or the pacman package (Arch, CachyOS: sudo pacman -U) from the latest GitHub release. Kinglet then updates itself.'],
   ['Which systems does it run on?', 'Linux today: AppImage for any distribution, and a pacman package for Arch and CachyOS.'],
   ['Do I need Claude Code?', `No. Devices, checks, Open Graph previews and Vercel work on their own. With Claude Code installed, Kinglet opens it in your project with the MCP server already plugged in (${MCP_COMMAND.split(' --')[0]}).`],
+  ['Can I see Claude’s artifacts in Kinglet?', 'Yes. Turn on Claude Code tracking in the settings: each artifact Claude publishes from your project opens in the Artifacts section, for real (scripts and buttons work). One click puts it on every device; “Point” lets you pick an element and tell Claude what to change. Artifacts made from a type (a deck, a design) open on claude.ai.'],
   ['Do I need Vercel or GitHub?', 'No. Any local address works (localhost:3000, 5173…). Connect Vercel and GitHub for previews, production, pull requests and publishing.'],
   ['Which frameworks?', 'Anything that runs in a browser. Fixes are written for Next.js, Nuxt, Astro, SvelteKit and Vite.'],
   ['Where do my tokens go?', 'Into your system keyring (KWallet, GNOME Keyring). Kinglet talks to Vercel and GitHub from your computer only.'],

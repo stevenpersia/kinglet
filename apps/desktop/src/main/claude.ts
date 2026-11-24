@@ -10,7 +10,8 @@ export interface HookPayload {
   agent_id?: string;
   prompt?: string;
   tool_name?: string;
-  tool_input?: { file_path?: string; notebook_path?: string; command?: string; description?: string; pattern?: string; url?: string };
+  tool_input?: { file_path?: string; notebook_path?: string; command?: string; description?: string; pattern?: string; url?: string; [key: string]: unknown };
+  tool_response?: unknown;
   notification_type?: string;
   message?: string;
   error?: string;
@@ -37,6 +38,7 @@ export function describeTool(p: HookPayload, folder: string | null): { text: str
   if (p.tool_name === 'Read' && file) return { text: t(`reads ${rel(file, folder)}`, `lit ${rel(file, folder)}`) };
   if (p.tool_name === 'Grep' || p.tool_name === 'Glob') return { text: t(`searches ${clip(i.pattern, 40)}`, `cherche ${clip(i.pattern, 40)}`) };
   if (p.tool_name === 'WebFetch' || p.tool_name === 'WebSearch') return { text: t('searches the web', 'cherche sur le web') };
+  if (p.tool_name === 'Artifact' && (i.action === undefined || i.action === 'publish')) return { text: t('publishes an artifact', 'publie un artifact') };
   return { text: p.tool_name ?? t('tool', 'outil') };
 }
 

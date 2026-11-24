@@ -46,6 +46,12 @@ const api: KingletApi = {
     uninstall: () => ipcRenderer.invoke('claude:uninstall'),
     markSeen: (projectId) => ipcRenderer.send('claude:seen', projectId),
   },
+  artifacts: {
+    list: () => ipcRenderer.invoke('artifacts:list'),
+    url: (id) => ipcRenderer.invoke('artifacts:url', id),
+    seen: (projectId, id) => ipcRenderer.send('artifacts:seen', projectId, id),
+    remove: (projectId, id) => ipcRenderer.invoke('artifacts:remove', projectId, id),
+  },
   projects: {
     pickFolder: () => ipcRenderer.invoke('projects:pick-folder'),
     clone: (gitUrl) => ipcRenderer.invoke('projects:clone', gitUrl),

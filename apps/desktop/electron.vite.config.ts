@@ -22,6 +22,8 @@ function csp(): Plugin {
           'img-src * data: blob:',
           "font-src 'self' data:",
           `connect-src 'self'${dev ? ' ws: http://localhost:*' : ''}`,
+          // Claude's artifacts, served by Kinglet on 127.0.0.1 (main/artifacts.ts), shown in a sandboxed frame.
+          'frame-src http://127.0.0.1:*',
         ].join('; ');
         return html.replace('<head>', `<head>\n    <meta http-equiv="Content-Security-Policy" content="${policy}">`);
       },

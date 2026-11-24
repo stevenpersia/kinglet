@@ -66,6 +66,9 @@ export function AiWorkflow() {
         </Reveal>
       </div>
       <Reveal className="mt-4">
+        <Artifacts />
+      </Reveal>
+      <Reveal className="mt-4">
         <Card className="flex flex-wrap items-center gap-7 p-7">
           <div className="flex min-w-0 flex-[1_1_360px] flex-col gap-2.5">
             <Tag color="#c6f432">+ New project</Tag>
@@ -100,6 +103,75 @@ export function AiWorkflow() {
         <Journeys />
       </Reveal>
     </section>
+  );
+}
+
+/** An artifact Claude published, live in Kinglet: its switch flips, the price follows, "Point" picks the button. */
+function Artifacts() {
+  const loop = { duration: 6, repeat: Infinity, ease: 'easeInOut' as const, times: [0, 0.3, 0.36, 0.9, 1] };
+  return (
+    <Card className="flex flex-wrap items-center gap-7 p-7">
+      <div className="flex min-w-0 flex-[1_1_360px] flex-col gap-2.5">
+        <Tag color="#f0a07f">Artifacts, live</Tag>
+        <h3 className="m-0 text-2xl font-semibold tracking-[-0.03em]">Claude publishes an artifact. It opens in Kinglet.</h3>
+        <p className="m-0 text-[14.5px] leading-relaxed text-faint">
+          A mock-up, a page, a diagram: shown the moment Claude publishes it, scripts running and buttons working. Put it on every device in one click, or point at an element and tell Claude what to change.
+        </p>
+      </div>
+      <div aria-hidden="true" className="min-w-0 flex-[2_1_520px] overflow-hidden rounded-xl border border-line-soft bg-[#0a0a0c]">
+        <div className="flex h-8 items-center gap-2 border-b border-line-soft px-3 font-mono text-[11px] text-faint">
+          <span className="size-2 rounded-full bg-line-strong" />
+          pricing.html
+          <span className="ml-auto flex items-center gap-1.5 text-[#f0a07f]">
+            <span className="claude-dot size-1.5 rounded-full bg-[#d97757]" />
+            Artifact · v2
+          </span>
+        </div>
+        <div className="flex flex-col items-center gap-3 bg-[#f6f5f0] px-4 py-5 text-[#11241c]">
+          <span className="text-[19px] font-semibold tracking-[-0.03em]">A plan for every budget.</span>
+          <span className="relative flex rounded-full bg-[#e8e5dc] p-[3px] text-[11px] font-medium">
+            <motion.span className="absolute top-[3px] bottom-[3px] left-[3px] w-[64px] rounded-full bg-white shadow-sm" animate={{ x: [0, 0, 64, 64, 0] }} transition={loop} />
+            <span className="relative w-[64px] py-1 text-center">Monthly</span>
+            <span className="relative w-[64px] py-1 text-center">Annual</span>
+          </span>
+          <div className="flex flex-wrap justify-center gap-2.5">
+            <div className="flex w-[124px] flex-col gap-1 rounded-lg border border-[#e3e1d8] bg-white p-3">
+              <span className="text-[11px] font-semibold">Solo</span>
+              <span className="text-[17px] font-semibold">Free</span>
+            </div>
+            <div className="relative flex w-[124px] flex-col gap-1 rounded-lg bg-[#11241c] p-3 text-[#f6f5f0]">
+              <span className="text-[11px] font-semibold">Duo</span>
+              <span className="relative h-[22px] text-[17px] font-semibold">
+                <motion.span className="absolute" animate={{ opacity: [1, 1, 0, 0, 1] }} transition={loop}>
+                  $4
+                </motion.span>
+                <motion.span className="absolute" animate={{ opacity: [0, 0, 1, 1, 0] }} transition={loop}>
+                  $3.20
+                </motion.span>
+              </span>
+              <motion.span
+                className="mt-1 rounded-md bg-[#a6f0c6] py-1 text-center text-[10.5px] font-semibold text-[#11241c]"
+                animate={{ boxShadow: ['0 0 0 0 rgba(91,141,239,0)', '0 0 0 0 rgba(91,141,239,0)', '0 0 0 0 rgba(91,141,239,0)', '0 0 0 3px rgba(91,141,239,1)', '0 0 0 0 rgba(91,141,239,0)'] }}
+                transition={{ ...loop, times: [0, 0.5, 0.6, 0.85, 1] }}
+              >
+                Choose Duo
+              </motion.span>
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 border-t border-line-soft px-3 py-2 text-[11.5px]">
+          <span className="flex h-6 items-center gap-1 rounded-md border border-line px-2 text-muted">
+            <Icon name="devices" size={12} />
+            On the devices
+          </span>
+          <span className="flex h-6 items-center gap-1 rounded-md border border-local/60 px-2 text-local">
+            <Icon name="target" size={12} />
+            Point
+          </span>
+          <span className="ml-auto h-6 rounded-md border border-[rgba(217,119,87,0.35)] px-2 leading-6 font-semibold text-clay">Ask Claude</span>
+        </div>
+      </div>
+    </Card>
   );
 }
 

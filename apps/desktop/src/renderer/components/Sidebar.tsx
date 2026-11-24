@@ -23,6 +23,7 @@ export function Rail() {
   const onDevices = section === 'apercu';
   const go = (id: Section) => () => setSection(id);
   const left = report ? report.score.total - report.score.passed : 0;
+  const fresh = s.settings.activeId ? (s.artifacts[s.settings.activeId] ?? []).filter((a) => !a.seen).length : 0;
   const secErrors = s.security?.checks.filter((c) => c.status === 'error').length ?? 0;
   const secWarnings = s.security?.checks.filter((c) => c.status === 'warning').length ?? 0;
 
@@ -30,6 +31,7 @@ export function Rail() {
     { id: 'apercu', label: t('Devices', 'Appareils'), icon: 'devices', on: onDevices, run: go('apercu') },
     { id: 'deploiements', label: t('Deployments', 'Déploiements'), icon: 'deploy', on: section === 'deploiements', run: go('deploiements') },
     { id: 'changes', label: t('Changes (git diff)', 'Modifications (git diff)'), icon: 'branch', on: section === 'changes', run: go('changes') },
+    { id: 'artifacts', label: t('Claude’s artifacts', 'Artifacts de Claude'), icon: 'artifact', on: section === 'artifacts', run: go('artifacts'), badge: fresh ? { n: fresh, tone: 'clay' } : null },
   ];
   const secondary: Item[] = [
     { id: 'page', label: 'Page', icon: 'doc', on: section === 'page', run: go('page') },

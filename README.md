@@ -27,6 +27,7 @@
 
 - **Every device at once.** 10 emulated devices (iPhone, Android, iPad, laptop…), scroll and navigation in sync, and your real phone over Wi-Fi.
 - **Point, Claude fixes.** Inspect any element, send it (or console errors) to Claude Code, which runs right inside Kinglet.
+- **Claude’s artifacts, live.** When Claude publishes an artifact, Kinglet opens it right away: use it, put it on every device, point at an element and tell Claude what to change.
 - **53 checks.** SEO, content, mobile, accessibility, privacy, performance and security, on every render.
 - **Open Graph previews.** How your link looks on WhatsApp, LinkedIn, X, Slack, Google and 5 more, read by their own bots.
 - **Local, preview, prod.** Vercel and GitHub built in: previews, pull requests, CI, deploy history.
