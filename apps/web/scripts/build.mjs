@@ -7,8 +7,6 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 export const REPO = 'https://github.com/stevenpersia/kinglet';
-/** Public repository holding the releases (the code stays private). */
-export const RELEASES = 'https://github.com/stevenpersia/kinglet-releases';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 

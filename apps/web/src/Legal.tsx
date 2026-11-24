@@ -1,11 +1,11 @@
 import { PageShell } from './components/Shell';
-import { LAUNCH_PRICE, LAUNCH_SEATS, PORTAL_URL, PRICE } from './config';
-import { LEGAL_UPDATED, MEDIATOR, PUBLISHER, REFUND_DAYS } from './publisher';
+import { DOWNLOAD_URL } from './config';
+import { LEGAL_UPDATED, MEDIATOR, PUBLISHER } from './publisher';
 
 /**
  * The legal pages (/legal, /terms, /privacy): static HTML without JavaScript, like /thanks.
- * What they say must match what Kinglet does: the license (apps/desktop/src/main/license.ts), the network
- * calls of the app, the launch list (functions/waitlist.ts). Change LEGAL_UPDATED with every change here.
+ * What they say must match what Kinglet does: free, no license key (LICENSE_REQUIRED in
+ * apps/desktop/src/shared/legal.ts), the network calls of the app. Change LEGAL_UPDATED with every change here.
  */
 
 const Fill = ({ what }: { what: string }) => <span className="rounded bg-[rgba(240,160,127,0.14)] px-1 font-mono text-[0.9em] text-[#f0a07f]">[to fill in: {what}]</span>;
@@ -48,7 +48,7 @@ const Table = ({ children }: { children: React.ReactNode }) => <div className="m
 
 export function LegalNotice() {
   return (
-    <Doc title="Legal notice" intro="Who publishes getkinglet.com and the Kinglet app, who hosts the site and who sells the licenses.">
+    <Doc title="Legal notice" intro="Who publishes getkinglet.com and the Kinglet app, and who hosts the site and the downloads.">
       <H2>Publisher</H2>
       <Table>
         <Row k="Name">{PUBLISHER.name}</Row>
@@ -68,12 +68,6 @@ export function LegalNotice() {
       <p>
         The site is hosted by <strong>Vercel Inc.</strong>, 440 N Barranca Ave #4133, Covina, CA 91723, United States (<a href="https://vercel.com">vercel.com</a>). The app’s downloads are served by{' '}
         <strong>GitHub, Inc.</strong>, 88 Colin P Kelly Jr St, San Francisco, CA 94107, United States.
-      </p>
-
-      <H2>Sales</H2>
-      <p>
-        Licenses are sold by <strong>Polar</strong> (<a href="https://polar.sh">polar.sh</a>), the merchant of record: Polar takes the payment, charges and pays the taxes (such as VAT) and issues the invoice. See the{' '}
-        <a href="/terms/">Terms</a>.
       </p>
 
       <H2>Intellectual property</H2>
@@ -97,104 +91,64 @@ export function LegalNotice() {
 export function Terms() {
   return (
     <Doc
-      title="Terms of sale and license"
+      title="Terms of use"
       intro={
         <>
-          These terms apply to every purchase of a Kinglet license and to the use of the app. In short: you pay {PRICE.label} once, you keep Kinglet, every update is included, and you can get a refund within {REFUND_DAYS} days.
+          These terms apply to the use of the Kinglet app. In short: Kinglet is free, for personal and commercial work, with every update included. There is nothing to buy and no license key to enter.
         </>
       }
     >
       <H2 id="parties">1. Who is who</H2>
       <p>
-        <strong>Kinglet</strong> is a desktop app published by {PUBLISHER.name} (“we”; see the <a href="/legal/">Legal notice</a>). <strong>Polar</strong> resells the licenses as merchant of record: the order, the payment, the
-        taxes and the invoice are between you and Polar, under <a href="https://polar.sh/legal/terms">Polar’s terms</a>. The license to use Kinglet is granted by us, under these terms. “You” is the person who buys or uses the
-        license.
+        <strong>Kinglet</strong> is a desktop app published by {PUBLISHER.name} (“we”; see the <a href="/legal/">Legal notice</a>). “You” is the person who downloads or uses it.
       </p>
 
       <H2 id="product">2. The product</H2>
       <p>
         Kinglet shows a site on emulated devices, checks it, previews how its links look when shared, and connects to Vercel, GitHub and Claude Code. Its features are described on <a href="/">getkinglet.com</a>. It runs on Linux
-        (AppImage and pacman package). Try the requirements before buying: if Kinglet doesn’t run on your computer, the refund below applies.
+        (AppImage and pacman package), and is downloaded from <a href={DOWNLOAD_URL}>GitHub</a>.
       </p>
       <p>
         Some features use services you sign up for yourself, under their own terms and prices: <strong>Claude Code</strong> (Anthropic), <strong>Vercel</strong> and <strong>GitHub</strong>. Kinglet doesn’t include access to them,
         and we are not responsible for them or for what they change.
       </p>
 
-      <H2 id="price">3. Price and payment</H2>
-      <p>
-        A license costs <strong>{PRICE.label}, paid once</strong>. It is not a subscription: nothing is charged again. Taxes such as VAT are added where they apply and shown by Polar before you pay. At launch, the first {LAUNCH_SEATS} licenses cost {LAUNCH_PRICE.label}: the website shows how many are left, and the price
-        Polar shows before you pay is the one you pay. The license key is delivered right
-        after payment, in Polar’s receipt email and in its <a href={PORTAL_URL}>customer portal</a>.
-      </p>
-
-      <H2 id="license">4. The license</H2>
-      <p>Once paid, we grant you a personal, worldwide, non-exclusive, non-transferable license to use Kinglet, with no time limit:</p>
+      <H2 id="license">3. Free to use</H2>
+      <p>Kinglet is free. We grant you a personal, worldwide, non-exclusive license to use it, with no time limit and on as many computers as you like:</p>
       <ul>
-        <li>
-          for <strong>one person</strong>, on <strong>up to 3 computers</strong> at a time. You can move it from one computer to another (Settings → License → Deactivate on this computer, or from the customer portal);
-        </li>
         <li>for personal and commercial work: the sites you build, test and ship with Kinglet are yours, for you or your clients;</li>
-        <li>the link to the review page you send your clients doesn’t need them to buy anything.</li>
+        <li>the link to the review page you send your clients doesn’t need them to install anything.</li>
       </ul>
       <p>You may not:</p>
       <ul>
-        <li>share, sell, rent or publish your license key, or let other people use your license;</li>
-        <li>remove or work around the license check;</li>
+        <li>sell Kinglet, or pass off a copy of it as your own;</li>
         <li>copy, decompile or modify Kinglet, except to the extent the law allows it (for example for interoperability);</li>
         <li>use Kinglet to break the law or to access sites and accounts you are not allowed to.</li>
       </ul>
-      <p>Kinglet and its code stay ours: you buy a license to use it, not the software itself.</p>
+      <p>Kinglet, its name and its code stay ours. We may offer paid features or plans later: they will be optional, announced on this site, and what is free today stays usable.</p>
 
-      <H2 id="updates">5. Updates for life</H2>
+      <H2 id="updates">4. Updates</H2>
       <p>
-        Every new version of Kinglet is included in the license, at no extra cost, for as long as Kinglet is developed. Updates download in the background and install when you choose. They can add, change or remove features; we keep
-        what a license includes, and we won’t move a feature you bought behind another payment.
-      </p>
-      <p>
-        If we ever stop developing Kinglet, we will publish a last version that no longer checks the license, so that the copy you bought keeps working.
+        New versions of Kinglet are free. Updates download in the background and install when you choose. They can add, change or remove features.
       </p>
 
-      <H2 id="activation">6. Activation</H2>
+      <H2 id="warranty">5. Warranty and liability</H2>
       <p>
-        Kinglet asks for your key on first launch. Activating needs the internet once; Kinglet then checks the license with Polar at startup and every 6 hours, and keeps working offline for up to 14 days after the last check. A
-        refunded, revoked or deleted activation stops Kinglet on that computer.
-      </p>
-
-      <H2 id="refunds">7. Refunds and right of withdrawal</H2>
-      <p>
-        If Kinglet isn’t for you, write to us at <Email /> or through Polar’s <a href={PORTAL_URL}>customer portal</a> within <strong>{REFUND_DAYS} days</strong> of your purchase: you get a full refund, no questions asked. The license
-        is then revoked.
-      </p>
-      <p>
-        Kinglet is digital content delivered right after payment. If you live in the European Union, by buying you ask for it to be delivered immediately and you acknowledge that you therefore lose the legal right of withdrawal
-        (article L221-28 of the French Consumer Code and the equivalent laws of other member states). The {REFUND_DAYS}-day refund above applies anyway.
-      </p>
-
-      <H2 id="warranty">8. Warranty and liability</H2>
-      <p>
-        If you are a consumer, you have the legal guarantee of conformity for digital content (articles L224-25-1 and following of the French Consumer Code, or the law of your country): if Kinglet doesn’t work as described, tell us
-        and we’ll fix it, or refund you if we can’t.
-      </p>
-      <p>
-        Apart from that guarantee, Kinglet is provided as it is. Device emulation, share previews and checks are approximations: they help you see problems, they don’t promise how a real device, platform or search engine will behave.
+        Kinglet is provided free of charge and as it is. Device emulation, share previews and checks are approximations: they help you see problems, they don’t promise how a real device, platform or search engine will behave.
         Keep backups of your work; Claude Code and the other tools Kinglet opens change your files on your instructions.
       </p>
       <p>
-        To the extent the law allows, our total liability is limited to the price you paid for the license, and we are not liable for indirect losses (lost profit, data or business). Nothing here limits liability that the law doesn’t
-        allow to be limited, such as for gross negligence, fraud, or death and personal injury.
+        To the extent the law allows, we are not liable for indirect losses (lost profit, data or business) caused by using Kinglet. Nothing here limits liability that the law doesn’t allow to be limited, such as for gross negligence,
+        fraud, or death and personal injury, nor the rights a consumer has under the mandatory law of their country.
       </p>
 
-      <H2 id="end">9. End of the license</H2>
-      <p>
-        You can stop using Kinglet at any time. If you seriously break these terms (for example by sharing your key publicly), we may revoke the license after telling you, without a refund. Sections 4 (what you may not do), 8 and 10
-        survive the end of the license.
-      </p>
+      <H2 id="end">6. Stopping</H2>
+      <p>You can stop using Kinglet at any time: uninstall it and delete its folder. Section 3 (what you may not do) and section 5 still apply after that.</p>
 
-      <H2 id="law">10. Changes, law and disputes</H2>
+      <H2 id="law">7. Changes, law and disputes</H2>
       <p>
-        We may update these terms; the date at the top changes when we do. The terms in force when you bought your license keep applying to it, unless a change is in your favour. These terms are governed by French law. If you are a
-        consumer, you also keep the protection of the mandatory rules of the country where you live, and you can go to the courts there. Write to us first at <Email />: most problems are solved by email.
+        We may update these terms; the date at the top changes when we do. These terms are governed by French law. If you are a consumer, you also keep the protection of the mandatory rules of the country where you live, and you can
+        go to the courts there. Write to us first at <Email />: most problems are solved by email.
       </p>
       <p>
         If you are a consumer and a written complaint to us hasn’t settled the matter within one month, you can refer it free of charge to the consumer mediator we are registered with (articles L612-1 and following of the French
@@ -210,7 +164,7 @@ export function Privacy() {
       title="Privacy policy"
       intro={
         <>
-          What personal data getkinglet.com and the Kinglet app collect, why, and who sees it. In short: no tracking, no analytics, no telemetry. The app keeps your projects on your computer, and the site only knows the email you give it.
+          What personal data getkinglet.com and the Kinglet app collect, why, and who sees it. In short: no tracking, no analytics, no telemetry. The app keeps your projects on your computer, and the site collects nothing.
         </>
       }
     >
@@ -228,28 +182,17 @@ export function Privacy() {
           <strong>Server logs.</strong> Our host, Vercel, records technical data of each request (IP address, browser, page, time) to serve the site and protect it from abuse. They are kept for a short time, set by Vercel.
         </li>
         <li>
-          <strong>The launch list.</strong> If you leave your email, it is stored with <strong>Resend</strong> (Resend, Inc., United States), the service that sends the launch email. We use it only to tell you when Kinglet launches and
-          about the launch offer. Basis: your consent, which you can withdraw at any time with the unsubscribe link of the email or by writing to us. We delete it on request, and at the latest 12 months after launch.
+          <strong>The former launch list.</strong> If you left your email before Kinglet became free, it is stored with <strong>Resend</strong> (Resend, Inc., United States). We use it only to tell you about Kinglet’s launch. Basis:
+          your consent, which you can withdraw at any time with the unsubscribe link of the email or by writing to us. We delete it on request, and at the latest 12 months after launch.
         </li>
       </ul>
-
-      <H2>When you buy</H2>
-      <p>
-        <strong>Polar</strong> handles the checkout as merchant of record, with Stripe for the payment. Polar collects your name, email, billing country and address and payment details, and is responsible for them under{' '}
-        <a href="https://polar.sh/legal/privacy">its own privacy policy</a>. We receive from Polar your name, email, country and the details of your order and license (never your card number), to deliver the license, support you and
-        handle refunds. Basis: the contract, and our accounting obligations, which require keeping orders for 10 years.
-      </p>
 
       <H2>In the app</H2>
       <p>
         <strong>Kinglet has no telemetry and no account of ours.</strong> Your projects, settings, screenshots, comments and history stay on your computer (in <code className="font-mono text-[0.92em]">~/.config/Kinglet</code>); your
-        Vercel and GitHub tokens and your license key are encrypted by your system’s keyring. The app connects to the internet only for:
+        Vercel and GitHub tokens are encrypted by your system’s keyring. The app connects to the internet only for:
       </p>
       <ul>
-        <li>
-          <strong>The license</strong>, with Polar: your key and a name for the activation made of your user name and your computer’s name (<code className="font-mono text-[0.92em]">user@machine</code>), so you can tell your
-          computers apart in the customer portal.
-        </li>
         <li>
           <strong>Updates</strong>, from GitHub: the app downloads the list of versions and the new versions from GitHub’s servers, which see your IP address.
         </li>
@@ -271,7 +214,7 @@ export function Privacy() {
 
       <H2>Transfers outside the European Union</H2>
       <p>
-        Vercel, Resend, Polar, Stripe and GitHub are based in the United States. Transfers to them rely on the EU–US Data Privacy Framework where they are certified, or on the European Commission’s standard contractual clauses.
+        Vercel, Resend and GitHub are based in the United States. Transfers to them rely on the EU–US Data Privacy Framework where they are certified, or on the European Commission’s standard contractual clauses.
       </p>
 
       <H2>Your rights</H2>
@@ -285,7 +228,7 @@ export function Privacy() {
 
 /** The legal pages, for the build (scripts/build.mjs) and the tests. */
 export const LEGAL_PAGES = [
-  { path: 'legal', title: 'Legal notice', description: 'Publisher, hosting and sales of Kinglet.', Page: LegalNotice },
-  { path: 'terms', title: 'Terms of sale and license', description: `Kinglet’s license: ${PRICE.label} once, updates for life, ${REFUND_DAYS}-day refund.`, Page: Terms },
+  { path: 'legal', title: 'Legal notice', description: 'Publisher and hosting of Kinglet.', Page: LegalNotice },
+  { path: 'terms', title: 'Terms of use', description: 'Kinglet’s terms of use: free, for personal and commercial work, updates included.', Page: Terms },
   { path: 'privacy', title: 'Privacy policy', description: 'What getkinglet.com and the Kinglet app collect: no tracking, no telemetry.', Page: Privacy },
 ];

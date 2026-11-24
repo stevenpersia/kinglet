@@ -30,7 +30,7 @@ linux:
 publish:
   provider: github
   owner: stevenpersia
-  repo: kinglet-releases
+  repo: kinglet
   releaseType: release
 pacman:
   packageName: kinglet
